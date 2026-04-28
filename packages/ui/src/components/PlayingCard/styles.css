@@ -1,0 +1,47 @@
+/*
+ * @hh/ui PlayingCard 스타일
+ *
+ * Tailwind 클래스로 90% 처리하고, 그림자/슈트 컬러처럼
+ * Tailwind 만으로 정확히 표현하기 까다로운 부분만 CSS로 둔다.
+ *
+ * 사용법:
+ *   import "@hh/ui/components/PlayingCard/styles.css";
+ *
+ * (Hub의 main.tsx에서 한 번만 import 하면 모든 sub-app에 적용됨)
+ */
+
+.hh-playing-card {
+  /* 카드 음영 — Nut-to-3에서 가져온 완성도 높은 그림자 */
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.04) inset;
+}
+
+.hh-playing-card[data-suit-color="red"] {
+  color: var(--hh-card-red, #dc2626);
+}
+
+.hh-playing-card[data-suit-color="black"] {
+  color: var(--hh-card-black, #18181b);
+}
+
+/* 다크 테마 (.app-heads-up, .app-pot-quiz)에서 쓰는 약간 변형된 카드 색 */
+.app-heads-up .hh-playing-card,
+.app-pot-quiz .hh-playing-card {
+  --hh-card-red: #ef4444;
+  --hh-card-black: #18181b;
+}
+
+/* highlight 상태 (정답/하이라이트) */
+.hh-playing-card[data-highlight="true"] {
+  box-shadow:
+    0 0 0 2px rgb(34 197 94),
+    0 4px 12px rgba(34, 197, 94, 0.35);
+}
+
+/* dimmed 상태 (사용 안 한 카드) */
+.hh-playing-card[data-dimmed="true"] {
+  opacity: 0.45;
+  filter: grayscale(0.4);
+}

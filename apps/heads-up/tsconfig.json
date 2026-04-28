@@ -1,0 +1,11 @@
+{
+  "extends": "@hh/tsconfig/react-app.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "baseUrl": ".",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "src/**/__tests__/**", "src/test-setup.ts"]
+}

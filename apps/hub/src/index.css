@@ -1,0 +1,40 @@
+@import "@hh/tailwind-config/base.css";
+
+/*
+ * Hub 자체 테마 — MIMIC 브랜드 화이트 베이스 + #BA0C19.
+ *
+ * tailwind-config의 색상 토큰은 hsl(var(--xxx)) 형식이므로,
+ * 여기서는 HSL 트리플만 정의하면 bg-background / text-foreground 등이
+ * 자동으로 화이트 테마로 적용된다.
+ */
+.app-hub {
+  /* HSL: hue saturation lightness — 공백 구분 */
+  --background: 0 0% 100%;
+  --foreground: 0 0% 9%;
+  --border: 0 0% 91%;
+  --input: 0 0% 88%;
+  --ring: 354 88% 39%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 9%;
+  --card-border: 0 0% 95%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 9%;
+
+  /* MIMIC 메인 컬러 #BA0C19 = hsl(354 88% 39%) */
+  --primary: 354 88% 39%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 9%;
+
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 45%;
+
+  --accent: 354 88% 96%;
+  --accent-foreground: 354 88% 30%;
+
+  --destructive: 0 84% 48%;
+  --destructive-foreground: 0 0% 100%;
+}

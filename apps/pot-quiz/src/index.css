@@ -1,0 +1,146 @@
+/*
+ * @hh/pot-quiz — 라이트 테마 + MIMIC red (#BA0C19) 통합
+ *
+ * 원본 MIMIC-Assets는 다크(zinc-950) + 파란 primary였으나, 모노레포 통합 시 MIMIC 브랜드
+ * (화이트 베이스 + #BA0C19)로 일치시킴. 다른 sub-app(concept-quiz, nut-to-3)도 라이트 베이스.
+ *
+ * 보존한 것:
+ *  - elevate 유틸리티 시스템 전체 (hover-elevate, active-elevate, toggle-elevate). 단,
+ *    rgba(255,...) → rgba(0,...) 로 반전 (라이트 테마에선 어두운 hover overlay).
+ *  - shadow / radius / 폰트 기본 / `.app-pot-quiz` 스코프 격리 패턴
+ *
+ * Tailwind 자체 import는 Hub의 메인 CSS에서 이미 처리.
+ */
+
+/* ── HSL 변수 (라이트 + MIMIC red) ────────────────── */
+.app-pot-quiz {
+  color-scheme: light only;
+
+  /* elevate 시스템 — 라이트 테마용 어두운 overlay (원본 다크는 흰색 overlay였음) */
+  --button-outline: rgba(0, 0, 0, 0.1);
+  --badge-outline: rgba(0, 0, 0, 0.05);
+  --opaque-button-border-intensity: -8;
+  --elevate-1: rgba(0, 0, 0, 0.04);
+  --elevate-2: rgba(0, 0, 0, 0.09);
+
+  /* Base — 화이트 베이스 */
+  --background: 0 0% 100%;
+  --foreground: 0 0% 9%;
+  --border: 0 0% 91%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 9%;
+  --card-border: 0 0% 95%;
+
+  --sidebar: 0 0% 98%;
+  --sidebar-foreground: 0 0% 9%;
+  --sidebar-border: 0 0% 93%;
+  --sidebar-primary: 354 88% 39%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 0 0% 92%;
+  --sidebar-accent-foreground: 0 0% 9%;
+  --sidebar-ring: 354 88% 39%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 9%;
+  --popover-border: 0 0% 93%;
+
+  /* MIMIC red — #BA0C19 (HSL 354 88% 39%) */
+  --primary: 354 88% 39%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 9%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 45%;
+  --accent: 354 88% 97%;
+  --accent-foreground: 354 88% 35%;
+  --destructive: 0 84% 48%;
+  --destructive-foreground: 0 84% 98%;
+  --input: 0 0% 75%;
+  --ring: 354 88% 39%;
+
+  /* Charts — MIMIC red 톤 + 보색들로 라이트 모드에 맞게 조정 */
+  --chart-1: 354 88% 50%;
+  --chart-2: 25 95% 55%;
+  --chart-3: 160 60% 45%;
+  --chart-4: 280 65% 55%;
+  --chart-5: 210 90% 50%;
+
+  /* Shadow — 부드러운 라이트 그림자 (원본 다크는 거의 0 alpha) */
+  --shadow-2xs: 0px 1px 2px 0px rgba(0, 0, 0, 0.06);
+  --shadow-xs: 0px 1px 3px 0px rgba(0, 0, 0, 0.08);
+  --shadow-sm: 0px 2px 6px 0px rgba(0, 0, 0, 0.08), 0px 1px 2px -1px rgba(0, 0, 0, 0.04);
+  --shadow: 0px 3px 8px 0px rgba(0, 0, 0, 0.10), 0px 1px 3px -1px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0px 4px 12px 0px rgba(0, 0, 0, 0.10), 0px 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0px 8px 24px 0px rgba(0, 0, 0, 0.10), 0px 4px 8px -2px rgba(0, 0, 0, 0.06);
+  --shadow-xl: 0px 16px 40px 0px rgba(0, 0, 0, 0.12), 0px 8px 16px -4px rgba(0, 0, 0, 0.06);
+  --shadow-2xl: 0px 24px 60px 0px rgba(0, 0, 0, 0.14);
+}
+
+/* ── elevate 유틸리티 시스템 (원본 보존, 스코프만 .app-pot-quiz) ────── */
+
+.app-pot-quiz input[type="search"]::-webkit-search-cancel-button {
+  display: none;
+}
+
+.app-pot-quiz [contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+}
+
+.app-pot-quiz .toggle-elevate::before,
+.app-pot-quiz .toggle-elevate-2::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0px;
+  border-radius: inherit;
+  z-index: -1;
+}
+
+.app-pot-quiz .toggle-elevate.toggle-elevated::before {
+  background-color: var(--elevate-2);
+}
+
+.app-pot-quiz .border.toggle-elevate::before {
+  inset: -1px;
+}
+
+.app-pot-quiz .hover-elevate:not(.no-default-hover-elevate),
+.app-pot-quiz .active-elevate:not(.no-default-active-elevate),
+.app-pot-quiz .hover-elevate-2:not(.no-default-hover-elevate),
+.app-pot-quiz .active-elevate-2:not(.no-default-active-elevate) {
+  position: relative;
+  z-index: 0;
+}
+
+.app-pot-quiz .hover-elevate:not(.no-default-hover-elevate)::after,
+.app-pot-quiz .active-elevate:not(.no-default-active-elevate)::after,
+.app-pot-quiz .hover-elevate-2:not(.no-default-hover-elevate)::after,
+.app-pot-quiz .active-elevate-2:not(.no-default-active-elevate)::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0px;
+  border-radius: inherit;
+  z-index: 999;
+}
+
+.app-pot-quiz .hover-elevate:hover:not(.no-default-hover-elevate)::after,
+.app-pot-quiz .active-elevate:active:not(.no-default-active-elevate)::after {
+  background-color: var(--elevate-1);
+}
+
+.app-pot-quiz .hover-elevate-2:hover:not(.no-default-hover-elevate)::after,
+.app-pot-quiz .active-elevate-2:active:not(.no-default-active-elevate)::after {
+  background-color: var(--elevate-2);
+}
+
+.app-pot-quiz .border.hover-elevate:not(.no-hover-interaction-elevate)::after,
+.app-pot-quiz .border.active-elevate:not(.no-active-interaction-elevate)::after,
+.app-pot-quiz .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
+.app-pot-quiz .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
+.app-pot-quiz .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
+  inset: -1px;
+}

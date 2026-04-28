@@ -1,0 +1,132 @@
+/*
+ * @hh/concept-quiz — 라이트 테마 + #E5343A + Pretendard (Poker-Quiz-Master 원본 보존)
+ *
+ * 원본은 `:root`(라이트 only) + `.dark`(미사용) 패턴이었음.
+ * 항상 라이트로 동작하므로 `.app-concept-quiz` 스코프 안에 라이트 값만 둠.
+ *
+ * Tailwind 자체 import는 Hub의 메인 CSS에서 이미 처리.
+ */
+
+.app-concept-quiz {
+  color-scheme: light only;
+  --button-outline: rgba(0, 0, 0, 0.1);
+  --badge-outline: rgba(0, 0, 0, 0.05);
+  --opaque-button-border-intensity: -8;
+  --elevate-1: rgba(0, 0, 0, 0.03);
+  --elevate-2: rgba(0, 0, 0, 0.08);
+
+  --background: 0 0% 100%;
+  --foreground: 220 25% 12%;
+  --border: 220 12% 88%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 25% 12%;
+  --card-border: 220 12% 91%;
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 220 25% 12%;
+  --sidebar-border: 220 12% 91%;
+  --sidebar-primary: 355 72% 50%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 220 12% 94%;
+  --sidebar-accent-foreground: 220 25% 12%;
+  --sidebar-ring: 355 72% 50%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 25% 12%;
+  --popover-border: 220 12% 91%;
+
+  /* MIMIC red (#E5343A) — 원본 디자인 보존 */
+  --primary: 355 72% 50%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 220 12% 93%;
+  --secondary-foreground: 220 25% 12%;
+  --muted: 220 12% 91%;
+  --muted-foreground: 220 12% 48%;
+  --accent: 355 72% 97%;
+  --accent-foreground: 355 72% 40%;
+  --destructive: 355 72% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --input: 220 12% 84%;
+  --ring: 355 72% 50%;
+
+  --shadow-2xs: 0px 1px 2px 0px rgba(0, 0, 0, 0.06);
+  --shadow-xs: 0px 1px 3px 0px rgba(0, 0, 0, 0.08);
+  --shadow-sm: 0px 2px 6px 0px rgba(0, 0, 0, 0.08), 0px 1px 2px -1px rgba(0, 0, 0, 0.04);
+  --shadow: 0px 3px 8px 0px rgba(0, 0, 0, 0.1), 0px 1px 3px -1px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0px 4px 12px 0px rgba(0, 0, 0, 0.1), 0px 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0px 8px 24px 0px rgba(0, 0, 0, 0.1), 0px 4px 8px -2px rgba(0, 0, 0, 0.06);
+  --shadow-xl: 0px 16px 40px 0px rgba(0, 0, 0, 0.12), 0px 8px 16px -4px rgba(0, 0, 0, 0.06);
+  --shadow-2xl: 0px 24px 60px 0px rgba(0, 0, 0, 0.14);
+
+  /* concept-quiz는 다른 앱들보다 둥근 .75rem 라운드를 자체 사용 */
+  --radius: 0.75rem;
+
+  /* Pretendard 폰트 */
+  font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Inter", sans-serif;
+}
+
+/* ── elevate 유틸리티 시스템 (원본 보존) ──────────────────── */
+
+.app-concept-quiz input[type="search"]::-webkit-search-cancel-button {
+  display: none;
+}
+
+.app-concept-quiz [contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+}
+
+.app-concept-quiz .toggle-elevate::before,
+.app-concept-quiz .toggle-elevate-2::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0px;
+  border-radius: inherit;
+  z-index: -1;
+}
+
+.app-concept-quiz .toggle-elevate.toggle-elevated::before {
+  background-color: var(--elevate-2);
+}
+
+.app-concept-quiz .border.toggle-elevate::before {
+  inset: -1px;
+}
+
+.app-concept-quiz .hover-elevate:not(.no-default-hover-elevate),
+.app-concept-quiz .active-elevate:not(.no-default-active-elevate),
+.app-concept-quiz .hover-elevate-2:not(.no-default-hover-elevate),
+.app-concept-quiz .active-elevate-2:not(.no-default-active-elevate) {
+  position: relative;
+  z-index: 0;
+}
+
+.app-concept-quiz .hover-elevate:not(.no-default-hover-elevate)::after,
+.app-concept-quiz .active-elevate:not(.no-default-active-elevate)::after,
+.app-concept-quiz .hover-elevate-2:not(.no-default-hover-elevate)::after,
+.app-concept-quiz .active-elevate-2:not(.no-default-active-elevate)::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0px;
+  border-radius: inherit;
+  z-index: 999;
+}
+
+.app-concept-quiz .hover-elevate:hover:not(.no-default-hover-elevate)::after,
+.app-concept-quiz .active-elevate:active:not(.no-default-active-elevate)::after {
+  background-color: var(--elevate-1);
+}
+
+.app-concept-quiz .hover-elevate-2:hover:not(.no-default-hover-elevate)::after,
+.app-concept-quiz .active-elevate-2:active:not(.no-default-active-elevate)::after {
+  background-color: var(--elevate-2);
+}
+
+.app-concept-quiz .border.hover-elevate:not(.no-hover-interaction-elevate)::after,
+.app-concept-quiz .border.active-elevate:not(.no-active-interaction-elevate)::after,
+.app-concept-quiz .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
+.app-concept-quiz .border.active-elevate-2:not(.no-active-interaction-elevate)::after {
+  inset: -1px;
+}

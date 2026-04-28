@@ -1,0 +1,39 @@
+{
+  "name": "@hh/hub",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hh/concept-quiz": "workspace:*",
+    "@hh/heads-up": "workspace:*",
+    "@hh/nut-to-3": "workspace:*",
+    "@hh/poker-engine": "workspace:*",
+    "@hh/pot-quiz": "workspace:*",
+    "@hh/shared": "workspace:*",
+    "@hh/tailwind-config": "workspace:*",
+    "@hh/ui": "workspace:*",
+    "@tanstack/react-query": "^5.65.1",
+    "lucide-react": "^0.469.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "wouter": "^3.3.5"
+  },
+  "devDependencies": {
+    "@hh/tsconfig": "workspace:*",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.7",
+    "vite-plugin-pwa": "^1.2.0",
+    "workbox-window": "^7.4.0"
+  }
+}

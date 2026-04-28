@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": false,
+    "jsx": "react-jsx",
+    "useDefineForClassFields": true,
+    "verbatimModuleSyntax": false,
+    "baseUrl": ".",
+    "paths": {
+      "@hh/ui": ["packages/ui/src/index.ts"],
+      "@hh/ui/*": ["packages/ui/src/*"],
+      "@hh/poker-engine": ["packages/poker-engine/src/index.ts"],
+      "@hh/poker-engine/*": ["packages/poker-engine/src/*"],
+      "@hh/shared": ["packages/shared/src/index.ts"],
+      "@hh/shared/*": ["packages/shared/src/*"],
+      "@hh/tailwind-config": ["packages/tailwind-config/index.ts"],
+      "@hh/tailwind-config/*": ["packages/tailwind-config/*"]
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@hh/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hh/poker-engine": "workspace:*",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "pokersolver": "^2.1.4"
+  },
+  "devDependencies": {
+    "@hh/tsconfig": "workspace:*",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

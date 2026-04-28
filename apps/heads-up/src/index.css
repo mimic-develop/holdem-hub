@@ -1,0 +1,73 @@
+/*
+ * @hh/heads-up — 라이트 테마 + MIMIC red (#BA0C19) 통합
+ *
+ * 원본 mimic_heads_up은 다크 (neutral-950) + 골드 액센트였으나, 모노레포 통합 시 MIMIC 브랜드
+ * (화이트 + #BA0C19)로 일치시킴. utility class들은 `swap-heads-up-theme.py` 스크립트로
+ * semantic 토큰으로 일괄 치환 (`bg-gold` → `bg-primary`, `bg-neutral-950` → `bg-background` 등).
+ *
+ * 보존된 게임플레이 색상:
+ *  - `bg-felt-green` / `bg-felt-dark` — 포커 테이블 펠트 (PokerTable, HomePage AI 시작 버튼)
+ *  - `bg-card-back` — 상대 홀카드 뒷면 navy
+ *  - `bg-white` 위 `text-neutral-900` — 카드 면 (Card.tsx)
+ *
+ * Tailwind 자체 import는 Hub의 메인 CSS에서 처리.
+ */
+
+.app-heads-up {
+  color-scheme: light only;
+
+  /* Base — 화이트 베이스 + 다크 텍스트 */
+  --background: 0 0% 100%;
+  --foreground: 0 0% 9%;
+  --border: 0 0% 91%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 9%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 9%;
+
+  /* MIMIC red — #BA0C19 (HSL 354 88% 39%) */
+  --primary: 354 88% 39%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 0 0% 94%;
+  --secondary-foreground: 0 0% 9%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 45%;
+  --accent: 354 88% 97%;
+  --accent-foreground: 354 88% 35%;
+  --destructive: 0 84% 48%;
+  --destructive-foreground: 0 84% 98%;
+  --input: 0 0% 75%;
+  --ring: 354 88% 39%;
+
+  /* Body baseline */
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family:
+    "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, Roboto,
+    sans-serif;
+  font-feature-settings: "ss01", "ss02";
+  -webkit-font-smoothing: antialiased;
+
+  /* Hub 레이아웃 안에서 min-h-screen 보장 */
+  min-height: 100vh;
+
+  /* iOS safe-area 대응 (원본 viewport-fit=cover) */
+  padding-top: env(safe-area-inset-top, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/*
+ * 잔존 fix-up:
+ *
+ * 1. Modal/Overlay의 `bg-black/70 backdrop-blur` — 다크 오버레이는 라이트 베이스에서도 자연스러우니
+ *    그대로 유지 (별도 처리 불필요).
+ * 2. ConfirmModal에 hard-coded `text-white` 1건 (제목 라벨, danger 케이스) — 라이트 카드 위에선
+ *    안 보일 수 있어 별도 보정. 아래 규칙으로 카드 내부의 빈 text-white는 foreground로 강제.
+ *    (이런 hard-coded 텍스트는 추후 컴포넌트 단에서 정리 권장.)
+ */
+.app-heads-up .bg-card .text-white,
+.app-heads-up .bg-background .text-white {
+  color: hsl(var(--foreground));
+}

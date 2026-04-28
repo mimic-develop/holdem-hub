@@ -1,0 +1,24 @@
+{
+  "name": "holdem-hub",
+  "version": "0.1.0",
+  "private": true,
+  "description": "홀덤 허브 모노레포 — 팟 분배 퀴즈, 너트 게임, 개념 퀴즈, 헤즈업 트레이너 통합",
+  "packageManager": "pnpm@10.12.1",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @hh/hub dev",
+    "dev:all": "concurrently -n api,hub -c blue,magenta \"pnpm --filter @hh/api dev\" \"pnpm --filter @hh/hub dev\"",
+    "dev:api": "pnpm --filter @hh/api dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "lint": "pnpm -r --parallel lint",
+    "test": "pnpm -r --parallel test",
+    "clean": "pnpm -r exec rm -rf node_modules dist .turbo && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.7.3"
+  }
+}
