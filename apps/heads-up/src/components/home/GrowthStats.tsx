@@ -60,7 +60,7 @@ export function GrowthStats({
                   <span
                     className={clsx(
                       'ml-1 text-xs font-semibold',
-                      delta > 0 ? 'text-green-400' : 'text-red-400',
+                      delta > 0 ? 'text-green-400' : 'text-rose-400',
                     )}
                   >
                     {delta > 0 ? '▲' : '▼'} {Math.abs(delta).toFixed(1)}
@@ -310,7 +310,7 @@ function MistakeBar({
       </div>
       <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-muted">
         <div
-          className="h-full bg-red-400/70"
+          className="h-full bg-rose-400/70"
           style={{ width: `${Math.max(8, pct)}%` }}
         />
       </div>
@@ -325,6 +325,6 @@ function streetLabel(s: 'preflop' | 'flop' | 'turn' | 'river'): string {
 function scoreColor(score: number): string {
   if (score >= 80) return 'text-green-400';
   if (score >= 50) return 'text-yellow-400';
-  if (score > 0) return 'text-red-400';
+  if (score > 0) return 'text-rose-400';
   return 'text-foreground';
 }

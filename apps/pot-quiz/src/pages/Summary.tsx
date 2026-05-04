@@ -35,7 +35,7 @@ export default function Summary() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center px-4 py-10">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-lg">
 
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-orange-500/20 border border-orange-500/30 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-500/10">

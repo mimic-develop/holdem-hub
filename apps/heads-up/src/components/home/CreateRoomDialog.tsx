@@ -86,13 +86,13 @@ export function CreateRoomDialog({ open, onClose, myName }: CreateRoomDialogProp
 
   const share = async () => {
     if (state.status !== 'waiting') return;
-    const text = `헤즈업 홀덤 대결\n코드: ${state.code}`;
+    const text = `HEADS-UP 대결\n코드: ${state.code}`;
     try {
       const nav = (typeof navigator !== 'undefined'
         ? (navigator as unknown as { share?: (d: { title: string; text: string }) => Promise<void> })
         : undefined);
       if (nav?.share) {
-        await nav.share({ title: '헤즈업 홀덤', text });
+        await nav.share({ title: 'HEADS-UP', text });
       } else if (navigator?.clipboard?.writeText) {
         await navigator.clipboard.writeText(state.code);
       }

@@ -38,7 +38,7 @@ export interface ScorePoint {
 export interface AggregateStats {
   range: StatsRange;
   totalHands: number;
-  /** Hands that have a gtoAnalysis attached (delta from totalHands = analysis-pending). */
+  /** Hands that have a postHandInsight attached (delta from totalHands = analysis-pending). */
   evaluatedHands: number;
   wins: number;
   losses: number;
@@ -217,7 +217,7 @@ function aggregateInternal(input: AggregateInputs): AggregateStats {
     else splits++;
     netChips += h.myWinLoss;
 
-    const a = h.gtoAnalysis;
+    const a = h.postHandInsight;
     if (!a) continue;
 
     scoreSum += a.overallScore;
@@ -278,8 +278,8 @@ function aggregateInternal(input: AggregateInputs): AggregateStats {
     let pSum = 0;
     let pCount = 0;
     for (const h of previous) {
-      if (h.gtoAnalysis) {
-        pSum += h.gtoAnalysis.overallScore;
+      if (h.postHandInsight) {
+        pSum += h.postHandInsight.overallScore;
         pCount++;
       }
     }
@@ -423,8 +423,8 @@ export function detectMilestones(
   latest: CompletedHand,
 ): Milestone[] {
   const out: Milestone[] = [];
-  const beforeAnalyzed = before.filter((h) => h.gtoAnalysis);
-  const afterAnalyzed = after.filter((h) => h.gtoAnalysis);
+  const beforeAnalyzed = before.filter((h) => h.postHandInsight);
+  const afterAnalyzed = after.filter((h) => h.postHandInsight);
 
   // FIRST_HAND
   if (before.length === 0 && after.length === 1) {
@@ -448,9 +448,9 @@ export function detectMilestones(
 
   // FIRST_HIGH_SCORE (≥ 80)
   const beforeAny80 = beforeAnalyzed.some(
-    (h) => (h.gtoAnalysis?.overallScore ?? 0) >= 80,
+    (h) => (h.postHandInsight?.overallScore ?? 0) >= 80,
   );
-  const latestScore = latest.gtoAnalysis?.overallScore ?? 0;
+  const latestScore = latest.postHandInsight?.overallScore ?? 0;
   if (!beforeAny80 && latestScore >= 80) {
     out.push({
       id: 'FIRST_HIGH_SCORE',
@@ -475,7 +475,7 @@ export function detectMilestones(
     let pSum = 0;
     let pCount = 0;
     for (const h of afterAnalyzed) {
-      const s = h.gtoAnalysis?.streetScores.preflop;
+      const s = h.postHandInsight?.streetScores.preflop;
       if (typeof s === 'number') {
         pSum += s;
         pCount++;
@@ -484,7 +484,7 @@ export function detectMilestones(
     let pBeforeSum = 0;
     let pBeforeCount = 0;
     for (const h of beforeAnalyzed) {
-      const s = h.gtoAnalysis?.streetScores.preflop;
+      const s = h.postHandInsight?.streetScores.preflop;
       if (typeof s === 'number') {
         pBeforeSum += s;
         pBeforeCount++;

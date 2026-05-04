@@ -40,9 +40,14 @@
     Menlo, monospace;
 
   --radius-sm: 0.375rem;
-  --radius: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
+  --radius: 0.75rem;      /* POKER IQ 기준 — concept-quiz와 통일 */
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+
+  /* ── 페이지 레이아웃 표준 토큰 ── */
+  --page-max-w: 32rem;    /* max-w-lg (512px) */
+  --page-px: 1rem;        /* px-4 */
+  --page-py: 1.5rem;      /* py-6 */
 }
 
 /* ── MIMIC 브랜드 컬러 (불변) ────────────────────────────── */

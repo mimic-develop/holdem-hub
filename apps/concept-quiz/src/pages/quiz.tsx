@@ -3,7 +3,7 @@ import { useParams, Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, ChevronRight, ChevronDown, ChevronUp, Send,
-  RotateCcw, Lightbulb, CheckCircle2, XCircle, Trophy, BookOpen, Info, RefreshCw, Eye, Check
+  RotateCcw, CheckCircle2, XCircle, Trophy, BookOpen, Info, RefreshCw, Eye, Check
 } from "lucide-react";
 import { getQuestionsByCategory, type QuizQuestion, type Difficulty } from "../lib/quizData";
 import { getCategoryBySlug, getSectionById } from "../lib/categories";
@@ -128,10 +128,10 @@ export default function Quiz() {
 
   const submitAnswer = useCallback(() => {
     if (state.selectedOption === null || state.isAnswered || !currentMapping) return;
+    const originalIdx = currentMapping[state.selectedOption];
+    const isCorrect = originalIdx === currentQuestion.correctIndex;
     setState(prev => {
       if (prev.isAnswered) return prev;
-      const originalIdx = prev.optionMapping[prev.currentIndex][prev.selectedOption!];
-      const isCorrect = originalIdx === prev.questions[prev.currentIndex].correctIndex;
       const newWrong = new Set(prev.wrongQuestions);
       if (isCorrect) {
         newWrong.delete(prev.currentIndex);
@@ -149,7 +149,7 @@ export default function Quiz() {
     setTimeout(() => {
       feedbackRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 350);
-  }, [state.selectedOption, state.isAnswered, currentMapping]);
+  }, [state.selectedOption, state.isAnswered, currentMapping, currentQuestion]);
 
   const isPerfect = state.isComplete && state.wrongQuestions.size === 0;
 
@@ -159,26 +159,6 @@ export default function Quiz() {
       setCompletionMarked(true);
     }
   }, [state.isComplete, isPerfect, categoryConfig, selectedDifficulty, markCardCleared, completionMarked]);
-
-  const retryCurrentQuestion = useCallback(() => {
-    setState(prev => {
-      const newMapping = [...prev.optionMapping];
-      const indices = currentQuestion.options.map((_, i) => i);
-      newMapping[prev.currentIndex] = shuffle(indices);
-      return {
-        ...prev,
-        selectedOption: null,
-        isAnswered: false,
-        showExplanation: false,
-        optionMapping: newMapping,
-        retryCount: prev.retryCount + 1,
-      };
-    });
-    setExplanationExpanded(false);
-    setTimeout(() => {
-      optionsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 350);
-  }, [currentQuestion]);
 
   const nextQuestion = () => {
     const nextIndex = state.currentIndex + 1;
@@ -207,6 +187,35 @@ export default function Quiz() {
     setQuizStarted(false);
     setCompletionMarked(false);
     setState({ questions: [], currentIndex: 0, selectedOption: null, isAnswered: false, score: 0, showExplanation: false, isComplete: false, optionMapping: [], retryCount: 0, wrongQuestions: new Set() });
+  };
+
+  /**
+   * 결과 화면에서 틀린 문제만 모아 새 라운드 시작.
+   * wrongQuestions는 "questions 배열 기준 인덱스" Set이라
+   * 그 인덱스로 questions를 필터해 새 questions로 사용.
+   */
+  const restartWrongOnly = () => {
+    const wrongList = Array.from(state.wrongQuestions)
+      .sort((a, b) => a - b)
+      .map(idx => state.questions[idx])
+      .filter((q): q is QuizQuestion => Boolean(q));
+    if (wrongList.length === 0) return;
+    const shuffled = shuffle(wrongList);
+    const mappings = createOptionMappings(shuffled);
+    setCompletionMarked(false);
+    setState({
+      questions: shuffled,
+      currentIndex: 0,
+      selectedOption: null,
+      isAnswered: false,
+      score: 0,
+      showExplanation: false,
+      isComplete: false,
+      optionMapping: mappings,
+      retryCount: 0,
+      wrongQuestions: new Set(),
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const modeLabel = categoryConfig?.label ?? "퀴즈";
@@ -516,11 +525,21 @@ export default function Quiz() {
                     </button>
                   </Link>
                 )}
+                {!isPerfect && wrongCount > 0 && (
+                  <button
+                    data-testid="button-restart-wrong-only"
+                    onClick={restartWrongOnly}
+                    className="w-full py-3.5 rounded-xl bg-primary text-white font-bold active:scale-[0.97] transition-transform flex items-center justify-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    틀린 {wrongCount}문제만 다시 풀기
+                  </button>
+                )}
                 <button
                   data-testid="button-restart-quiz"
                   onClick={restartQuiz}
                   className={`w-full py-3.5 rounded-xl font-bold active:scale-[0.97] transition-transform flex items-center justify-center gap-2 ${
-                    isPerfect && nextCard
+                    (isPerfect && nextCard) || (!isPerfect && wrongCount > 0)
                       ? "border border-border text-muted-foreground"
                       : "bg-primary text-white"
                   }`}
@@ -534,6 +553,38 @@ export default function Quiz() {
                 </Link>
               </div>
             </div>
+
+            {/* 틀린 문제 리뷰 — 정답 + 해설을 한 곳에서 확인 */}
+            {!isPerfect && wrongCount > 0 && (
+              <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
+                <h3 className="font-bold text-foreground text-sm flex items-center gap-2 mb-4">
+                  <BookOpen className="w-4 h-4 text-primary" />
+                  틀린 문제 해설 ({wrongCount}문제)
+                </h3>
+                <div className="space-y-5">
+                  {Array.from(state.wrongQuestions)
+                    .sort((a, b) => a - b)
+                    .map((idx) => {
+                      const q = state.questions[idx];
+                      if (!q) return null;
+                      return (
+                        <div key={q.id} className="border-t border-border pt-4 first:border-t-0 first:pt-0">
+                          <p className="text-[11px] text-muted-foreground font-medium mb-1.5">문제 {idx + 1}</p>
+                          <p className="font-semibold text-foreground text-sm mb-3 leading-snug">{q.question}</p>
+                          <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5 mb-2">
+                            <p className="text-[11px] text-emerald-600 font-bold uppercase tracking-wider mb-1">정답</p>
+                            <p className="text-sm text-emerald-800 font-medium">{q.options[q.correctIndex]}</p>
+                          </div>
+                          <div className="bg-background border border-border rounded-lg px-3 py-2.5">
+                            <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wider mb-1">해설</p>
+                            <GlossaryText text={q.explanation} className="text-xs text-foreground leading-relaxed" />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
           </motion.div>
         </main>
       </div>
@@ -768,7 +819,6 @@ export default function Quiz() {
                 {currentMapping.map((originalIdx, displayIdx) => {
                   const option = currentQuestion.options[originalIdx];
                   const isSelectedOpt = state.selectedOption === displayIdx;
-                  const isCorrectOpt = originalIdx === currentQuestion.correctIndex;
 
                   let cls = "bg-card border-border text-foreground cursor-pointer active:bg-muted/40";
                   let letterCls = "border-border text-muted-foreground bg-card";
@@ -785,12 +835,14 @@ export default function Quiz() {
                   }
 
                   if (state.isAnswered) {
-                    if (isCorrectOpt) {
+                    if (isSelectedOpt && isCurrentCorrect) {
+                      // 사용자가 선택한 것이 맞음 → emerald
                       cls = "bg-emerald-50 border-emerald-500 text-emerald-800 cursor-default";
                       letterCls = "border-emerald-500 bg-emerald-500 text-white";
                       statusIcon = <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" aria-label="정답" />;
                       ariaState = "정답";
-                    } else if (isSelectedOpt) {
+                    } else if (isSelectedOpt && !isCurrentCorrect) {
+                      // 사용자가 선택한 것이 틀림 → rose (정답 위치는 결과 화면에서 공개)
                       cls = "bg-rose-50 border-rose-400 text-rose-800 cursor-default";
                       letterCls = "border-rose-400 bg-rose-400 text-white";
                       statusIcon = <XCircle className="w-5 h-5 text-rose-500 flex-shrink-0" aria-label="오답" />;
@@ -895,108 +947,33 @@ export default function Quiz() {
                         </div>
                       </>
                     ) : (
-                      <>
-                        <div className="flex items-center gap-3 rounded-xl px-4 py-3 border-2 bg-rose-50 border-rose-400" role="alert">
-                          <XCircle className="w-5 h-5 text-rose-500 flex-shrink-0" />
-                          <span className="text-rose-700 font-bold text-sm">오답입니다. 다시 도전해보세요.</span>
+                      <div className="flex items-start gap-3 rounded-xl px-4 py-3.5 border-2 bg-rose-50 border-rose-400" role="alert">
+                        <XCircle className="w-5 h-5 text-rose-500 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <span className="text-rose-700 font-bold text-sm block">오답입니다</span>
+                          <span className="text-rose-600 text-xs mt-0.5 block leading-relaxed">정답과 해설은 모든 문제 완료 후 확인할 수 있어요.</span>
                         </div>
-
-                        {currentQuestion.hint && (
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: "auto" }}
-                            className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4"
-                            role="note"
-                            aria-label="힌트"
-                          >
-                            <Lightbulb className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                            <GlossaryText text={currentQuestion.hint} className="text-amber-700 text-sm leading-relaxed" />
-                          </motion.div>
-                        )}
-
-                        <div className="bg-card border border-border rounded-xl shadow-xs overflow-hidden">
-                          <button
-                            data-testid="button-explanation-toggle"
-                            onClick={() => setExplanationExpanded(prev => !prev)}
-                            className="w-full px-4 py-3 min-h-[44px] flex items-center justify-between active:bg-muted/50 transition-colors"
-                            aria-expanded={explanationExpanded}
-                            aria-label={explanationExpanded ? "해설 접기" : "해설 보기"}
-                          >
-                            <span className="flex items-center gap-2">
-                              <BookOpen className={`w-4 h-4 ${section?.color ?? "text-primary"}`} />
-                              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">해설 보기</span>
-                            </span>
-                            {explanationExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-                          </button>
-                          <AnimatePresence initial={false}>
-                            {explanationExpanded && (
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: "auto", opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.25 }}
-                                className="overflow-hidden"
-                              >
-                                <div className="px-4 pb-4 pt-0">
-                                  <GlossaryText text={currentQuestion.explanation} className="text-sm text-foreground leading-relaxed" />
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      </>
+                      </div>
                     )}
                   </motion.div>
                 )}
               </AnimatePresence>
 
               {state.isAnswered && (
-                <div className="space-y-2.5">
-                  {!isCurrentCorrect ? (
-                    <>
-                      <motion.button
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        data-testid="button-retry-question"
-                        onClick={retryCurrentQuestion}
-                        className="w-full py-4 rounded-2xl bg-primary text-white font-bold active:scale-[0.97] transition-transform shadow-md shadow-primary/20 flex items-center justify-center gap-2"
-                        aria-label="이 문제 다시 풀기"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                        다시 풀기
-                      </motion.button>
-                      <motion.button
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        data-testid="button-next-question"
-                        onClick={nextQuestion}
-                        className="w-full py-3.5 rounded-2xl border-2 border-border text-muted-foreground font-bold active:scale-[0.97] transition-transform flex items-center justify-center gap-2"
-                        aria-label={state.currentIndex + 1 >= state.questions.length ? "결과 보기" : "다음 문제로 이동"}
-                      >
-                        {state.currentIndex + 1 >= state.questions.length ? (
-                          <><Trophy className="w-4 h-4" />결과 보기</>
-                        ) : (
-                          <>다음 문제<ChevronRight className="w-4 h-4" /></>
-                        )}
-                      </motion.button>
-                    </>
+                <motion.button
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  data-testid="button-next-question"
+                  onClick={nextQuestion}
+                  className="w-full py-4 rounded-2xl bg-primary text-white font-bold active:scale-[0.97] transition-transform shadow-md shadow-primary/20 flex items-center justify-center gap-2"
+                  aria-label={state.currentIndex + 1 >= state.questions.length ? "결과 보기" : "다음 문제로 이동"}
+                >
+                  {state.currentIndex + 1 >= state.questions.length ? (
+                    <><Trophy className="w-5 h-5" />결과 보기</>
                   ) : (
-                    <motion.button
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      data-testid="button-next-question"
-                      onClick={nextQuestion}
-                      className="w-full py-4 rounded-2xl bg-primary text-white font-bold active:scale-[0.97] transition-transform shadow-md shadow-primary/20 flex items-center justify-center gap-2"
-                      aria-label={state.currentIndex + 1 >= state.questions.length ? "결과 보기" : "다음 문제로 이동"}
-                    >
-                      {state.currentIndex + 1 >= state.questions.length ? (
-                        <><Trophy className="w-5 h-5" />결과 보기</>
-                      ) : (
-                        <>다음 문제<ChevronRight className="w-5 h-5" /></>
-                      )}
-                    </motion.button>
+                    <>다음 문제<ChevronRight className="w-5 h-5" /></>
                   )}
-                </div>
+                </motion.button>
               )}
             </motion.div>
           </AnimatePresence>

@@ -40,7 +40,7 @@ export function SpotBreakdown({ stats }: SpotBreakdownProps) {
 
       {weakest.length > 0 && (
         <div className="mt-3">
-          <div className="text-xs font-semibold text-red-400">⚠ 약한 스팟</div>
+          <div className="text-xs font-semibold text-rose-400">⚠ 약한 스팟</div>
           <ul className="mt-1 space-y-1.5">
             {weakest.map((s) => (
               <SpotRow key={s.spotKey} spot={s} tone="weak" />
@@ -81,7 +81,7 @@ function SpotRow({
           className={clsx(
             'font-bold',
             tone === 'weak'
-              ? 'text-red-400'
+              ? 'text-rose-400'
               : tone === 'strong'
                 ? 'text-green-400'
                 : 'text-foreground',

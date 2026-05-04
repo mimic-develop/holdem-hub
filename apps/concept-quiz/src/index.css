@@ -24,17 +24,17 @@
   --sidebar: 0 0% 100%;
   --sidebar-foreground: 220 25% 12%;
   --sidebar-border: 220 12% 91%;
-  --sidebar-primary: 355 72% 50%;
+  --sidebar-primary: 353 100% 33%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 220 12% 94%;
   --sidebar-accent-foreground: 220 25% 12%;
-  --sidebar-ring: 355 72% 50%;
+  --sidebar-ring: 353 100% 33%;
   --popover: 0 0% 100%;
   --popover-foreground: 220 25% 12%;
   --popover-border: 220 12% 91%;
 
-  /* MIMIC red (#E5343A) — 원본 디자인 보존 */
-  --primary: 355 72% 50%;
+  /* MIMIC red (#A80014) */
+  --primary: 353 100% 33%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 220 12% 93%;
@@ -43,10 +43,10 @@
   --muted-foreground: 220 12% 48%;
   --accent: 355 72% 97%;
   --accent-foreground: 355 72% 40%;
-  --destructive: 355 72% 50%;
+  --destructive: 353 100% 33%;
   --destructive-foreground: 0 0% 100%;
   --input: 220 12% 84%;
-  --ring: 355 72% 50%;
+  --ring: 353 100% 33%;
 
   --shadow-2xs: 0px 1px 2px 0px rgba(0, 0, 0, 0.06);
   --shadow-xs: 0px 1px 3px 0px rgba(0, 0, 0, 0.08);

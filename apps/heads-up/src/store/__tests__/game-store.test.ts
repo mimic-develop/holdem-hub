@@ -86,7 +86,8 @@ describe('game-store — core flow', () => {
     if (final.gameState) {
       const totalStacks = final.gameState.players.reduce((sum, p) => sum + p.stack, 0);
       // stacks + pot should be conserved
-      expect(totalStacks + final.gameState.pot).toBe(400);
+      // 25BB × 2 big-blinds × 2 players = 100 chips total.
+      expect(totalStacks + final.gameState.pot).toBe(100);
     }
   });
 
@@ -170,7 +171,8 @@ describe('game-store — core flow', () => {
     const final = useGameStore.getState();
     if (final.gameState) {
       const total = final.gameState.players.reduce((sum, p) => sum + p.stack, 0);
-      expect(total + final.gameState.pot).toBe(400);
+      // 25BB × 2 big-blinds × 2 players = 100 chips total.
+      expect(total + final.gameState.pot).toBe(100);
     }
   }, 10000);
 
@@ -257,7 +259,7 @@ describe('game-store — auto-save integration with IndexedDB', () => {
     expect(keys.size).toBe(52);
   });
 
-  it('attaches gtoAnalysis to the saved hand asynchronously', async () => {
+  it('attaches postHandInsight to the saved hand asynchronously', async () => {
     useGameStore.getState().startAiGame('EASY');
     useGameStore.getState().applyMyAction('fold');
 
@@ -268,17 +270,17 @@ describe('game-store — auto-save integration with IndexedDB', () => {
       await waitMs(50);
       const list = await listHands();
       saved = list[0] ?? null;
-      if (saved?.gtoAnalysis) break;
+      if (saved?.postHandInsight) break;
     }
     expect(saved).not.toBeNull();
-    expect(saved!.gtoAnalysis).toBeDefined();
-    expect(typeof saved!.gtoAnalysis!.overallScore).toBe('number');
-    expect(saved!.gtoAnalysis!.overallScore).toBeGreaterThanOrEqual(0);
-    expect(saved!.gtoAnalysis!.overallScore).toBeLessThanOrEqual(100);
+    expect(saved!.postHandInsight).toBeDefined();
+    expect(typeof saved!.postHandInsight!.overallScore).toBe('number');
+    expect(saved!.postHandInsight!.overallScore).toBeGreaterThanOrEqual(0);
+    expect(saved!.postHandInsight!.overallScore).toBeLessThanOrEqual(100);
     // The in-memory copy in handHistory should also carry it.
     const inMem = useGameStore.getState().handHistory[0];
-    expect(inMem.gtoAnalysis).toBeDefined();
-    expect(inMem.gtoAnalysis!.overallScore).toBe(saved!.gtoAnalysis!.overallScore);
+    expect(inMem.postHandInsight).toBeDefined();
+    expect(inMem.postHandInsight!.overallScore).toBe(saved!.postHandInsight!.overallScore);
   }, 10000);
 
   it('FIRST_HAND milestone fires exactly once after a single hand completion', async () => {
@@ -313,7 +315,7 @@ describe('game-store — auto-save integration with IndexedDB', () => {
     // After reset, handHistory must be empty (and stays empty even if a stale
     // analyzeAndPersist completes).
     expect(after.handHistory).toEqual([]);
-    // IDB still got the persisted hand (with gtoAnalysis), since the helper
+    // IDB still got the persisted hand (with postHandInsight), since the helper
     // saves regardless of in-memory presence.
     const list = await listHands();
     expect(list.length).toBeGreaterThanOrEqual(1);

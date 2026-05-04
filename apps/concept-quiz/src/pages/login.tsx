@@ -1,16 +1,13 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { useAuth } from "../hooks/useAuth";
-import { useToast } from "../hooks/use-toast";
 import mimicLogo from "../assets/mimic-logo.png";
 import bgVideo from "../assets/bg_sdr.mp4";
 
 export default function Login() {
-  const { user, loading, signInWithGoogle } = useAuth();
+  const { user, loading } = useAuth();
   const [, navigate] = useLocation();
-  const { toast } = useToast();
-  const [isSigningIn, setIsSigningIn] = useState(false);
 
   useEffect(() => {
     if (!loading && user) {
@@ -20,8 +17,16 @@ export default function Login() {
 
   if (loading) {
     return (
-      <div style={{ height: "100dvh", background: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div className="w-8 h-8 border-3 border-gray-200 border-t-[#E5343A] rounded-full animate-spin" />
+      <div
+        style={{
+          height: "100dvh",
+          background: "#ffffff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div className="w-8 h-8 border-2 border-gray-200 border-t-[#E5343A] rounded-full animate-spin" />
       </div>
     );
   }
@@ -39,11 +44,9 @@ export default function Login() {
     >
       <div
         className="relative flex flex-col w-full overflow-hidden"
-        style={{
-          maxWidth: 430,
-          height: "100%",
-        }}
+        style={{ maxWidth: 430, height: "100%" }}
       >
+        {/* Background video */}
         <video
           autoPlay
           muted
@@ -54,13 +57,16 @@ export default function Login() {
           src={bgVideo}
         />
 
+        {/* Overlay */}
         <div
           className="absolute inset-0 z-[1]"
           style={{
-            background: "linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.6) 40%, rgba(255,255,255,0.85) 100%)",
+            background:
+              "linear-gradient(180deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.6) 40%, rgba(255,255,255,0.85) 100%)",
           }}
         />
 
+        {/* Content */}
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -79,7 +85,8 @@ export default function Login() {
               style={{
                 fontSize: 32,
                 color: "#1a1a2e",
-                fontFamily: "'Nunito', sans-serif",
+                fontFamily:
+                  "'Apple SD Gothic Neo', 'Noto Sans KR', 'Pretendard', sans-serif",
                 marginBottom: 8,
               }}
             >
@@ -91,61 +98,70 @@ export default function Login() {
                 fontSize: 14,
                 color: "rgba(0,0,0,0.45)",
                 lineHeight: 1.5,
-                marginBottom: 48,
+                marginBottom: 40,
               }}
             >
-              텍사스 홀덤 퀴즈로<br />포커 실력을 키워보세요
+              텍사스 홀덤 퀴즈로
+              <br />
+              포커 실력을 키워보세요
             </p>
 
-            <motion.button
-              onClick={async () => {
-                if (isSigningIn) return;
-                setIsSigningIn(true);
-                try {
-                  await signInWithGoogle();
-                } catch {
-                  toast({ title: "로그인이 취소되었습니다", variant: "destructive" });
-                } finally {
-                  setIsSigningIn(false);
-                }
-              }}
-              disabled={isSigningIn}
-              className="flex items-center gap-3 rounded-2xl font-bold text-[15px] active:scale-[0.97] transition-transform disabled:opacity-60 disabled:pointer-events-none"
+            {/* 상단 네비 로그인 안내 */}
+            <div
+              className="flex flex-col items-center gap-3 rounded-2xl px-6 py-5 text-center"
               style={{
-                background: "#ffffff",
-                color: "#1a1a2e",
-                padding: "14px 32px",
-                boxShadow: "0 2px 16px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.06)",
+                background: "rgba(0,0,0,0.04)",
+                border: "1px solid rgba(0,0,0,0.08)",
                 width: "100%",
                 maxWidth: 300,
-                justifyContent: "center",
               }}
-              whileTap={{ scale: 0.97 }}
-              data-testid="btn-google-login"
+              data-testid="login-guide"
             >
-              {isSigningIn ? (
-                <div className="w-5 h-5 border-2 border-gray-300 border-t-[#E5343A] rounded-full animate-spin" />
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 48 48">
-                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-                  <path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 010-9.18l-7.98-6.19a24.04 24.04 0 000 21.56l7.98-6.19z"/>
-                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+              {/* 아이콘 */}
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center"
+                style={{ background: "#E5343A" }}
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
                 </svg>
-              )}
-              {isSigningIn ? "로그인 중..." : "Google로 로그인"}
-            </motion.button>
+              </div>
 
-            <p
-              className="text-center mt-6"
-              style={{
-                fontSize: 11,
-                color: "rgba(0,0,0,0.3)",
-                lineHeight: 1.6,
-              }}
-            >
-              로그인하면 진행 상황이 자동으로 저장됩니다
-            </p>
+              {/* 안내 문구 */}
+              <p
+                style={{
+                  fontSize: 14,
+                  color: "#1a1a2e",
+                  fontWeight: 600,
+                  lineHeight: 1.5,
+                }}
+              >
+                화면 상단의 로그인 버튼을
+                <br />
+                눌러 시작하세요
+              </p>
+              <p
+                style={{
+                  fontSize: 11,
+                  color: "rgba(0,0,0,0.4)",
+                  lineHeight: 1.6,
+                }}
+              >
+                MIMIC PLAYLAB 계정 하나로
+                <br />
+                모든 앱을 이용할 수 있습니다
+              </p>
+            </div>
           </motion.div>
         </div>
 

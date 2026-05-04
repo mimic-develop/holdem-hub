@@ -5,16 +5,17 @@ import { useIsMobile, cn, useAuthState } from "@hh/shared";
 
 const NAV_ITEMS = [
   { label: "홈", path: "/" },
-  { label: "팟 퀴즈", path: "/pot-quiz" },
-  { label: "너트 게임", path: "/nut-to-3" },
-  { label: "개념 퀴즈", path: "/concept-quiz" },
-  { label: "헤즈업", path: "/heads-up" },
+  { label: "POT SPLIT", path: "/pot-quiz" },
+  { label: "NUT TO 3", path: "/nut-to-3" },
+  { label: "POKER IQ", path: "/concept-quiz" },
+  { label: "HEADS-UP", path: "/heads-up" },
 ] as const;
 
 export function Navbar() {
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [location] = useLocation();
+  const isLight = location.startsWith("/concept-quiz");
   const { user, busy, error, signIn, signOut, providerName } = useAuthState();
   const [errorBubble, setErrorBubble] = useState<string | null>(null);
 
@@ -47,20 +48,25 @@ export function Navbar() {
       : "로그인";
 
   return (
-    <header className="sticky top-0 z-30 border-b border-zinc-200 bg-white/85 backdrop-blur supports-[backdrop-filter]:bg-white/70">
-      <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+    <header
+      className="sticky top-0 z-30 backdrop-blur-md"
+      style={{
+        backgroundColor: isLight ? "rgba(255,255,255,0.97)" : "rgba(10,10,10,0.92)",
+        borderBottom: isLight ? "1px solid rgba(0,0,0,0.08)" : "1px solid rgba(168,0,20,0.2)",
+      }}
+    >
+      <nav className="mx-auto flex h-[52px] max-w-6xl items-center justify-between gap-4 px-4 sm:px-7">
+        {/* Logo */}
         <Link
           href="/"
-          className="flex items-center gap-2 text-lg font-bold tracking-tight text-zinc-900"
+          className="flex items-center gap-0 text-[13px] font-bold tracking-[0.22em] uppercase"
+          style={{ color: isLight ? "#1a1a2e" : "#FFFCF3" }}
         >
-          <span
-            aria-hidden
-            className="inline-block h-6 w-6 rounded-md"
-            style={{ background: "var(--color-mimic-red)" }}
-          />
-          홀덤 허브
+          <span style={{ color: "#A80014" }}>MIMIC</span>
+          <span className="ml-[0.22em]">PLAYLAB</span>
         </Link>
 
+        {/* Desktop nav links */}
         {!isMobile && (
           <ul className="flex items-center gap-1">
             {NAV_ITEMS.map((item) => (
@@ -68,10 +74,10 @@ export function Navbar() {
                 <Link
                   href={item.path}
                   className={cn(
-                    "rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    "px-3 py-2 text-[10px] font-medium tracking-[0.14em] uppercase transition-colors",
                     isActive(item.path)
-                      ? "bg-zinc-100 text-zinc-900"
-                      : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
+                      ? isLight ? "text-[#1a1a2e]" : "text-[#FFFCF3]"
+                      : isLight ? "text-[rgba(0,0,0,0.45)] hover:text-[rgba(0,0,0,0.75)]" : "text-[rgba(255,252,243,0.58)] hover:text-[rgba(255,252,243,0.88)]",
                   )}
                 >
                   {item.label}
@@ -81,11 +87,12 @@ export function Navbar() {
           </ul>
         )}
 
+        {/* Right: auth + hamburger */}
         <div className="relative flex items-center gap-2">
           {errorBubble && (
             <span
               role="alert"
-              className="absolute right-0 top-full mt-2 max-w-xs rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-700 shadow-sm"
+              className="absolute right-0 top-full mt-2 max-w-xs rounded-md border border-rose-900/40 bg-[#1a0008] px-3 py-1.5 text-xs text-rose-300 shadow-lg"
             >
               {errorBubble}
             </span>
@@ -95,12 +102,13 @@ export function Navbar() {
             onClick={handleAuthClick}
             disabled={busy}
             className={cn(
-              "rounded-md border px-3 py-1.5 text-sm transition-colors",
-              user
-                ? "border-zinc-200 text-zinc-700 hover:bg-zinc-50"
-                : "border-zinc-300 text-zinc-700 hover:bg-zinc-50",
-              busy && "cursor-wait opacity-60",
+              "rounded px-3 py-[5px] text-[10px] font-medium tracking-[0.12em] uppercase transition-colors",
+              busy && "cursor-wait opacity-50",
             )}
+            style={{
+              color: isLight ? "rgba(0,0,0,0.55)" : "rgba(255,252,243,0.7)",
+              border: isLight ? "1px solid rgba(0,0,0,0.15)" : "1px solid rgba(255,252,243,0.15)",
+            }}
             title={
               user
                 ? `${providerName} provider`
@@ -116,26 +124,31 @@ export function Navbar() {
               type="button"
               onClick={() => setOpen((v) => !v)}
               aria-label={open ? "메뉴 닫기" : "메뉴 열기"}
-              className="rounded-md p-2 text-zinc-700 hover:bg-zinc-100"
+              className="rounded p-2 transition-colors"
+              style={{ color: isLight ? "rgba(0,0,0,0.5)" : "rgba(255,252,243,0.6)" }}
             >
-              {open ? <X size={20} /> : <Menu size={20} />}
+              {open ? <X size={18} /> : <Menu size={18} />}
             </button>
           )}
         </div>
       </nav>
 
+      {/* Mobile drawer */}
       {isMobile && open && (
-        <ul className="mx-auto flex max-w-6xl flex-col gap-1 border-t border-zinc-200 bg-white px-4 py-3">
+        <ul
+          className="flex flex-col gap-0.5 px-4 pb-3 pt-2"
+          style={{ borderTop: isLight ? "1px solid rgba(0,0,0,0.08)" : "1px solid rgba(255,252,243,0.08)" }}
+        >
           {NAV_ITEMS.map((item) => (
             <li key={item.path}>
               <Link
                 href={item.path}
                 onClick={() => setOpen(false)}
                 className={cn(
-                  "block rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "block px-2 py-2.5 text-[11px] font-medium tracking-[0.12em] uppercase transition-colors",
                   isActive(item.path)
-                    ? "bg-zinc-100 text-zinc-900"
-                    : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
+                    ? isLight ? "text-[#1a1a2e]" : "text-[#FFFCF3]"
+                    : isLight ? "text-[rgba(0,0,0,0.45)] hover:text-[rgba(0,0,0,0.75)]" : "text-[rgba(255,252,243,0.58)] hover:text-[rgba(255,252,243,0.88)]",
                 )}
               >
                 {item.label}

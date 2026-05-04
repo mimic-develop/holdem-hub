@@ -92,11 +92,11 @@ function rankingsMatch(user: Record<string, number>, correct: Record<string, num
 
 // ── visual helpers ─────────────────────────────────────────────────────
 const RANK_COLORS: Record<number, string> = {
-  1: 'bg-yellow-500/30 border-yellow-400/70 text-yellow-300',
-  2: 'bg-zinc-400/20 border-input/60 text-foreground',
-  3: 'bg-orange-700/30 border-orange-600/60 text-orange-300',
+  1: 'bg-yellow-50 border-yellow-400 text-yellow-700',
+  2: 'bg-zinc-100 border-zinc-300 text-zinc-600',
+  3: 'bg-orange-50 border-orange-400 text-orange-700',
 };
-function rankColor(r: number) { return RANK_COLORS[r] ?? 'bg-secondary/20 border-input text-muted-foreground'; }
+function rankColor(r: number) { return RANK_COLORS[r] ?? 'bg-secondary border-input text-muted-foreground'; }
 const RANK_EMOJI: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
 function rankLabel(r: number) { return RANK_EMOJI[r] ?? `${r}위`; }
 
@@ -251,7 +251,7 @@ function PlayerSeat({ player, correctRank: _correctRank, handDesc: _handDesc, pa
       <span className="text-[9px] font-semibold text-foreground leading-tight">{player.name}</span>
 
       {/* Always show invested amount (frozen in result/wrong too) */}
-      <span className="text-[10px] font-bold text-yellow-300/90 leading-tight tracking-tight">
+      <span className="text-[10px] font-bold text-orange-600 leading-tight tracking-tight">
         {player.invested.toLocaleString()}
       </span>
     </div>

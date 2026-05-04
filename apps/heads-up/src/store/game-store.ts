@@ -12,7 +12,10 @@ import {
   type LegalActions,
 } from '../engine/game-engine';
 import { HeuristicBot, type Difficulty } from '../bot/heuristic-bot';
-import { evaluateHand } from '../gto/hand-evaluator-main';
+import { AI_PERSONAS } from '../bot/personas';
+import type { AiLevel, AiPersonaId } from '../types/ai';
+import { evaluateHand } from '../insight/hand-evaluator-main';
+import { getSettings, DEFAULT_STACK_BB } from '../storage/settings';
 import { getHand, saveHand } from '../storage/history';
 import { detectMilestones } from '../storage/stats';
 import { useToastStore } from './toast-store';
@@ -56,6 +59,8 @@ interface GameStoreState {
   gameState: GameState | null;
   mode: GameMode | null;
   aiDifficulty: Difficulty;
+  /** AI persona — 마스터 스펙 v2 §10. 기본은 STANDARD. */
+  aiPersona: AiPersonaId;
   myPlayerId: string;
   /** Opponent player id — 'bot' in AI mode, peer id in REMOTE. */
   opponentPlayerId: string;
@@ -63,6 +68,18 @@ interface GameStoreState {
   opponentName: string;
   isWaitingForBot: boolean;
   isHandOver: boolean;
+  /** True from `startAiGame` until the matchmaking intro animation completes. */
+  isIntroPlaying: boolean;
+  /** Match format — 마스터 스펙 v2 §8.3. 0이면 매치 비활성(legacy 무한 모드). */
+  matchTotalHands: number;
+  /** 1-indexed within the current match. */
+  currentHandInMatch: number;
+  /** True after the final hand of the match completes. */
+  isMatchOver: boolean;
+  /** Starting stack in big blinds for this match (e.g. 25). 마스터 스펙 v2 §4. */
+  startingStackBB: number;
+  /** How many 10-second timebanks the human player has left this match. Starts at 2. */
+  myTimebanksLeft: number;
   lastResolution: HandResolution | null;
   handHistory: CompletedHand[];
   handNumber: number;
@@ -92,7 +109,20 @@ interface GameStoreState {
 }
 
 interface GameStoreActions {
-  startAiGame: (difficulty: Difficulty) => void;
+  /**
+   * 두 가지 시그니처 지원:
+   *  - `startAiGame('MEDIUM')`             ← legacy: persona = STANDARD
+   *  - `startAiGame('LAG', 'HARD')`         ← persona × level
+   */
+  startAiGame: (
+    personaOrLevel: AiPersonaId | AiLevel,
+    level?: AiLevel,
+  ) => void;
+  /** 같은 persona/level로 매치를 다시 시작 (카운터 리셋). */
+  startRematch: () => void;
+  setIntroComplete: () => void;
+  /** 타임뱅크 1회 차감. useDecisionTimer에서 호출. */
+  useMyTimebank: () => void;
   applyMyAction: (action: PlayerAction, amount?: number) => void;
   applyBotAction: () => Promise<void>;
   startNextHand: () => void;
@@ -285,12 +315,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
   gameState: null,
   mode: null,
   aiDifficulty: 'MEDIUM',
+  aiPersona: 'STANDARD',
   myPlayerId: MY_ID_AI,
   opponentPlayerId: BOT_ID,
   myName: '나',
   opponentName: '',
   isWaitingForBot: false,
   isHandOver: false,
+  isIntroPlaying: false,
+  matchTotalHands: 0,
+  currentHandInMatch: 0,
+  isMatchOver: false,
+  startingStackBB: 25,
+  myTimebanksLeft: 2,
   lastResolution: null,
   handHistory: [],
   handNumber: 0,
@@ -313,12 +350,29 @@ export const useGameStore = create<GameStore>((set, get) => ({
   _pingTimer: null,
   _currentSeed: null,
 
-  startAiGame: (difficulty) => {
+  startAiGame: (personaOrLevel, level) => {
     const s = get();
     cleanupTimers(s);
+
+    // Persona × Level 정규화 (legacy single-arg 호환).
+    const knownPersonas: AiPersonaId[] = ['STANDARD', 'NIT', 'LAG', 'CALLING', 'MANIAC'];
+    let personaId: AiPersonaId;
+    let resolvedLevel: AiLevel;
+    if (knownPersonas.includes(personaOrLevel as AiPersonaId)) {
+      personaId = personaOrLevel as AiPersonaId;
+      resolvedLevel = level ?? 'MEDIUM';
+    } else {
+      // legacy: 첫 인자가 'EASY' | 'MEDIUM' | 'HARD'
+      personaId = 'STANDARD';
+      resolvedLevel = personaOrLevel as AiLevel;
+    }
+
+    const settings = getSettings();
+    const stackBB = DEFAULT_STACK_BB; // 25BB 고정
+    const stackChips = stackBB * DEFAULT_BIG_BLIND;
     const stacks = {
-      [MY_ID_AI]: DEFAULT_STARTING_STACK,
-      [BOT_ID]: DEFAULT_STARTING_STACK,
+      [MY_ID_AI]: stackChips,
+      [BOT_ID]: stackChips,
     };
     const sbId = MY_ID_AI;
     const bbId = BOT_ID;
@@ -330,17 +384,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
       smallBlind: DEFAULT_SMALL_BLIND,
       bigBlind: DEFAULT_BIG_BLIND,
     });
-    const bot = new HeuristicBot(difficulty);
+    const bot = new HeuristicBot(personaId, resolvedLevel);
+    const personaName = AI_PERSONAS[personaId].displayName;
+    const matchLength = settings.matchLength;
     set({
       gameState: state,
       mode: 'AI',
-      aiDifficulty: difficulty,
+      aiDifficulty: resolvedLevel,
+      aiPersona: personaId,
       myPlayerId: MY_ID_AI,
       opponentPlayerId: BOT_ID,
       myName: '나',
-      opponentName: '',
+      // opponentName을 persona displayName으로 자동 설정 — TablePage/MatchmakingIntro에서 활용.
+      opponentName: personaName,
       isWaitingForBot: false,
       isHandOver: false,
+      isIntroPlaying: true,
+      matchTotalHands: matchLength,
+      currentHandInMatch: 1,
+      isMatchOver: false,
+      startingStackBB: stackBB,
+      myTimebanksLeft: 2,
       lastResolution: null,
       handHistory: [],
       handNumber: 1,
@@ -364,6 +428,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (state.toActId === BOT_ID) {
       void get().applyBotAction();
     }
+  },
+
+  setIntroComplete: () => set({ isIntroPlaying: false }),
+
+  useMyTimebank: () =>
+    set((s) => ({ myTimebanksLeft: Math.max(0, s.myTimebanksLeft - 1) })),
+
+  startRematch: () => {
+    const s = get();
+    // 같은 persona/level로 새 매치 시작 — 매치 카운터 리셋.
+    get().startAiGame(s.aiPersona, s.aiDifficulty);
   },
 
   getLegalActionsForMe: () => {
@@ -467,6 +542,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (s.handNumber > 0 && !s.isHandOver) return;
     if (s._pendingBotTimer) clearTimeout(s._pendingBotTimer);
 
+    // 매치 모드: 마지막 핸드를 끝냈으면 다음 핸드 대신 MatchEndOverlay 띄움.
+    // matchTotalHands === 0 이면 legacy 무한 모드 (REMOTE 등).
+    if (
+      s.matchTotalHands > 0 &&
+      s.currentHandInMatch >= s.matchTotalHands
+    ) {
+      set({ isMatchOver: true });
+      return;
+    }
+
     if (s.mode === 'REMOTE' && !s.isHost) {
       // Guest requests; host will send HAND_START.
       s._peer?.send({ type: 'NEXT_HAND' });
@@ -480,10 +565,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     let stacks = { ...s.stacks };
     if (stacks[s.myPlayerId] <= 0 || stacks[s.opponentPlayerId] <= 0) {
-      stacks = {
-        [s.myPlayerId]: DEFAULT_STARTING_STACK,
-        [s.opponentPlayerId]: DEFAULT_STARTING_STACK,
-      };
+      // 칩이 바닥나면 핸드 수와 무관하게 매치 종료.
+      set({ isMatchOver: true });
+      return;
     }
 
     const seed = s.mode === 'REMOTE' ? randomSeed() : undefined;
@@ -506,6 +590,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       stacks,
       sbPlayerId: nextSb,
       handNumber: s.handNumber + 1,
+      currentHandInMatch:
+        s.matchTotalHands > 0 ? s.currentHandInMatch + 1 : s.currentHandInMatch,
       _pendingBotTimer: null,
       _currentSeed: seed ?? null,
     });
@@ -543,6 +629,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
       opponentName: '',
       isWaitingForBot: false,
       isHandOver: false,
+      isIntroPlaying: false,
+      matchTotalHands: 0,
+      currentHandInMatch: 0,
+      isMatchOver: false,
+      startingStackBB: 25,
+      myTimebanksLeft: 2,
       lastResolution: null,
       handHistory: [],
       handNumber: 0,
@@ -984,7 +1076,7 @@ async function analyzeAndPersist(
 ): Promise<void> {
   if (analysisInFlight.has(completed.handId)) return;
   const existing = get().handHistory.find((h) => h.handId === completed.handId);
-  if (existing?.gtoAnalysis) return;
+  if (existing?.postHandInsight) return;
   analysisInFlight.add(completed.handId);
 
   try {
@@ -1001,7 +1093,7 @@ async function analyzeAndPersist(
       console.error('[game-store] evaluateHand failed', err);
       return;
     }
-    const enriched: CompletedHand = { ...completed, gtoAnalysis: analysis };
+    const enriched: CompletedHand = { ...completed, postHandInsight: analysis };
 
     // Update in-memory list (replace the matching entry by handId).
     // We re-read state *after* the async wait — the user may have started

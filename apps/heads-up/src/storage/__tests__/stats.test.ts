@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { CompletedHand, GtoAnalysis } from '../../types/game';
+import type { CompletedHand, PostHandInsight } from '../../types/game';
 import { aggregateFromHands, detectMilestones } from '../stats';
 
 const NOW = new Date('2026-04-26T12:00:00Z').getTime();
 const DAY = 86_400_000;
 
-function makeAnalysis(overrides: Partial<GtoAnalysis> = {}): GtoAnalysis {
+function makeAnalysis(overrides: Partial<PostHandInsight> = {}): PostHandInsight {
   return {
     overallScore: 75,
     streetScores: { preflop: 80, flop: 70 },
@@ -57,7 +57,7 @@ function makeHand(overrides: Partial<CompletedHand> = {}): CompletedHand {
       },
     ],
     deckSnapshot: [],
-    gtoAnalysis: makeAnalysis(),
+    postHandInsight: makeAnalysis(),
   };
   return { ...base, ...overrides };
 }
@@ -102,13 +102,13 @@ describe('storage/stats — aggregateFromHands', () => {
       makeHand({
         handId: 'today',
         playedAt: NOW,
-        gtoAnalysis: makeAnalysis({ overallScore: 80 }),
+        postHandInsight: makeAnalysis({ overallScore: 80 }),
       }),
       // Yesterday (previous 'today')
       makeHand({
         handId: 'yest',
         playedAt: NOW - DAY,
-        gtoAnalysis: makeAnalysis({ overallScore: 60 }),
+        postHandInsight: makeAnalysis({ overallScore: 60 }),
       }),
     ];
     const s = aggregateFromHands(hands, 'today', NOW);
@@ -120,13 +120,13 @@ describe('storage/stats — aggregateFromHands', () => {
     const hands = [
       makeHand({
         handId: 'a',
-        gtoAnalysis: makeAnalysis({
+        postHandInsight: makeAnalysis({
           streetScores: { preflop: 80, flop: 60 },
         }),
       }),
       makeHand({
         handId: 'b',
-        gtoAnalysis: makeAnalysis({
+        postHandInsight: makeAnalysis({
           streetScores: { preflop: 100, turn: 50 },
         }),
       }),
@@ -142,7 +142,7 @@ describe('storage/stats — aggregateFromHands', () => {
     const hands = [
       makeHand({
         handId: 'a',
-        gtoAnalysis: makeAnalysis({
+        postHandInsight: makeAnalysis({
           mistakes: [
             { actionIndex: 0, street: 'flop', type: 'VALUE_MISS', description: '' },
           ],
@@ -161,7 +161,7 @@ describe('storage/stats — aggregateFromHands', () => {
       }),
       makeHand({
         handId: 'b',
-        gtoAnalysis: makeAnalysis({
+        postHandInsight: makeAnalysis({
           mistakes: [
             { actionIndex: 0, street: 'turn', type: 'BLUFF_TOO_OFTEN', description: '' },
             { actionIndex: 1, street: 'river', type: 'BLUFF_TOO_OFTEN', description: '' },
@@ -211,7 +211,7 @@ describe('storage/stats — aggregateFromHands', () => {
           potAfter: 8,
         },
       ],
-      gtoAnalysis: makeAnalysis({
+      postHandInsight: makeAnalysis({
         actionEvaluations: [
           {
             actionIndex: 0,
@@ -263,7 +263,7 @@ describe('storage/stats — aggregateFromHands', () => {
           potAfter: 24,
         },
       ],
-      gtoAnalysis: makeAnalysis({
+      postHandInsight: makeAnalysis({
         actionEvaluations: [
           {
             actionIndex: 0,
@@ -299,17 +299,17 @@ describe('storage/stats — aggregateFromHands', () => {
       makeHand({
         handId: 'd2',
         playedAt: NOW - 2 * DAY,
-        gtoAnalysis: makeAnalysis({ overallScore: 60 }),
+        postHandInsight: makeAnalysis({ overallScore: 60 }),
       }),
       makeHand({
         handId: 'd0',
         playedAt: NOW,
-        gtoAnalysis: makeAnalysis({ overallScore: 90 }),
+        postHandInsight: makeAnalysis({ overallScore: 90 }),
       }),
       makeHand({
         handId: 'd0b',
         playedAt: NOW - 3600_000, // also today
-        gtoAnalysis: makeAnalysis({ overallScore: 70 }),
+        postHandInsight: makeAnalysis({ overallScore: 70 }),
       }),
     ];
     const s = aggregateFromHands(hands, 'week', NOW);
@@ -333,10 +333,10 @@ describe('storage/stats — aggregateFromHands', () => {
     expect(s.winStreak).toBe(3);
   });
 
-  it('hands without gtoAnalysis still count for total/winrate but not avgScore', () => {
+  it('hands without postHandInsight still count for total/winrate but not avgScore', () => {
     const hands = [
-      makeHand({ handId: 'a', result: 'WIN', gtoAnalysis: makeAnalysis({ overallScore: 80 }) }),
-      makeHand({ handId: 'b', result: 'LOSS', gtoAnalysis: undefined }),
+      makeHand({ handId: 'a', result: 'WIN', postHandInsight: makeAnalysis({ overallScore: 80 }) }),
+      makeHand({ handId: 'b', result: 'LOSS', postHandInsight: undefined }),
     ];
     const s = aggregateFromHands(hands, 'today', NOW);
     expect(s.totalHands).toBe(2);
@@ -356,11 +356,11 @@ describe('storage/stats — detectMilestones', () => {
 
   it('FIRST_HIGH_SCORE fires once when crossing 80', () => {
     const before = [
-      makeHand({ handId: 'b', gtoAnalysis: makeAnalysis({ overallScore: 70 }) }),
+      makeHand({ handId: 'b', postHandInsight: makeAnalysis({ overallScore: 70 }) }),
     ];
     const latest = makeHand({
       handId: 'l',
-      gtoAnalysis: makeAnalysis({ overallScore: 85 }),
+      postHandInsight: makeAnalysis({ overallScore: 85 }),
     });
     const ms = detectMilestones(before, [...before, latest], latest);
     expect(ms.find((m) => m.id === 'FIRST_HIGH_SCORE')).toBeDefined();
@@ -368,11 +368,11 @@ describe('storage/stats — detectMilestones', () => {
 
   it('FIRST_HIGH_SCORE does NOT re-fire if a previous hand was already 80+', () => {
     const before = [
-      makeHand({ handId: 'b', gtoAnalysis: makeAnalysis({ overallScore: 88 }) }),
+      makeHand({ handId: 'b', postHandInsight: makeAnalysis({ overallScore: 88 }) }),
     ];
     const latest = makeHand({
       handId: 'l',
-      gtoAnalysis: makeAnalysis({ overallScore: 92 }),
+      postHandInsight: makeAnalysis({ overallScore: 92 }),
     });
     const ms = detectMilestones(before, [...before, latest], latest);
     expect(ms.find((m) => m.id === 'FIRST_HIGH_SCORE')).toBeUndefined();
@@ -380,7 +380,7 @@ describe('storage/stats — detectMilestones', () => {
 
   it('PERFECT_HAND fires on >= 95', () => {
     const latest = makeHand({
-      gtoAnalysis: makeAnalysis({ overallScore: 96 }),
+      postHandInsight: makeAnalysis({ overallScore: 96 }),
     });
     const ms = detectMilestones([], [latest], latest);
     expect(ms.find((m) => m.id === 'PERFECT_HAND')).toBeDefined();
@@ -421,7 +421,7 @@ describe('storage/stats — detectMilestones', () => {
     const after = Array.from({ length: 20 }, (_, i) =>
       makeHand({
         handId: `h-${i}`,
-        gtoAnalysis: makeAnalysis({ streetScores: { preflop: 92 } }),
+        postHandInsight: makeAnalysis({ streetScores: { preflop: 92 } }),
       }),
     );
     const ms = detectMilestones(before, after, after[after.length - 1]);

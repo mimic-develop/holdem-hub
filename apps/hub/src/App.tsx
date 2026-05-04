@@ -1,11 +1,33 @@
 import { lazy, Suspense } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Route, Switch } from "wouter";
-import { createQueryClient } from "@hh/shared";
+import { createQueryClient, createFirebaseAuthProvider, registerAuthProvider } from "@hh/shared";
 import { Navbar } from "./components/Navbar";
 import { Home } from "./pages/Home";
 import { NotFound } from "./pages/NotFound";
 import { DevCards } from "./pages/DevCards";
+
+// ── Firebase 초기화 (VITE_AUTH_PROVIDER=firebase 일 때 Hub 전역 로그인) ──
+// 환경변수 접근: Vite static 감지를 위해 옵셔널 체이닝 금지, 직접 접근 사용.
+const _hubEnv = (import.meta as unknown as { env: Record<string, unknown> }).env;
+if (_hubEnv.VITE_AUTH_PROVIDER === "firebase" && _hubEnv.VITE_FIREBASE_API_KEY) {
+  // 동적 import — Firebase SDK는 필요 시에만 로드 (초기 번들 분할)
+  import("firebase/app").then(({ initializeApp }) => {
+    import("firebase/auth").then(({ getAuth }) => {
+      const firebaseApp = initializeApp({
+        apiKey:            String(_hubEnv.VITE_FIREBASE_API_KEY),
+        authDomain:        String(_hubEnv.VITE_FIREBASE_AUTH_DOMAIN ?? ""),
+        projectId:         String(_hubEnv.VITE_FIREBASE_PROJECT_ID ?? ""),
+        storageBucket:     String(_hubEnv.VITE_FIREBASE_STORAGE_BUCKET ?? ""),
+        messagingSenderId: String(_hubEnv.VITE_FIREBASE_MESSAGING_SENDER_ID ?? ""),
+        appId:             String(_hubEnv.VITE_FIREBASE_APP_ID ?? ""),
+        measurementId:     String(_hubEnv.VITE_FIREBASE_MEASUREMENT_ID ?? ""),
+      }, "hub"); // "hub" name으로 concept-quiz Firebase 앱과 충돌 방지
+      const firebaseAuth = getAuth(firebaseApp);
+      registerAuthProvider(createFirebaseAuthProvider(firebaseAuth));
+    });
+  });
+}
 
 const isDev = import.meta.env.DEV;
 
@@ -33,11 +55,9 @@ export function App() {
         <main>
           <Suspense fallback={<PageFallback />}>
             <Switch>
-              {/* Hub 자체 페이지는 가로 제한 + padding */}
+              {/* Home 페이지는 자체 풀폭 레이아웃을 가짐 */}
               <Route path="/">
-                <div className="mx-auto max-w-6xl px-4 py-8">
-                  <Home />
-                </div>
+                <Home />
               </Route>
               {isDev && (
                 <Route path="/dev/cards">

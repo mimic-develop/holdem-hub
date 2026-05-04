@@ -1,189 +1,390 @@
-import { Link } from "wouter";
+import { useEffect, useState } from "react";
+import { Link, useLocation } from "wouter";
+import { useAuthState } from "@hh/shared";
+import { getLastVisit, recordVisit } from "../lib/last-visited";
+import { tickStreakOnVisit } from "../lib/streak";
+import heroBg from "../assets/hero-bg.mp4";
 
+/* ── 앱 카드 데이터 ───────────────────────────────────────── */
 interface AppCard {
+  id: string;
+  tag: string;
   title: string;
-  description: string;
+  desc: string;
   path: string;
-  badge?: string;
-  gradient: string;
-  suits: string;
-  dotColor: string;
+  accentColor: string;
+  enterLabel?: string;
+  enterColor?: string;
 }
 
-const APPS: AppCard[] = [
+const FEATURED: AppCard = {
+  id: "heads-up",
+  tag: "★ 추천 모드",
+  title: "HEADS-UP",
+  desc: "AI 또는 친구와 1:1 맞대결. 빠르게 실전 감각을 키워보세요.",
+  path: "/heads-up",
+  accentColor: "#A80014",
+};
+
+const SECONDARY: AppCard[] = [
   {
-    title: "팟 분배 퀴즈",
-    description: "텍사스 홀덤 쇼다운 시 팟이 어떻게 나뉘는지 맞춰 본다. 핸드 평가와 사이드 팟 계산 트레이닝.",
-    path: "/pot-quiz",
-    badge: "쇼다운 트레이너",
-    gradient: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 60%, #2563eb 100%)",
-    suits: "♠♣",
-    dotColor: "#2563eb",
-  },
-  {
-    title: "너트 핸드 맞추기",
-    description: "보드가 주어졌을 때 가능한 최강 핸드(너트) 3개를 빠르게 찾는다.",
+    id: "nut-to-3",
+    tag: "훈련",
+    title: "NUT TO 3",
+    desc: "넛 핸드를 역산해 최적 베팅 감각 훈련",
     path: "/nut-to-3",
-    badge: "리딩 게임",
-    gradient: "linear-gradient(135deg, #92400e 0%, #b45309 60%, #d97706 100%)",
-    suits: "♦♥",
-    dotColor: "#d97706",
+    accentColor: "rgba(255,252,243,0.5)",
   },
   {
-    title: "홀덤 개념 퀴즈",
-    description: "기본 룰부터 수학·실전 응용까지. 진행률은 로그인 시 클라우드 저장.",
+    id: "concept-quiz",
+    tag: "학습",
+    title: "POKER IQ",
+    desc: "개념부터 실전 판단까지 퀴즈로 점수화",
     path: "/concept-quiz",
-    badge: "이론",
-    gradient: "linear-gradient(135deg, #065f46 0%, #047857 60%, #059669 100%)",
-    suits: "♣♦",
-    dotColor: "#059669",
+    accentColor: "#A80014",
   },
   {
-    title: "헤즈업 트레이너",
-    description: "AI 또는 친구와 1:1 대결. 매 핸드 GTO 점수와 약점 스팟을 분석한다.",
-    path: "/heads-up",
-    badge: "PWA · 오프라인",
-    gradient: "linear-gradient(135deg, #1e293b 0%, #334155 60%, #475569 100%)",
-    suits: "♥♠",
-    dotColor: "#334155",
+    id: "pot-quiz",
+    tag: "계산",
+    title: "POT SPLIT",
+    desc: "팟 분배 계산력과 확률 직관 훈련",
+    path: "/pot-quiz",
+    accentColor: "#000CED",
+    enterLabel: "곧 출시",
+    enterColor: "rgba(100,130,255,0.75)",
   },
 ];
 
+const ALL_APPS: AppCard[] = [FEATURED, ...SECONDARY];
 const isDev = import.meta.env.DEV;
 
-function AppPreviewCard({ app }: { app: AppCard }) {
-  return (
-    <Link
-      href={app.path}
-      className="group flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition-all hover:shadow-md hover:border-zinc-300"
-    >
-      <div
-        className="relative flex h-32 items-center justify-center overflow-hidden"
-        style={{ background: app.gradient }}
-      >
-        <span
-          aria-hidden
-          className="select-none text-5xl font-bold leading-none opacity-25"
-          style={{ color: "#ffffff", letterSpacing: "-0.02em" }}
-        >
-          {app.suits}
-        </span>
-        <span
-          aria-hidden
-          className="absolute bottom-2 right-3 select-none text-2xl opacity-15"
-          style={{ color: "#ffffff" }}
-        >
-          {app.suits[1] ?? app.suits[0]}
-        </span>
-        {app.badge && (
-          <span className="absolute top-2.5 right-2.5 rounded-full bg-black/30 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-sm">
-            {app.badge}
-          </span>
-        )}
-      </div>
-      <div className="flex flex-col gap-1 p-4">
-        <h2 className="text-base font-bold text-zinc-900">{app.title}</h2>
-        <p className="text-xs leading-relaxed text-zinc-500">{app.description}</p>
-        <p
-          className="mt-1 text-xs font-semibold transition-colors group-hover:underline"
-          style={{ color: "var(--color-mimic-red)" }}
-        >
-          들어가기 →
-        </p>
-      </div>
-    </Link>
-  );
-}
-
+/* ── 메인 컴포넌트 ───────────────────────────────────────── */
 export function Home() {
-  const bestPotStreak = Math.max(
-    ...(['easy', 'medium', 'hard'] as const).map((d) =>
-      parseInt(localStorage.getItem(`pot-quiz:bestStreak_${d}`) ?? '0', 10)
-    )
-  );
-  const bestPotScore = Math.max(
-    ...(['easy', 'medium', 'hard'] as const).map((d) =>
-      parseInt(localStorage.getItem(`pot-quiz:bestScore_${d}`) ?? '0', 10)
-    )
-  );
+  const [, navigate] = useLocation();
+  const { user, signIn } = useAuthState();
+  const [streak, setStreak] = useState(0);
+
+  useEffect(() => {
+    setStreak(tickStreakOnVisit());
+  }, []);
+
+  const lastVisit = getLastVisit();
+  const lastApp = lastVisit
+    ? ALL_APPS.find((a) => a.id === lastVisit.id) ?? null
+    : null;
+
+  const handleAppClick = (id: string) => recordVisit(id);
+
+  const handleStartNow = () => {
+    const target = lastApp?.id ?? "heads-up";
+    recordVisit(target);
+    navigate(lastApp?.path ?? "/heads-up");
+  };
+
+  const handleLoginClick = () => {
+    if (user) return;
+    signIn().catch(() => {});
+  };
+
+  void streak;
 
   return (
-    <div className="space-y-6">
-      <section>
-        <h1 className="text-4xl font-extrabold tracking-tight text-zinc-900">홀덤 허브</h1>
-        <p className="mt-2 text-zinc-500">
-          쇼다운 트레이너부터 GTO 분석까지, 홀덤 학습 도구를 한 곳에서.
-        </p>
+    <div className="flex h-dvh flex-col overflow-hidden">
+      {/* ── 전체 페이지 비디오 배경 (fixed) ─────────────────── */}
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        aria-hidden
+        className="pointer-events-none fixed inset-0 h-full w-full object-cover"
+        style={{ zIndex: 0 }}
+        src={heroBg}
+      />
+
+      {/* ── 히어로 + 카드 — 풀 뷰포트 ──────────────────────── */}
+      <section
+        className="relative flex min-h-0 flex-1 flex-col"
+        style={{ zIndex: 1 }}
+      >
+        {/* ── 히어로 텍스트 ── */}
+        <div
+          className="relative flex flex-1 items-center px-4 py-6 sm:py-14 sm:px-7"
+          style={{ zIndex: 1 }}
+        >
+          <div className="mx-auto w-full max-w-6xl" style={{ paddingLeft: "16px" }}>
+            <div style={{ maxWidth: "420px", position: "relative" }}>
+              {/* 브랜드 레이블 */}
+              <p
+                style={{
+                  fontSize: "10px",
+                  letterSpacing: "0.22em",
+                  color: "rgba(255,252,243,0.50)",
+                  textTransform: "uppercase",
+                  marginBottom: "8px",
+                }}
+              >
+                Poker Training Lab
+              </p>
+
+              {/* 메인 타이틀 */}
+              <h1
+                style={{
+                  fontSize: "clamp(28px, 5.5vw, 56px)",
+                  fontWeight: 700,
+                  color: "#FFFCF3",
+                  letterSpacing: "0.03em",
+                  lineHeight: 1.1,
+                  marginBottom: "10px",
+                  textTransform: "uppercase",
+                }}
+              >
+                <span style={{ color: "#A80014" }}>MIMIC</span> PLAYLAB
+              </h1>
+
+              {/* 서브카피 — 모바일에서 숨김 */}
+              <p
+                className="hidden sm:block"
+                style={{
+                  fontSize: "16px",
+                  color: "rgba(255,252,243,0.72)",
+                  letterSpacing: "0.02em",
+                  lineHeight: 1.7,
+                  marginBottom: "28px",
+                  maxWidth: "340px",
+                }}
+              >
+                퀴즈부터 대결까지,
+                <br />
+                포커 감각을 실험하는 공간
+              </p>
+              {/* 서브카피 — 모바일 한 줄 */}
+              <p
+                className="sm:hidden"
+                style={{
+                  fontSize: "13px",
+                  color: "rgba(255,252,243,0.65)",
+                  marginBottom: "20px",
+                }}
+              >
+                퀴즈부터 대결까지, 포커 감각을 실험하는 공간
+              </p>
+
+              {/* CTA */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "10px" }}>
+                <button
+                  type="button"
+                  onClick={handleStartNow}
+                  style={{
+                    background: "#A80014",
+                    color: "#FFFCF3",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    letterSpacing: "0.20em",
+                    textTransform: "uppercase",
+                    padding: "13px 28px",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  지금 바로 시작 →
+                </button>
+                <Link
+                  href="/heads-up"
+                  onClick={() => recordVisit("heads-up")}
+                  style={{
+                    display: "inline-block",
+                    border: "1px solid rgba(255,252,243,0.35)",
+                    color: "#FFFCF3",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    padding: "10px 22px",
+                    textDecoration: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  HEADS-UP 한 판 →
+                </Link>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleLoginClick}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "rgba(255,252,243,0.25)",
+                  fontSize: "10px",
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  padding: 0,
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  textUnderlineOffset: "3px",
+                  marginTop: "14px",
+                  display: "block",
+                }}
+              >
+                {user ? (user.displayName ?? "로그아웃") : "로그인"}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── 모드 카드 — 하단 ── */}
+        <div className="relative px-4 pb-4 sm:pb-8 sm:px-7" style={{ zIndex: 1 }}>
+          <div className="mx-auto max-w-6xl">
+            <div
+              style={{
+                background: "rgba(0,0,0,0.28)",
+                backdropFilter: "blur(6px)",
+                WebkitBackdropFilter: "blur(6px)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                padding: "12px",
+              }}
+            >
+              {/* HEADS-UP — 피처드 */}
+              <Link
+                href={FEATURED.path}
+                onClick={() => handleAppClick(FEATURED.id)}
+                className="group mb-2 block"
+              >
+                <div
+                  className="relative overflow-hidden transition-opacity hover:opacity-90"
+                  style={{
+                    background: "rgba(10,10,10,0.72)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    backdropFilter: "blur(14px)",
+                    WebkitBackdropFilter: "blur(14px)",
+                    padding: "16px 20px",
+                  }}
+                >
+                  <div
+                    className="absolute left-0 right-0 top-0"
+                    style={{ height: "2px", background: "#A80014" }}
+                  />
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p style={{ fontSize: "9px", letterSpacing: "0.3em", color: "#A80014", textTransform: "uppercase", marginBottom: "5px" }}>
+                        {FEATURED.tag}
+                      </p>
+                      <p style={{ fontSize: "20px", fontWeight: 700, color: "#FFFCF3", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "4px" }}>
+                        {FEATURED.title}
+                      </p>
+                      <p className="hidden sm:block" style={{ fontSize: "12px", color: "rgba(255,252,243,0.72)", lineHeight: 1.5 }}>
+                        {FEATURED.desc}
+                      </p>
+                    </div>
+                    <p
+                      style={{
+                        flexShrink: 0,
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        letterSpacing: "0.18em",
+                        color: "#FFFCF3",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      시작하기 →
+                    </p>
+                  </div>
+                </div>
+              </Link>
+
+              {/* PLAY MODES 라벨 */}
+              <p
+                style={{
+                  fontSize: "9px",
+                  letterSpacing: "0.35em",
+                  color: "rgba(255,252,243,0.50)",
+                  textTransform: "uppercase",
+                  marginTop: "4px",
+                  marginBottom: "6px",
+                  paddingLeft: "2px",
+                }}
+              >
+                Play Modes
+              </p>
+
+              {/* 서브 모드 3개 — 모바일도 3열 */}
+              <div className="grid grid-cols-3 gap-1.5">
+                {SECONDARY.map((app) => (
+                  <Link
+                    key={app.id}
+                    href={app.path}
+                    onClick={() => handleAppClick(app.id)}
+                    className="block"
+                  >
+                    <div
+                      className="relative flex flex-col overflow-hidden transition-opacity hover:opacity-90"
+                      style={{
+                        background: "rgba(10,10,10,0.65)",
+                        border: "1px solid rgba(255,255,255,0.09)",
+                        backdropFilter: "blur(10px)",
+                        WebkitBackdropFilter: "blur(10px)",
+                        padding: "12px 10px",
+                        minHeight: "80px",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <div
+                        className="absolute left-0 right-0 top-0"
+                        style={{ height: "2px", background: app.accentColor }}
+                      />
+                      <div>
+                        <p style={{ fontSize: "8px", letterSpacing: "0.15em", color: "rgba(255,252,243,0.55)", textTransform: "uppercase", marginBottom: "4px" }}>
+                          {app.tag}
+                        </p>
+                        <p style={{ fontSize: "12px", fontWeight: 700, color: "#FFFCF3", letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: "4px" }}>
+                          {app.title}
+                        </p>
+                        <p className="hidden sm:block" style={{ fontSize: "11px", color: "rgba(255,252,243,0.70)", lineHeight: 1.5 }}>
+                          {app.desc}
+                        </p>
+                      </div>
+                      <p style={{ fontSize: "9px", color: app.enterColor ?? "rgba(255,252,243,0.75)", marginTop: "8px", letterSpacing: "0.08em", fontWeight: 600 }}>
+                        {app.enterLabel ?? "시작하기 →"}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* Stats strip */}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <span className="text-lg font-bold text-zinc-900">
-            {bestPotStreak > 0 ? bestPotStreak : "—"}
-          </span>
-          <span className="text-xs text-zinc-500">연속 정답 (팟 퀴즈)</span>
-        </div>
-        <div className="h-4 w-px bg-zinc-300" />
-        <div className="flex items-center gap-2">
-          <span className="text-lg font-bold text-zinc-900">
-            {bestPotScore > 0 ? bestPotScore.toLocaleString() : "—"}
-          </span>
-          <span className="text-xs text-zinc-500">최고 점수</span>
-        </div>
-        <div className="h-4 w-px bg-zinc-300" />
-        <div className="flex items-center gap-2">
-          <span className="text-lg font-bold text-zinc-900">4</span>
-          <span className="text-xs text-zinc-500">트레이너</span>
-        </div>
-      </div>
-
-      {/* Dashboard layout: left quick-actions + right preview grid */}
-      <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
-        {/* Left panel — quick-action list */}
-        <aside className="flex flex-col gap-1 lg:w-64 lg:shrink-0">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">
-            바로가기
-          </p>
-          {APPS.map((app) => (
-            <Link
-              key={app.path}
-              href={app.path}
-              className="group flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-zinc-100"
-            >
-              <span
-                className="h-2 w-2 shrink-0 rounded-full"
-                style={{ background: app.dotColor }}
-              />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-semibold text-zinc-900 group-hover:text-zinc-800">
-                  {app.title}
-                </div>
-                {app.badge && (
-                  <div className="text-xs text-zinc-400">{app.badge}</div>
-                )}
-              </div>
-              <span className="text-zinc-300 group-hover:text-zinc-500">›</span>
-            </Link>
-          ))}
-        </aside>
-
-        {/* Right panel — 2×2 app preview cards */}
-        <section className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
-          {APPS.map((app) => (
-            <AppPreviewCard key={app.path} app={app} />
-          ))}
-        </section>
-      </div>
+      {/* ── 푸터 — 데스크톱만 ── */}
+      <footer
+        className="relative hidden sm:flex"
+        style={{
+          zIndex: 1,
+          background: "transparent",
+          borderTop: "1px solid rgba(255,252,243,0.05)",
+          padding: "14px 28px",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <span style={{ fontSize: "9px", letterSpacing: "0.18em", color: "rgba(255,252,243,0.18)", fontStyle: "italic" }}>
+          "All in Fun" — MIMIC
+        </span>
+        <span style={{ fontSize: "9px", letterSpacing: "0.1em", color: "rgba(255,252,243,0.14)" }}>
+          © 2026 MIMIC PLAYLAB
+        </span>
+      </footer>
 
       {isDev && (
-        <section className="rounded-lg border border-dashed border-zinc-300 p-4 text-sm text-zinc-500">
-          <span className="font-medium text-zinc-700">개발자 도구:</span>{" "}
-          <Link href="/dev/cards" className="underline hover:text-zinc-900">
+        <div className="relative hidden sm:block" style={{ zIndex: 1, padding: "8px 28px" }}>
+          <Link
+            href="/dev/cards"
+            style={{ fontSize: "11px", color: "rgba(255,252,243,0.28)", textDecoration: "underline" }}
+          >
             /dev/cards
-          </Link>{" "}
-          — PlayingCard 컴포넌트 시각 검증 페이지
-        </section>
+          </Link>
+        </div>
       )}
     </div>
   );

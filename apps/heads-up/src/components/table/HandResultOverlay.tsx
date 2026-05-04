@@ -2,15 +2,15 @@ import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import type { HandResolution } from '../../engine/game-engine';
 import { HandRank } from '../../engine/hand-evaluator';
-import type { CompletedHand, Street } from '../../types/game';
-import { Link } from 'react-router-dom';
+import type { CompletedHand } from '../../types/game';
+import { Card } from './Card';
 
 interface HandResultOverlayProps {
   resolution: HandResolution;
   myPlayerId: string;
   onNext: () => void;
   nextLabel?: string;
-  /** Latest CompletedHand for this resolution (carries gtoAnalysis when ready). */
+  /** Latest CompletedHand for this resolution. */
   completedHand?: CompletedHand;
 }
 
@@ -27,13 +27,6 @@ const HAND_RANK_KO: Record<HandRank, string> = {
   [HandRank.ROYAL_FLUSH]: '로열 플러시',
 };
 
-const STREET_KO: Record<Street, string> = {
-  preflop: '프리플랍',
-  flop: '플랍',
-  turn: '턴',
-  river: '리버',
-};
-
 export function HandResultOverlay({
   resolution,
   myPlayerId,
@@ -43,186 +36,140 @@ export function HandResultOverlay({
 }: HandResultOverlayProps) {
   const iWon = resolution.winners.includes(myPlayerId);
   const isSplit = resolution.winners.length > 1;
+  const isShowdown = resolution.endedBy === 'showdown';
+
   const title = isSplit ? '🤝 무승부' : iWon ? '🎉 승리!' : '😔 패배';
   const myWinLoss = completedHand?.myWinLoss ?? 0;
-  const subtitle =
-    resolution.endedBy === 'fold'
-      ? '상대가 폴드했습니다'
-      : resolution.evaluations
-        ? formatShowdown(resolution, myPlayerId)
-        : '쇼다운';
 
-  const analysis = completedHand?.gtoAnalysis;
+  // Hand rank subtitle (showdown only)
+  const handRankSubtitle =
+    isShowdown && resolution.evaluations
+      ? buildHandRankText(resolution, myPlayerId)
+      : null;
+
+  const titleColor = isSplit
+    ? 'text-foreground'
+    : iWon
+      ? 'text-amber-400'
+      : 'text-rose-400';
+
+  const chipColor = clsx(
+    'text-2xl font-black tabular-nums',
+    myWinLoss > 0 ? 'text-green-400' : myWinLoss < 0 ? 'text-rose-400' : 'text-foreground',
+  );
+
+  const myCards = completedHand?.myCards;
+  const oppCards = isShowdown ? completedHand?.opponentCards : undefined;
+  const board = completedHand?.board ?? [];
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black/70 p-6 backdrop-blur-sm"
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
     >
       <motion.div
-        initial={{ scale: 0.8, y: 20 }}
+        initial={{ scale: 0.88, y: 18 }}
         animate={{ scale: 1, y: 0 }}
-        className="flex w-full max-w-sm flex-col items-center gap-3 rounded-xl border border-primary/30 bg-card px-6 py-5"
+        transition={{ type: 'spring', stiffness: 240, damping: 22 }}
+        className="flex w-full max-w-sm flex-col items-center gap-3 rounded-2xl border border-white/10 bg-card px-5 py-5 shadow-2xl"
       >
-        <div
-          className={`text-2xl font-bold ${iWon ? 'text-primary' : isSplit ? 'text-foreground' : 'text-red-400'}`}
-        >
-          {title}
+        {/* 제목 + 칩 델타 */}
+        <div className={clsx('text-xl font-bold', titleColor)}>{title}</div>
+        <div className={chipColor}>
+          {myWinLoss > 0 ? '+' : ''}{myWinLoss} 칩
         </div>
-        {completedHand && (
-          <div
-            className={clsx(
-              'text-lg font-bold',
-              myWinLoss > 0
-                ? 'text-green-400'
-                : myWinLoss < 0
-                  ? 'text-red-400'
-                  : 'text-foreground',
+
+        {/* ── 카드 시각화 ── */}
+        {isShowdown && myCards && (
+          <div className="w-full space-y-2">
+            {/* 양쪽 홀카드 — me vs opp */}
+            <div className="flex items-center justify-center gap-3">
+              {/* 내 카드 */}
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-[10px] text-muted-foreground">나</span>
+                <div className="flex gap-1">
+                  {myCards.map((c, i) => (
+                    <Card key={`my-${i}`} card={c} size="sm" animate delay={i * 60} />
+                  ))}
+                </div>
+              </div>
+
+              <span className="text-xs font-bold text-white/30">vs</span>
+
+              {/* 상대 카드 */}
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-[10px] text-muted-foreground">상대</span>
+                <div className="flex gap-1">
+                  {oppCards
+                    ? oppCards.map((c, i) => (
+                        <Card key={`opp-${i}`} card={c} size="sm" animate delay={80 + i * 60} />
+                      ))
+                    : /* 폴더 카드는 숨겨진 채로 (뒷면 2장) */
+                      [0, 1].map((i) => (
+                        <Card key={`opp-back-${i}`} card={null} faceDown size="sm" animate={false} />
+                      ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 보드 카드 */}
+            {board.length > 0 && (
+              <div className="flex justify-center gap-1 pt-1">
+                {board.map((c, i) => (
+                  <Card key={`board-${i}`} card={c} size="sm" animate delay={160 + i * 40} />
+                ))}
+              </div>
             )}
-          >
-            {formatChips(myWinLoss)} 칩
           </div>
         )}
-        <div className="text-xs text-muted-foreground text-center whitespace-pre-line">
-          {subtitle}
-        </div>
-        <div className="text-sm font-semibold text-white">
-          팟 <span className="text-primary">{resolution.potAwarded}</span>
-        </div>
 
-        {/* GTO breakdown */}
-        <ScorePanel analysis={analysis} />
+        {/* 폴드: 내 카드만 + 안내 텍스트 */}
+        {!isShowdown && myCards && (
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex gap-1">
+              {myCards.map((c, i) => (
+                <Card key={`my-${i}`} card={c} size="sm" animate delay={i * 60} />
+              ))}
+            </div>
+            <span className="text-xs text-muted-foreground">상대가 폴드했습니다</span>
+          </div>
+        )}
 
-        <div className="mt-2 flex w-full gap-2">
-          {completedHand && (
-            <Link
-              to={`/analysis/${completedHand.handId}`}
-              className="flex-1 rounded-md border border-border bg-muted px-3 py-2 text-center text-sm font-semibold text-foreground hover:bg-secondary active:scale-95"
-            >
-              자세히
-            </Link>
-          )}
-          <button
-            type="button"
-            onClick={onNext}
-            className="flex-1 rounded-md bg-primary px-3 py-2 text-sm font-bold text-primary-foreground hover:bg-primary/90 active:scale-95"
-          >
-            {nextLabel}
-          </button>
-        </div>
+        {/* 쇼다운 손패 이름 */}
+        {handRankSubtitle && (
+          <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
+            {handRankSubtitle}
+          </p>
+        )}
+
+        {/* Primary CTA */}
+        <button
+          type="button"
+          onClick={onNext}
+          autoFocus
+          className="mt-2 w-full rounded-lg px-4 py-3 text-base font-bold text-black shadow-lg transition-all hover:scale-[1.02] active:scale-95"
+          style={{
+            background: 'linear-gradient(180deg, #fcd34d 0%, #f59e0b 100%)',
+            boxShadow:
+              '0 6px 18px rgba(252,211,77,0.35), inset 0 1px 0 rgba(255,255,255,0.35)',
+          }}
+        >
+          {nextLabel}
+        </button>
       </motion.div>
     </motion.div>
   );
 }
 
-interface ScorePanelProps {
-  analysis: CompletedHand['gtoAnalysis'];
-}
-
-/** 5-star rendering of a 0-100 score. */
-function Stars({ score }: { score: number }) {
-  const filled = Math.round((score / 100) * 5);
-  return (
-    <span className="text-[11px] tracking-tight">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <span
-          key={i}
-          className={i < filled ? 'text-primary' : 'text-foreground'}
-        >
-          ★
-        </span>
-      ))}
-    </span>
-  );
-}
-
-function ScorePanel({ analysis }: ScorePanelProps) {
-  if (!analysis) {
-    return (
-      <div className="mt-2 w-full rounded-md border border-border bg-background/60 px-3 py-3 text-center text-xs text-muted-foreground">
-        <span className="inline-block animate-pulse">분석 중…</span>
-      </div>
-    );
-  }
-
-  const { overallScore, streetScores } = analysis;
-  const overallColor = scoreColorClass(overallScore);
-
-  const streetOrder: Street[] = ['preflop', 'flop', 'turn', 'river'];
-  const presentStreets = streetOrder.filter((st) => streetScores[st] !== undefined);
-
-  return (
-    <div className="mt-2 w-full rounded-md border border-border bg-background/60 p-3 text-xs">
-      <div className="text-center text-[11px] uppercase tracking-wide text-muted-foreground">
-        이 핸드 플레이 평가
-      </div>
-      <div className="mt-1 flex items-baseline justify-center gap-1">
-        <span className={clsx('text-3xl font-bold', overallColor)}>
-          {overallScore}
-        </span>
-        <span className="text-xs text-muted-foreground">/ 100</span>
-      </div>
-      <div className="mx-auto mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className={clsx('h-full transition-all', scoreBarClass(overallScore))}
-          style={{ width: `${overallScore}%` }}
-        />
-      </div>
-      {presentStreets.length > 0 && (
-        <ul className="mt-3 space-y-1">
-          {presentStreets.map((st) => {
-            const score = streetScores[st]!;
-            return (
-              <li key={st} className="flex items-center justify-between gap-2">
-                <span className="w-12 text-muted-foreground">{STREET_KO[st]}</span>
-                <Stars score={score} />
-                <span
-                  className={clsx(
-                    'w-10 text-right font-semibold',
-                    scoreColorClass(score),
-                  )}
-                >
-                  {score}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {analysis.summary && (
-        <div className="mt-3 border-t border-border pt-2 text-[11px] leading-relaxed text-foreground">
-          {analysis.summary}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function scoreColorClass(score: number): string {
-  if (score >= 80) return 'text-green-400';
-  if (score >= 50) return 'text-yellow-400';
-  return 'text-red-400';
-}
-
-function scoreBarClass(score: number): string {
-  if (score >= 80) return 'bg-green-500';
-  if (score >= 50) return 'bg-yellow-500';
-  return 'bg-red-500';
-}
-
-function formatChips(n: number): string {
-  if (n > 0) return `+${n}`;
-  return String(n);
-}
-
-function formatShowdown(resolution: HandResolution, myPlayerId: string): string {
-  if (!resolution.evaluations) return '쇼다운';
+function buildHandRankText(resolution: HandResolution, myPlayerId: string): string {
+  if (!resolution.evaluations) return '';
   const mine = resolution.evaluations[myPlayerId];
   const oppId = Object.keys(resolution.evaluations).find((k) => k !== myPlayerId);
   const opp = oppId ? resolution.evaluations[oppId] : undefined;
   const lines: string[] = [];
   if (mine) lines.push(`내 핸드: ${HAND_RANK_KO[mine.rank] ?? mine.rank}`);
   if (opp) lines.push(`상대 핸드: ${HAND_RANK_KO[opp.rank] ?? opp.rank}`);
-  return lines.join('\n');
+  return lines.join('  /  ');
 }

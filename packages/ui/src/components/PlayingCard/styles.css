@@ -11,26 +11,28 @@
  */
 
 .hh-playing-card {
-  /* 카드 음영 — Nut-to-3에서 가져온 완성도 높은 그림자 */
+  /* 카드 음영 — 강화된 그림자 (더 선명한 엣지 + 부드러운 광원) */
   box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.12),
-    0 1px 2px rgba(0, 0, 0, 0.08),
-    0 0 0 1px rgba(0, 0, 0, 0.04) inset;
+    0 2px 6px rgba(0, 0, 0, 0.14),
+    0 1px 2px rgba(0, 0, 0, 0.10),
+    0 0 0 1px rgba(0, 0, 0, 0.06) inset;
 }
 
 .hh-playing-card[data-suit-color="red"] {
-  color: var(--hh-card-red, #dc2626);
+  /* MIMIC red 계열 — POKER IQ 기준 #E5343A */
+  color: var(--hh-card-red, #e5343a);
 }
 
 .hh-playing-card[data-suit-color="black"] {
-  color: var(--hh-card-black, #18181b);
+  /* neutral-900 — 명확한 대비 */
+  color: var(--hh-card-black, #111827);
 }
 
-/* 다크 테마 (.app-heads-up, .app-pot-quiz)에서 쓰는 약간 변형된 카드 색 */
+/* 다크 테마 (.app-heads-up, .app-pot-quiz)에서 더 선명한 빨간색 사용 */
 .app-heads-up .hh-playing-card,
 .app-pot-quiz .hh-playing-card {
-  --hh-card-red: #ef4444;
-  --hh-card-black: #18181b;
+  --hh-card-red: #f43f5e;
+  --hh-card-black: #111827;
 }
 
 /* highlight 상태 (정답/하이라이트) */
