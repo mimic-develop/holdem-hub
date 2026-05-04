@@ -373,14 +373,20 @@ export default function Home() {
   if (appPhase === "intro") {
     return (
       <div className="min-h-screen max-w-lg mx-auto px-4 pb-10 flex flex-col">
-        {/* Header branding */}
-        <div className="pt-10 pb-7 flex flex-col items-center gap-3">
-          <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-xl">
-            <img src={mimicLogoFull} alt="MIMIC" className="w-14 h-14 object-contain" />
-          </div>
-          <div className="text-center">
-            <h1 className="font-display font-bold text-3xl tracking-tight">Nut to 3</h1>
-            <p className="text-muted-foreground text-sm mt-1">텍사스 홀덤 너트 찾기 트레이너</p>
+        {/* Header branding — gradient banner */}
+        <div
+          className="relative mt-4 mb-6 overflow-hidden rounded-2xl"
+          style={{ height: '140px', background: 'linear-gradient(135deg,#7c2d12 0%,#9a3412 50%,#b45309 100%)' }}
+        >
+          <span aria-hidden className="absolute inset-0 flex items-center justify-center select-none text-7xl font-bold text-white opacity-15">♦♥</span>
+          <span aria-hidden className="absolute top-3 left-4 select-none text-2xl text-white opacity-10">♣</span>
+          <span aria-hidden className="absolute bottom-2 right-4 select-none text-3xl text-white opacity-10">♠</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+              <img src={mimicLogoFull} alt="MIMIC" className="w-8 h-8 object-contain" />
+            </div>
+            <h1 className="font-display font-bold text-2xl tracking-tight text-white">Nut to 3</h1>
+            <p className="text-white/70 text-xs">텍사스 홀덤 너트 찾기 트레이너</p>
           </div>
         </div>
 

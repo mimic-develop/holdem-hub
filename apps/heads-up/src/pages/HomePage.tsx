@@ -35,22 +35,52 @@ export default function HomePage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center gap-6 px-6 py-10">
-      <div className="mt-4 flex w-full max-w-md items-start justify-between">
-        <div />
-        <div className="flex flex-col items-center gap-1">
-          <h1 className="text-3xl font-bold text-primary tracking-tight">헤즈업 홀덤 연습장</h1>
-          <p className="text-sm text-muted-foreground">1:1 노리밋 홀덤 연습</p>
+      {/* Header banner */}
+      <div
+        className="w-full max-w-md overflow-hidden rounded-2xl border border-border"
+        style={{ background: 'linear-gradient(135deg,#0f172a 0%,#1e293b 70%,#334155 100%)' }}
+      >
+        <div className="relative flex h-16 items-center justify-center overflow-hidden">
+          <span aria-hidden className="absolute inset-0 flex items-center justify-center select-none text-6xl font-bold text-white opacity-10">♥♠</span>
         </div>
-        <Link
-          to="/settings"
-          aria-label="설정"
-          className="rounded-full border border-border bg-card p-2 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-        >
-          <SettingsIcon />
-        </Link>
+        <div className="flex items-center justify-between px-5 pb-4">
+          <div>
+            <h1 className="text-xl font-bold text-white tracking-tight">헤즈업 홀덤 연습장</h1>
+            <p className="text-xs text-white/60 mt-0.5">1:1 노리밋 홀덤 연습</p>
+          </div>
+          <Link
+            to="/settings"
+            aria-label="설정"
+            className="rounded-full border border-white/20 bg-white/10 p-2 text-white/60 hover:bg-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+          >
+            <SettingsIcon />
+          </Link>
+        </div>
       </div>
 
       <div className="w-full max-w-md flex flex-col gap-3 mt-4">
+        {!statsLoading && stats && stats.totalHands > 0 && (
+          <div className="flex items-center gap-3 rounded-xl bg-card border border-border px-4 py-2.5 w-full">
+            <div className="text-center">
+              <div className="text-lg font-bold text-foreground">{stats.totalHands}</div>
+              <div className="text-[10px] text-muted-foreground">핸드</div>
+            </div>
+            <div className="h-8 w-px bg-border" />
+            <div className="text-center">
+              <div className="text-lg font-bold text-foreground">{Math.round(stats.winRate * 100)}%</div>
+              <div className="text-[10px] text-muted-foreground">승률</div>
+            </div>
+            {stats.winStreak >= 2 && (
+              <>
+                <div className="h-8 w-px bg-border" />
+                <div className="text-center">
+                  <div className="text-lg font-bold text-orange-500">{stats.winStreak}연승</div>
+                  <div className="text-[10px] text-muted-foreground">현재 연승</div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
         <GrowthStats
           stats={stats}
           range={range}

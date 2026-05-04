@@ -23,21 +23,34 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
-        {/* Header */}
-        <div className="text-center mb-6">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/30">
+        {/* Header — gradient banner */}
+        <div
+          className="relative mb-5 overflow-hidden rounded-2xl"
+          style={{ height: '120px', background: 'linear-gradient(135deg,#1e3a8a 0%,#1e40af 60%,#3b82f6 100%)' }}
+        >
+          <span aria-hidden className="absolute inset-0 flex items-center justify-center select-none text-6xl font-bold text-white opacity-20">♠♣</span>
+          <span aria-hidden className="absolute bottom-2 right-4 select-none text-3xl text-white opacity-10">♦</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5">
+            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shadow-lg backdrop-blur-sm">
               <Brain className="w-6 h-6 text-white" />
             </div>
-            <h1 className="text-3xl font-bold tracking-tight">포커 퀴즈</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-white">포커 퀴즈</h1>
+            <p className="text-white/70 text-xs">쇼다운 · 핸드 순위 · 팟 분배</p>
           </div>
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            텍사스 홀덤 쇼다운 · 핸드 순위 · 팟 분배 트레이너
-          </p>
         </div>
 
         {/* Best records card */}
         <div className="bg-card border border-border rounded-2xl p-4 mb-6">
+          {hasAnyRecord && (() => {
+            const top = Math.max(...records.map(r => r.streak));
+            return top > 0 ? (
+              <div className="flex items-center gap-1.5 mb-3">
+                <Flame className="w-4 h-4 text-orange-400" />
+                <span className="text-sm font-bold text-foreground">{top}연속</span>
+                <span className="text-xs text-muted-foreground">최고 기록</span>
+              </div>
+            ) : null;
+          })()}
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">나의 최고 기록</p>
           {/* Header row */}
           <div className="flex items-center mb-1">
