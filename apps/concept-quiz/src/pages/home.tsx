@@ -1,14 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, LogIn, LogOut } from "lucide-react";
+import { Lock } from "lucide-react";
 import { CATEGORIES } from "../lib/categories";
 import { getQuestionsByCategory, type Difficulty } from "../lib/quizData";
 import { useProgress } from "../hooks/useProgress";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/use-toast";
 import bgVideo from "../assets/bg_sdr.mp4";
-import mimicLogo from "../assets/mimic-logo.png";
 
 const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"];
 const SUITS: Difficulty[] = ["club", "diamond", "heart", "spade"];
@@ -128,7 +127,7 @@ function DeckFace({ card, isActive }: { card: DeckCard; isActive: boolean }) {
 
 export default function Home() {
   const { isCardUnlocked, isCardCleared, currentStepIndex, cleared } = useProgress();
-  const { user, loading: authLoading, signInWithGoogle, signOut } = useAuth();
+  const { user, signInWithGoogle } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
@@ -365,92 +364,37 @@ export default function Home() {
         src={bgVideo}
       />
 
-      <header
-        className="flex-shrink-0 z-30"
+      {/* 진행률 + 활성 카테고리 스트립 */}
+      <div
+        className="flex-shrink-0 z-30 flex items-center gap-3 px-4"
         style={{
+          height: 32,
           background: "#ffffff",
           borderBottom: "1px solid rgba(0,0,0,0.06)",
         }}
       >
-        <div className="px-4 pt-2 pb-1.5">
-          <div className="flex items-center justify-between mb-1.5">
-            <div className="flex items-center gap-2">
-              <img
-                src={mimicLogo}
-                alt="MIMIC"
-                style={{ height: 18 }}
-                data-testid="logo-mimic"
-              />
-              <span
-                className="font-bold text-[13px] tracking-tight"
-                style={{ color: "#1a1a2e", fontFamily: "'Nunito', sans-serif" }}
-              >
-                Poker IQ
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 mr-1">
-                <span style={{ color: aMeta.color, fontSize: 13 }}>{aMeta.sym}</span>
-                <span className="text-[11px] font-semibold" style={{ color: "#1a1a2e" }}>
-                  {aCat.label}
-                </span>
-              </div>
-              {!authLoading && (
-                user ? (
-                  <button
-                    onClick={signOut}
-                    className="flex items-center gap-1.5 rounded-full pl-1 pr-2 py-0.5"
-                    style={{ background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.08)" }}
-                    data-testid="btn-logout"
-                  >
-                    {user.photoURL ? (
-                      <img src={user.photoURL} alt="" className="w-5 h-5 rounded-full" referrerPolicy="no-referrer" />
-                    ) : (
-                      <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center">
-                        <span className="text-[10px] font-bold text-gray-500">
-                          {(user.displayName || "U")[0]}
-                        </span>
-                      </div>
-                    )}
-                    <span className="text-[10px] font-semibold max-w-[60px] truncate" style={{ color: "rgba(0,0,0,0.55)" }}>
-                      {user.displayName || "사용자"}
-                    </span>
-                    <LogOut className="w-3 h-3 flex-shrink-0" style={{ color: "rgba(0,0,0,0.4)" }} />
-                  </button>
-                ) : (
-                  <button
-                    onClick={signInWithGoogle}
-                    className="flex items-center gap-1 rounded-full px-2 py-0.5"
-                    style={{ background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.08)" }}
-                    data-testid="btn-login"
-                  >
-                    <LogIn className="w-3.5 h-3.5" style={{ color: "rgba(0,0,0,0.5)" }} />
-                    <span className="text-[10px] font-semibold" style={{ color: "rgba(0,0,0,0.5)" }}>로그인</span>
-                  </button>
-                )
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div
-              className="flex-1 rounded-full overflow-hidden"
-              style={{ height: 4, background: "rgba(0,0,0,0.06)" }}
-            >
-              <motion.div
-                className="h-full rounded-full"
-                style={{ background: "#E5343A" }}
-                initial={false}
-                animate={{ width: `${progressPct}%` }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
-              />
-            </div>
-            <span className="text-[10px] font-bold flex-shrink-0" style={{ color: "rgba(0,0,0,0.35)" }}>
-              {totalCleared}/52
-            </span>
-          </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: 90 }}>
+          <span style={{ color: aMeta.color, fontSize: 12 }}>{aMeta.sym}</span>
+          <span className="text-[11px] font-semibold truncate" style={{ color: "#1a1a2e" }}>
+            {aCat.label}
+          </span>
         </div>
-      </header>
+        <div
+          className="flex-1 rounded-full overflow-hidden"
+          style={{ height: 3, background: "rgba(0,0,0,0.06)" }}
+        >
+          <motion.div
+            className="h-full rounded-full"
+            style={{ background: "#E5343A" }}
+            initial={false}
+            animate={{ width: `${progressPct}%` }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+          />
+        </div>
+        <span className="text-[10px] font-bold flex-shrink-0" style={{ color: "rgba(0,0,0,0.35)" }}>
+          {totalCleared}/52
+        </span>
+      </div>
 
       <div className="flex-1 relative overflow-hidden z-10">
         <div

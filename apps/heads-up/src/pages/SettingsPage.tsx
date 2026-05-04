@@ -3,12 +3,25 @@ import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { useSettings } from '../hooks/useSettings';
+import {
+  MIN_MATCH_LENGTH,
+  MAX_MATCH_LENGTH,
+} from '../storage/settings';
 import { useToastStore } from '../store/toast-store';
 import { _resetDBForTests, clearAll } from '../storage/history';
 import { APP_VERSION } from '../utils/version';
+import { BetPresetsEditor } from '../components/common/BetPresetsEditor';
 
 export default function SettingsPage() {
-  const { settings, setNickname, setSoundEnabled, setHapticEnabled } = useSettings();
+  const {
+    settings,
+    setNickname,
+    setSoundEnabled,
+    setHapticEnabled,
+    setBetPresets,
+    setMatchLength,
+    setDisplayUnit,
+  } = useSettings();
   const [nicknameDraft, setNicknameDraft] = useState(settings.nickname);
   const [confirmClear, setConfirmClear] = useState(false);
   const [clearStatus, setClearStatus] = useState<string | null>(null);
@@ -82,6 +95,64 @@ export default function SettingsPage() {
             desc="액션 시 진동 (지원 기기만)"
             checked={settings.hapticEnabled}
             onChange={setHapticEnabled}
+          />
+        </Section>
+
+        {/* 금액 표시 단위 */}
+        <Section title="금액 표시 단위">
+          <p className="mb-2 text-[11px] text-muted-foreground">
+            베팅 금액·팟·액션 토스트에 사용할 단위.
+          </p>
+          <div className="flex gap-2">
+            {(['bb', 'chips'] as const).map((u) => (
+              <button
+                key={u}
+                type="button"
+                onClick={() => setDisplayUnit(u)}
+                className={clsx(
+                  'flex-1 rounded-lg border py-2 text-sm font-semibold transition-colors',
+                  settings.displayUnit === u
+                    ? 'border-amber-400 bg-amber-400/15 text-amber-300'
+                    : 'border-border bg-card text-muted-foreground hover:bg-white/5',
+                )}
+              >
+                {u === 'bb' ? 'BB 단위' : '칩 수량'}
+              </button>
+            ))}
+          </div>
+        </Section>
+
+        {/* Match length — 마스터 스펙 v2 §8.3 */}
+        <Section title="매치 길이">
+          <p className="mb-2 text-[11px] text-muted-foreground">
+            한 매치당 핸드 수. 다음 매치부터 적용됩니다.
+          </p>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min={MIN_MATCH_LENGTH}
+              max={MAX_MATCH_LENGTH}
+              step={1}
+              value={settings.matchLength}
+              onChange={(e) => setMatchLength(Number(e.target.value))}
+              aria-label="매치 길이"
+              className="flex-1 accent-amber-400"
+            />
+            <span className="w-12 rounded-md border border-border bg-card px-2 py-1 text-center text-sm font-bold text-foreground">
+              {settings.matchLength}
+            </span>
+            <span className="text-xs text-muted-foreground">핸드</span>
+          </div>
+        </Section>
+
+        {/* Bet sizing presets */}
+        <Section title="베팅 사이즈 프리셋">
+          <p className="mb-2 text-[11px] text-muted-foreground">
+            팟 대비 비율로 레이즈/베팅 시 사용할 단축 버튼. ALL-IN은 항상 표시됩니다.
+          </p>
+          <BetPresetsEditor
+            value={settings.betPresets}
+            onChange={setBetPresets}
           />
         </Section>
 

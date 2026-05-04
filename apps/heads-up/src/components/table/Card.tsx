@@ -21,27 +21,33 @@ interface CardProps {
  * - 뒷면(back): 네이비 + 다이아몬드 패턴 + 골드 보더 액센트
  */
 
-const SIZES: Record<'sm' | 'md' | 'lg', { box: string; rank: string; suit: string; center: string; corner: string }> = {
+const SIZES: Record<'sm' | 'md' | 'lg', {
+  box: string; rank: string; suit: string; center: string;
+  corner: string; cornerBR: string;
+}> = {
   sm: {
     box: 'w-10 h-14',
-    rank: 'text-base',
-    suit: 'text-[10px]',
-    center: 'text-xl',
+    rank: 'text-[18px]',
+    suit: 'text-[11px]',
+    center: 'text-2xl',
     corner: 'top-1 left-1',
+    cornerBR: 'bottom-1 right-1',
   },
   md: {
     box: 'w-14 h-20',
-    rank: 'text-xl',
-    suit: 'text-xs',
-    center: 'text-3xl',
+    rank: 'text-[22px]',
+    suit: 'text-[13px]',
+    center: 'text-[34px]',
     corner: 'top-1 left-1.5',
+    cornerBR: 'bottom-1 right-1.5',
   },
   lg: {
     box: 'w-16 h-24',
-    rank: 'text-2xl',
-    suit: 'text-sm',
-    center: 'text-4xl',
+    rank: 'text-[26px]',
+    suit: 'text-[15px]',
+    center: 'text-[42px]',
     corner: 'top-1.5 left-1.5',
+    cornerBR: 'bottom-1.5 right-1.5',
   },
 };
 
@@ -75,9 +81,10 @@ export function Card({
           boxShadow:
             '0 2px 6px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.12) inset, 0 0 0 1px rgba(0,0,0,0.4)',
         }}
-        initial={animate ? { opacity: 0, y: -10 } : false}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: delay / 1000, duration: 0.2 }}
+        initial={animate ? { opacity: 0, scale: 0.4, y: -60, rotate: -25 } : false}
+        animate={{ opacity: 1, scale: 1, y: 0, rotate: 0 }}
+        exit={{ opacity: 0, y: -40, rotate: 30, transition: { duration: 0.25 } }}
+        transition={{ delay: delay / 1000, type: 'spring', stiffness: 260, damping: 22 }}
       >
         {/* Gold-edge inner border */}
         <div
@@ -114,7 +121,8 @@ export function Card({
   const isRed = suit === 'h' || suit === 'd';
   const rankChar = cardToString(card)[0];
   const suitChar = SUIT_SYMBOL[suit];
-  const colorClass = isRed ? 'text-red-600' : 'text-neutral-900';
+  // MIMIC red (#ba0c19) vs slate-900 (#0f172a) — 흰 배경 대비 최대화
+  const colorClass = isRed ? 'text-[#ba0c19]' : 'text-[#0f172a]';
 
   return (
     <motion.div
@@ -124,11 +132,12 @@ export function Card({
         background:
           'linear-gradient(180deg, #ffffff 0%, #fafafa 65%, #f1f3f5 100%)',
         boxShadow:
-          '0 2px 6px rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.6) inset, 0 0 0 1px rgba(0,0,0,0.18)',
+          '0 3px 8px rgba(0,0,0,0.28), 0 1px 0 rgba(255,255,255,0.6) inset, 0 0 0 1px rgba(0,0,0,0.22)',
       }}
-      initial={animate ? { rotateY: 90, opacity: 0 } : false}
-      animate={{ rotateY: 0, opacity: 1 }}
-      transition={{ delay: delay / 1000, duration: 0.3 }}
+      initial={animate ? { rotateY: 90, opacity: 0, scale: 0.6, y: -40 } : false}
+      animate={{ rotateY: 0, opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, y: -30, scale: 0.85, transition: { duration: 0.22 } }}
+      transition={{ delay: delay / 1000, type: 'spring', stiffness: 220, damping: 20 }}
     >
       {/* Top-left corner: rank + suit stacked */}
       <div className={clsx('absolute leading-none flex flex-col items-center', dims.corner)}>
@@ -139,9 +148,17 @@ export function Card({
       </div>
 
       {/* Center: large suit symbol */}
-      <span className={clsx('leading-none font-bold opacity-95', dims.center)}>
+      <span className={clsx('leading-none font-bold', dims.center)}>
         {suitChar}
       </span>
+
+      {/* Bottom-right corner: rank + suit (180° rotated) */}
+      <div className={clsx('absolute rotate-180 leading-none flex flex-col items-center', dims.cornerBR)}>
+        <span className={clsx('font-black tracking-tighter', dims.rank)}>
+          {rankChar}
+        </span>
+        <span className={clsx('leading-none -mt-0.5', dims.suit)}>{suitChar}</span>
+      </div>
     </motion.div>
   );
 }

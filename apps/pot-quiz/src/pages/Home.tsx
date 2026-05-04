@@ -22,7 +22,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center px-4 py-10">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-lg">
         {/* Header — gradient banner */}
         <div
           className="relative mb-5 overflow-hidden rounded-2xl"
@@ -34,13 +34,29 @@ export default function Home() {
             <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shadow-lg backdrop-blur-sm">
               <Brain className="w-6 h-6 text-white" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">포커 퀴즈</h1>
-            <p className="text-white/70 text-xs">쇼다운 · 핸드 순위 · 팟 분배</p>
+            <h1 className="text-2xl font-bold tracking-tight text-white">POT SPLIT</h1>
+            <p className="text-white/70 text-xs">팟을 정확히 나누는 연습</p>
           </div>
         </div>
 
         {/* Best records card */}
-        <div className="bg-card border border-border rounded-2xl p-4 mb-6">
+        <div className="relative bg-card border border-border rounded-2xl p-4 mb-6 overflow-hidden">
+          {/* Chip-stack watermark */}
+          <svg
+            aria-hidden
+            className="pointer-events-none absolute right-2 bottom-2 h-20 w-20 opacity-[0.04] text-foreground"
+            viewBox="0 0 80 80"
+            fill="currentColor"
+          >
+            {/* Stack of 3 chip circles */}
+            <ellipse cx="40" cy="62" rx="26" ry="8" />
+            <rect x="14" y="46" width="52" height="16" rx="2" />
+            <ellipse cx="40" cy="46" rx="26" ry="8" />
+            <rect x="14" y="30" width="52" height="16" rx="2" />
+            <ellipse cx="40" cy="30" rx="26" ry="8" />
+            <rect x="14" y="14" width="52" height="16" rx="2" />
+            <ellipse cx="40" cy="14" rx="26" ry="8" />
+          </svg>
           {hasAnyRecord && (() => {
             const top = Math.max(...records.map(r => r.streak));
             return top > 0 ? (
@@ -88,7 +104,16 @@ export default function Home() {
         </div>
 
         {/* How it works */}
-        <div className="bg-card border border-border rounded-2xl p-4 mb-6">
+        <div className="relative bg-card border border-border rounded-2xl p-4 mb-6 overflow-hidden">
+          {/* Spade watermark */}
+          <svg
+            aria-hidden
+            className="pointer-events-none absolute right-3 top-3 h-16 w-16 opacity-[0.04] text-foreground"
+            viewBox="0 0 64 64"
+            fill="currentColor"
+          >
+            <path d="M32 4 C18 16 6 22 6 34 C6 43 13 48 22 46 C19 52 15 56 10 58 L54 58 C49 56 45 52 42 46 C51 48 58 43 58 34 C58 22 46 16 32 4Z" />
+          </svg>
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">게임 방식</p>
           <div className="space-y-2.5">
             <div className="flex items-start gap-3">
@@ -167,7 +192,7 @@ export default function Home() {
         </button>
 
         <p className="text-center text-muted-foreground text-xs mt-6 leading-relaxed">
-          쇼다운 상황에서 핸드를 빠르게 판독하고<br />정확한 팟 분배를 계산하세요.
+          팟이 어떻게 나뉘는지 빠르게 판단하는<br />실전 감각을 키워보세요.
         </p>
       </div>
     </div>

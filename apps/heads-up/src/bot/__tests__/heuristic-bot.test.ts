@@ -84,13 +84,14 @@ describe('HeuristicBot — determinism', () => {
 });
 
 describe('HeuristicBot — thinking time bounds', () => {
-  it('thinkingTimeMs is between 800 and 2500', () => {
+  // MEDIUM level의 delayRangeMs는 마스터 스펙 v2 §10.8에 따라 [700, 1800]ms.
+  it('thinkingTimeMs is within the MEDIUM level range (700–1800ms)', () => {
     const bot = new HeuristicBot('MEDIUM', 42);
     for (let i = 0; i < 50; i++) {
       const { state, meId } = buildState({ myCards: ['As', 'Ah'], myPosition: 'SB' });
       const d = bot.decide(state, meId);
-      expect(d.thinkingTimeMs).toBeGreaterThanOrEqual(800);
-      expect(d.thinkingTimeMs).toBeLessThanOrEqual(2500);
+      expect(d.thinkingTimeMs).toBeGreaterThanOrEqual(700);
+      expect(d.thinkingTimeMs).toBeLessThanOrEqual(1800);
     }
   });
 });

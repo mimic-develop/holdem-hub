@@ -26,20 +26,20 @@
   --popover: 0 0% 100%;
   --popover-foreground: 0 0% 9%;
 
-  /* MIMIC red — #BA0C19 (HSL 354 88% 39%) */
-  --primary: 354 88% 39%;
+  /* Primary — slate blue #2563EB 계열 (HSL 217 91% 60% → 조정: 215 62% 44%) */
+  --primary: 215 62% 44%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 0 0% 94%;
   --secondary-foreground: 0 0% 9%;
   --muted: 0 0% 96%;
   --muted-foreground: 0 0% 45%;
-  --accent: 354 88% 97%;
-  --accent-foreground: 354 88% 35%;
-  --destructive: 0 84% 48%;
-  --destructive-foreground: 0 84% 98%;
+  --accent: 215 62% 96%;
+  --accent-foreground: 215 62% 35%;
+  --destructive: 0 72% 42%;
+  --destructive-foreground: 0 0% 100%;
   --input: 0 0% 75%;
-  --ring: 354 88% 39%;
+  --ring: 215 62% 44%;
 
   /* Body baseline */
   background-color: hsl(var(--background));
@@ -70,4 +70,41 @@
 .app-heads-up .bg-card .text-white,
 .app-heads-up .bg-background .text-white {
   color: hsl(var(--foreground));
+}
+
+/* ── 세로 슬라이더 (BetSlider) ─────────────────────────────── */
+.vertical-slider {
+  -webkit-appearance: slider-vertical;
+  writing-mode: vertical-lr;
+  direction: rtl;
+}
+.vertical-slider::-webkit-slider-runnable-track {
+  width: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+}
+.vertical-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #f97316;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  margin-left: -8px;
+  cursor: pointer;
+}
+.vertical-slider::-moz-range-track {
+  width: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+}
+.vertical-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #f97316;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
 }

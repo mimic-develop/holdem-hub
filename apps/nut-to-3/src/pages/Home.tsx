@@ -222,7 +222,7 @@ async function generateShareCard(params: {
   ctx.fillStyle = "#111827";
   ctx.font = "bold 16px -apple-system, system-ui, sans-serif";
   ctx.textAlign = "left";
-  ctx.fillText("Nut to 3", PAD + (logo ? 38 : 0), HEADER_MID);
+  ctx.fillText("NUT TO 3", PAD + (logo ? 38 : 0), HEADER_MID);
 
   ctx.fillStyle = "#9ca3af";
   ctx.font = "11px -apple-system, system-ui, sans-serif";
@@ -272,11 +272,11 @@ async function generateShareCard(params: {
 
   ctx.fillStyle = "#9ca3af";
   ctx.font = "12px -apple-system, system-ui, sans-serif";
-  ctx.fillText("텍사스 홀덤 너트 핸드 리딩 트레이너", W / 2, CTA1_Y);
+  ctx.fillText("가능한 최강 핸드 3개 찾기", W / 2, CTA1_Y);
 
   ctx.fillStyle = "#e82222";
   ctx.font = "bold 14px -apple-system, system-ui, sans-serif";
-  ctx.fillText("Nut to 3에 도전해보세요 →", W / 2, CTA2_Y);
+  ctx.fillText("NUT TO 3에 도전해보세요 →", W / 2, CTA2_Y);
 
   return new Promise(resolve => {
     canvas.toBlob(blob => resolve(blob!), "image/png");
@@ -385,14 +385,14 @@ export default function Home() {
             <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
               <img src={mimicLogoFull} alt="MIMIC" className="w-8 h-8 object-contain" />
             </div>
-            <h1 className="font-display font-bold text-2xl tracking-tight text-white">Nut to 3</h1>
-            <p className="text-white/70 text-xs">텍사스 홀덤 너트 찾기 트레이너</p>
+            <h1 className="font-display font-bold text-2xl tracking-tight text-white">NUT TO 3</h1>
+            <p className="text-white/70 text-xs">가능한 최강 핸드 3개 찾기</p>
           </div>
         </div>
 
         {/* How to play — 2×2 compact grid */}
         <div className="bg-card border border-gray-200 rounded-2xl p-4 mb-3">
-          <h2 className="font-display font-bold text-sm text-muted-foreground uppercase tracking-widest mb-3 text-center">게임 방법</h2>
+          <h2 className="font-display font-bold text-sm text-muted-foreground uppercase tracking-widest mb-3 border-l-4 border-amber-400 pl-2">게임 방법</h2>
           <div className="grid grid-cols-2 gap-2.5">
             {INTRO_STEPS.map((step, i) => {
               const Icon = step.icon;
@@ -413,7 +413,7 @@ export default function Home() {
         <button
           data-testid="button-info-intro"
           onClick={() => setShowInfo(true)}
-          className="w-full flex flex-col items-center justify-center gap-1.5 px-4 py-3 rounded-2xl border border-gray-200 bg-card hover:bg-gray-50 hover:border-gray-300 transition-all active:scale-[0.98] mb-4"
+          className="w-full flex flex-col items-center justify-center gap-1.5 px-4 py-3 rounded-2xl border border-amber-300/60 bg-amber-50/40 hover:bg-amber-50 hover:border-amber-400/70 transition-all active:scale-[0.98] mb-4"
         >
           <div className="w-8 h-8 rounded-lg bg-yellow-400/15 flex items-center justify-center shrink-0">
             <Crown className="w-4 h-4 text-yellow-500" />
@@ -541,12 +541,12 @@ export default function Home() {
 
   async function handleShare() {
     const shareText = effectiveShareStreak > 0
-      ? `🔥 ${effectiveShareStreak}연속 스트릭 달성! 너트 핸드 리딩 트레이너 Nut to 3에 도전해보세요`
-      : "텍사스 홀덤 너트 핸드 리딩 트레이너 Nut to 3에 도전해보세요";
+      ? `🔥 ${effectiveShareStreak}연속 스트릭 달성! NUT TO 3에 도전해보세요`
+      : "가능한 최강 핸드 3개 찾기 — NUT TO 3에 도전해보세요";
     const shareUrl = window.location.href;
     try {
       if (navigator.share) {
-        await navigator.share({ title: "Nut to 3", text: shareText, url: shareUrl });
+        await navigator.share({ title: "NUT TO 3", text: shareText, url: shareUrl });
       } else {
         await navigator.clipboard.writeText(shareUrl);
         toast({ description: "링크가 클립보드에 복사되었습니다" });
@@ -604,7 +604,7 @@ export default function Home() {
             <div className="w-8 h-8 rounded-lg bg-white border border-gray-200 shadow-sm flex items-center justify-center">
               <img src={mimicLogoFull} alt="MIMIC" className="w-7 h-7 object-contain" />
             </div>
-            <span className="font-display font-bold text-lg tracking-tight">Nut to 3</span>
+            <span className="font-display font-bold text-lg tracking-tight">NUT TO 3</span>
           </div>
 
           {/* Title section */}
@@ -952,7 +952,7 @@ export default function Home() {
           <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-md shrink-0">
             <img src={mimicLogoFull} alt="MIMIC" className="w-9 h-9 object-contain" />
           </div>
-          <span className="font-display font-bold text-xl leading-none tracking-tight">Nut to 3</span>
+          <span className="font-display font-bold text-xl leading-none tracking-tight">NUT TO 3</span>
         </div>
 
         <div className="flex items-center gap-2">

@@ -45,6 +45,23 @@ export async function _resetDBForTests(): Promise<void> {
   }
 }
 
+/**
+ * Normalize a record read from IndexedDB.
+ *
+ * Legacy records (saved before the `gtoAnalysis` → `postHandInsight` rename)
+ * still have the old field name in storage. We read either, write only the new.
+ * This avoids needing a one-shot migration script.
+ */
+function normalizeRecord(rec: CompletedHand | undefined): CompletedHand | null {
+  if (!rec) return null;
+  // The cast is safe at runtime — old records carry `gtoAnalysis` but lack `postHandInsight`.
+  const legacy = (rec as unknown as { gtoAnalysis?: CompletedHand['postHandInsight'] }).gtoAnalysis;
+  if (legacy && !rec.postHandInsight) {
+    return { ...rec, postHandInsight: legacy };
+  }
+  return rec;
+}
+
 export async function saveHand(hand: CompletedHand): Promise<void> {
   const db = await getDB();
   await db.put(STORE, hand);
@@ -53,7 +70,7 @@ export async function saveHand(hand: CompletedHand): Promise<void> {
 export async function getHand(handId: string): Promise<CompletedHand | null> {
   const db = await getDB();
   const v = await db.get(STORE, handId);
-  return v ?? null;
+  return normalizeRecord(v);
 }
 
 export interface ListOptions {
@@ -84,7 +101,8 @@ export async function listHands(opts: ListOptions = {}): Promise<CompletedHand[]
       if (skipped < offset) {
         skipped++;
       } else {
-        results.push(value);
+        const normalized = normalizeRecord(value);
+        if (normalized) results.push(normalized);
       }
     }
     cursor = await cursor.continue();
@@ -117,13 +135,15 @@ export async function getStats(): Promise<HandStats> {
   let netChips = 0;
   let scoreSum = 0;
   let scoreCount = 0;
-  for (const h of all) {
+  for (const raw of all) {
+    const h = normalizeRecord(raw);
+    if (!h) continue;
     if (h.result === 'WIN') wins++;
     else if (h.result === 'LOSS') losses++;
     else splits++;
     netChips += h.myWinLoss;
-    if (typeof h.gtoAnalysis?.overallScore === 'number') {
-      scoreSum += h.gtoAnalysis.overallScore;
+    if (typeof h.postHandInsight?.overallScore === 'number') {
+      scoreSum += h.postHandInsight.overallScore;
       scoreCount++;
     }
   }

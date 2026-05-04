@@ -25,7 +25,7 @@ export default function AboutPage() {
       </header>
 
       <div className="mx-auto max-w-md space-y-4 px-4 py-4 text-sm leading-relaxed text-foreground">
-        <Section title="헤즈업 솔로">
+        <Section title="HEADS-UP 솔로">
           <p>
             1:1 노리밋 텍사스 홀덤 연습 웹앱입니다. 혼자 AI 봇과 연습하거나, P2P
             (WebRTC) 로 친구와 직접 연결해 매치를 즐길 수 있습니다. 자체 서버는

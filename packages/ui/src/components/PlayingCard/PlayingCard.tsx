@@ -56,17 +56,17 @@ const PADDING_CLASS: Record<PlayingCardSize, string> = {
 };
 
 const RANK_TEXT_CLASS: Record<PlayingCardSize, string> = {
-  xs: "text-[8px]",
-  sm: "text-[10px]",
-  md: "text-[13px] sm:text-[15px]",
-  lg: "text-base sm:text-xl",
+  xs: "text-[9px]",
+  sm: "text-[11px]",
+  md: "text-[14px] sm:text-[17px]",
+  lg: "text-lg sm:text-2xl",
 };
 
 const CENTER_SUIT_CLASS: Record<PlayingCardSize, string> = {
-  xs: "text-[14px]",
-  sm: "text-[18px]",
-  md: "text-[22px] sm:text-[26px]",
-  lg: "text-[32px] sm:text-[40px]",
+  xs: "text-[16px]",
+  sm: "text-[21px]",
+  md: "text-[26px] sm:text-[30px]",
+  lg: "text-[38px] sm:text-[48px]",
 };
 
 const CORNER_OFFSET_CLASS: Record<PlayingCardSize, string> = {
@@ -170,7 +170,7 @@ export function PlayingCard(props: PlayingCardProps) {
       animate={animate}
       className={cn(
         "hh-playing-card relative shrink-0 select-none overflow-hidden rounded-lg",
-        "border border-zinc-200 bg-white",
+        "border border-zinc-200 bg-white shadow-sm ring-1 ring-black/[0.06]",
         SIZE_CLASS[size],
         PADDING_CLASS[size],
         interactive && "cursor-pointer",

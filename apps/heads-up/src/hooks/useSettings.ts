@@ -6,6 +6,9 @@ export function useSettings(): {
   setNickname: (nickname: string) => void;
   setSoundEnabled: (v: boolean) => void;
   setHapticEnabled: (v: boolean) => void;
+  setBetPresets: (v: number[]) => void;
+  setMatchLength: (v: number) => void;
+  setDisplayUnit: (v: 'bb' | 'chips') => void;
   updateSettings: (patch: Partial<Settings>) => void;
 } {
   const [settings, setSettings] = useState<Settings>(() => getSettings());
@@ -42,12 +45,27 @@ export function useSettings(): {
     (v: boolean) => updateSettings({ hapticEnabled: v }),
     [updateSettings],
   );
+  const setBetPresets = useCallback(
+    (v: number[]) => updateSettings({ betPresets: v }),
+    [updateSettings],
+  );
+  const setMatchLength = useCallback(
+    (v: number) => updateSettings({ matchLength: v }),
+    [updateSettings],
+  );
+  const setDisplayUnit = useCallback(
+    (v: 'bb' | 'chips') => updateSettings({ displayUnit: v }),
+    [updateSettings],
+  );
 
   return {
     settings,
     setNickname,
     setSoundEnabled,
     setHapticEnabled,
+    setBetPresets,
+    setMatchLength,
+    setDisplayUnit,
     updateSettings,
   };
 }

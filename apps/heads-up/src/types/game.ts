@@ -86,8 +86,11 @@ export interface Mistake {
   description: string;
 }
 
-/** End-to-end GTO-ish analysis of a completed hand. */
-export interface GtoAnalysis {
+/**
+ * 핸드 종료 후 회고용 인사이트.
+ * "GTO 채점기"가 아니라 보조 학습 장치 — 마스터 스펙 §11.
+ */
+export interface PostHandInsight {
   overallScore: number;
   streetScores: Partial<Record<Street, number>>;
   actionEvaluations: ActionEvaluation[];
@@ -95,6 +98,9 @@ export interface GtoAnalysis {
   strengths: string[];
   summary: string;
 }
+
+/** @deprecated 임시 alias — `PostHandInsight`를 사용하세요. 미래 버전에서 제거됩니다. */
+export type GtoAnalysis = PostHandInsight;
 
 /**
  * The canonical "played hand" record stored in IndexedDB.
@@ -129,5 +135,5 @@ export interface CompletedHand {
   deckSnapshot: Card[];
   /** Present when a deterministic seed was used (primarily tests & REMOTE mode). */
   seed?: number;
-  gtoAnalysis?: GtoAnalysis;
+  postHandInsight?: PostHandInsight;
 }

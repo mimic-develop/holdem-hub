@@ -1,0 +1,256 @@
+import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import clsx from 'clsx';
+import type { AiPersonaId } from '../../types/ai';
+import type { CompletedHand } from '../../types/game';
+import type { Card } from '../../engine/card';
+import { AI_PERSONAS } from '../../bot/personas';
+
+interface MatchEndOverlayProps {
+  /** Net BB diff for the human player. Negative = lost. */
+  netBB: number;
+  /** Total hands in this match (e.g. 12). */
+  totalHands: number;
+  /** Persona of the AI opponent (REMOTE 모드는 null). */
+  personaId: AiPersonaId | null;
+  /** All completed hands in this match — used for hand-by-hand summary. */
+  handHistory: CompletedHand[];
+  /** Trigger startRematch() — same persona×level. */
+  onRematch: () => void;
+  /** "다른 상대 찾기" — 홈으로 돌아가서 새 persona/level 선택. */
+  onFindNew: () => void;
+}
+
+/**
+ * 매치 종료 오버레이.
+ *
+ * 마스터 스펙 v2 §21: "결과 화면의 핵심 CTA는 항상 분석보다 리매치다."
+ * Layer 1: 총 결과 + 감정 카피 + Primary CTA(리매치)
+ * 핸드 내역: persona copy 아래 스크롤 가능한 핸드별 요약 리스트
+ */
+export function MatchEndOverlay({
+  netBB,
+  totalHands,
+  personaId,
+  handHistory,
+  onRematch,
+  onFindNew,
+}: MatchEndOverlayProps) {
+  const won = netBB > 0;
+  const tied = netBB === 0;
+  const title = tied ? '🤝 무승부' : won ? '🏆 매치 승리' : '💀 매치 패배';
+  const personaName = personaId ? AI_PERSONAS[personaId].displayName : '상대';
+
+  const copy = personaId
+    ? buildPersonaCopy(personaName, won, tied, netBB, totalHands)
+    : tied
+      ? '치열한 승부였습니다.'
+      : won
+        ? '주도권을 잡고 마무리했습니다.'
+        : '이번 매치는 흐름이 따라주지 않았습니다.';
+
+  const colorClass = tied
+    ? 'text-foreground'
+    : won
+      ? 'text-amber-400'
+      : 'text-rose-400';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+    >
+      <motion.div
+        initial={{ scale: 0.9, y: 16 }}
+        animate={{ scale: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 220, damping: 22 }}
+        className="flex w-full max-w-sm flex-col items-center gap-3 rounded-2xl border border-border bg-card px-5 py-6"
+      >
+        <div className={clsx('text-2xl font-bold', colorClass)}>{title}</div>
+
+        {/* Net BB — 가장 큰 시각 요소 */}
+        <div className="flex items-baseline gap-1">
+          <span className={clsx('text-5xl font-black tracking-tight', colorClass)}>
+            {netBB > 0 ? '+' : ''}
+            {netBB}
+          </span>
+          <span className="text-sm text-muted-foreground">BB</span>
+        </div>
+
+        {/* Match meta */}
+        <div className="text-center text-xs text-muted-foreground">
+          상대: <span className="font-semibold text-foreground">{personaName}</span>
+          <span className="mx-1.5">·</span>
+          <span>{totalHands}핸드 매치</span>
+        </div>
+
+        {/* 감정 카피 */}
+        <p className="text-center text-sm leading-relaxed text-foreground">{copy}</p>
+
+        {/* ── 핸드별 요약 리스트 ── */}
+        {handHistory.length > 0 && (
+          <div className="w-full">
+            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              핸드 내역
+            </div>
+            <div
+              className="max-h-52 overflow-y-auto rounded-lg border border-border bg-background/50"
+              style={{ scrollbarWidth: 'thin' }}
+            >
+              {handHistory.map((hand) => (
+                <HandSummaryRow key={hand.handId} hand={hand} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Primary CTA — 리매치 */}
+        <button
+          type="button"
+          onClick={onRematch}
+          autoFocus
+          className="mt-1 w-full rounded-lg px-4 py-3 text-base font-bold text-black shadow-lg transition-all hover:scale-[1.02] active:scale-95"
+          style={{
+            background: 'linear-gradient(180deg, #fcd34d 0%, #f59e0b 100%)',
+            boxShadow:
+              '0 6px 18px rgba(252,211,77,0.35), inset 0 1px 0 rgba(255,255,255,0.35)',
+          }}
+        >
+          🔁 리매치
+        </button>
+
+        {/* Secondary CTA */}
+        <button
+          type="button"
+          onClick={onFindNew}
+          className="w-full rounded-lg border border-border bg-muted px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-secondary active:scale-95"
+        >
+          다른 상대 찾기
+        </button>
+
+        {/* Tertiary */}
+        <Link
+          to="/history"
+          className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+        >
+          전적 보기 →
+        </Link>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ─── 핸드 요약 행 ─────────────────────────────────────────────────────────────
+
+const RANK_CHAR: Record<number, string> = {
+  2:'2', 3:'3', 4:'4', 5:'5', 6:'6', 7:'7', 8:'8', 9:'9',
+  10:'T', 11:'J', 12:'Q', 13:'K', 14:'A',
+};
+const SUIT_CHAR: Record<string, string> = { s:'♠', h:'♥', d:'♦', c:'♣' };
+const SUIT_RED: Record<string, boolean> = { h: true, d: true };
+
+function cardToText(c: Card): { rank: string; suit: string; red: boolean } {
+  return {
+    rank: RANK_CHAR[c.rank] ?? '?',
+    suit: SUIT_CHAR[c.suit] ?? c.suit,
+    red: SUIT_RED[c.suit] ?? false,
+  };
+}
+
+function CardText({ card }: { card: Card }) {
+  const { rank, suit, red } = cardToText(card);
+  return (
+    <span className={clsx('font-bold tabular-nums', red ? 'text-red-400' : 'text-white/90')}>
+      {rank}<span className={red ? 'text-red-400' : 'text-white/60'}>{suit}</span>
+    </span>
+  );
+}
+
+function HandSummaryRow({ hand }: { hand: CompletedHand }) {
+  const bbDelta = Math.round(hand.myWinLoss / 2);
+  const score = hand.postHandInsight?.overallScore;
+
+  const resultBadge =
+    hand.result === 'WIN'
+      ? { label: 'W', cls: 'bg-amber-500/20 text-amber-400 border-amber-500/30' }
+      : hand.result === 'LOSS'
+        ? { label: 'L', cls: 'bg-rose-500/20 text-rose-400 border-rose-500/30' }
+        : { label: 'D', cls: 'bg-white/10 text-white/60 border-white/20' };
+
+  return (
+    <div className="flex items-center gap-2 border-b border-border/50 px-2.5 py-1.5 last:border-0 text-xs">
+      {/* 핸드 번호 */}
+      <span className="w-6 shrink-0 text-[10px] text-muted-foreground">
+        H{hand.handNumber}
+      </span>
+
+      {/* 내 카드 */}
+      <div className="flex shrink-0 gap-0.5">
+        {hand.myCards.map((c, i) => (
+          <CardText key={i} card={c} />
+        ))}
+      </div>
+
+      {/* vs 상대 */}
+      <span className="text-white/20">vs</span>
+      {hand.wentToShowdown && hand.opponentCards ? (
+        <div className="flex shrink-0 gap-0.5">
+          {hand.opponentCards.map((c, i) => (
+            <CardText key={i} card={c} />
+          ))}
+        </div>
+      ) : (
+        <span className="text-white/30">폴드</span>
+      )}
+
+      {/* spacer */}
+      <div className="flex-1" />
+
+      {/* 인사이트 점수 */}
+      <span className="w-7 text-right text-[10px] text-muted-foreground">
+        {score !== undefined ? score : '—'}
+      </span>
+
+      {/* BB 델타 */}
+      <span
+        className={clsx(
+          'w-10 text-right font-semibold tabular-nums',
+          bbDelta > 0 ? 'text-green-400' : bbDelta < 0 ? 'text-rose-400' : 'text-white/40',
+        )}
+      >
+        {bbDelta > 0 ? '+' : ''}{bbDelta}BB
+      </span>
+
+      {/* 결과 배지 */}
+      <span
+        className={clsx(
+          'w-5 shrink-0 rounded border text-center text-[10px] font-bold',
+          resultBadge.cls,
+        )}
+      >
+        {resultBadge.label}
+      </span>
+    </div>
+  );
+}
+
+// ─── Persona copy ─────────────────────────────────────────────────────────────
+
+function buildPersonaCopy(
+  personaName: string,
+  won: boolean,
+  tied: boolean,
+  netBB: number,
+  totalHands: number,
+): string {
+  if (tied) return `${personaName}와 치열한 ${totalHands}핸드 무승부.`;
+  if (won) {
+    if (netBB >= 20) return `${personaName}을 압도하며 큰 승리를 거뒀습니다.`;
+    if (netBB >= 8) return `${personaName} 상대로 주도권을 잘 유지했습니다.`;
+    return `${personaName} 상대로 박빙의 승리.`;
+  }
+  if (netBB <= -20) return `${personaName}의 페이스에 끌려갔습니다.`;
+  if (netBB <= -8) return `${personaName} 상대로 흐름을 만들어내지 못했습니다.`;
+  return `${personaName} 상대로 아쉬운 한 끗 차.`;
+}

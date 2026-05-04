@@ -1,14 +1,19 @@
-import { useState, useEffect, useCallback, createContext, useContext } from "react";
-import {
-  signInWithPopup,
-  signOut as firebaseSignOut,
-  onAuthStateChanged,
-  type User,
-} from "firebase/auth";
-import { auth, googleProvider, isFirebaseConfigured } from "../lib/firebase";
+import { createContext, useContext } from "react";
+import { useAuthState } from "@hh/shared";
+
+/**
+ * concept-quiz 내부에서 사용하는 사용자 타입.
+ * Firebase User 전체 대신 실제로 쓰는 필드만 선언.
+ */
+export interface ConceptUser {
+  uid: string;
+  displayName: string | null;
+  email: string | null;
+  photoURL: string | null;
+}
 
 interface AuthContextValue {
-  user: User | null;
+  user: ConceptUser | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -23,36 +28,32 @@ const AuthContext = createContext<AuthContextValue>({
 
 export { AuthContext };
 
+/**
+ * Hub 전역 로그인 상태를 concept-quiz 내부 AuthContext 형식으로 변환.
+ *
+ * 실제 Google 로그인은 Hub 상단 네비게이션에서만 수행한다.
+ * concept-quiz는 Firestore 읽기/쓰기만 담당하고, 인증 상태는 Hub에 위임.
+ */
 export function useAuthProvider(): AuthContextValue {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, busy, signIn, signOut: sharedSignOut } = useAuthState();
 
-  useEffect(() => {
-    if (!isFirebaseConfigured) {
-      // 환경 변수 미설정 — 즉시 비로그인 상태로 마무리
-      setLoading(false);
-      return;
-    }
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setLoading(false);
-    });
-    return unsub;
-  }, []);
-
-  const signInWithGoogle = useCallback(async () => {
-    if (!isFirebaseConfigured) {
-      throw new Error("Firebase 환경 변수가 설정되지 않았습니다. .env.local 을 확인하세요.");
-    }
-    await signInWithPopup(auth, googleProvider);
-  }, []);
-
-  const signOut = useCallback(async () => {
-    if (!isFirebaseConfigured) return;
-    await firebaseSignOut(auth);
-  }, []);
-
-  return { user, loading, signInWithGoogle, signOut };
+  return {
+    user: user
+      ? {
+          uid: user.id,
+          displayName: user.displayName ?? null,
+          email: user.email ?? null,
+          photoURL: user.photoURL ?? null,
+        }
+      : null,
+    loading: busy,
+    signInWithGoogle: async () => {
+      await signIn();
+    },
+    signOut: async () => {
+      await sharedSignOut();
+    },
+  };
 }
 
 export function useAuth() {

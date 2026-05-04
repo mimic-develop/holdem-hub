@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { Card as CardView } from '../components/table/Card';
 import { HandRank } from '../engine/hand-evaluator';
-import { evaluateHand } from '../gto/hand-evaluator-main';
+import { evaluateHand } from '../insight/hand-evaluator-main';
 import { getHand, saveHand } from '../storage/history';
 import type {
   ActionEvaluation,
@@ -83,7 +83,7 @@ export default function AnalysisPage() {
       setLoading(false);
       // If analysis is missing (legacy hand or evaluator hadn't finished),
       // run it now and persist back.
-      if (!h.gtoAnalysis) {
+      if (!h.postHandInsight) {
         setEvaluating(true);
         // Defer via setTimeout — microtasks drain before React commits, so
         // queueMicrotask wouldn't let the "평가 중…" UI actually render.
@@ -93,7 +93,7 @@ export default function AnalysisPage() {
           if (cancelled) return;
           try {
             const analysis = evaluateHand(h);
-            const enriched = { ...h, gtoAnalysis: analysis };
+            const enriched = { ...h, postHandInsight: analysis };
             if (cancelled) return;
             setHand(enriched);
             void saveHand(enriched).catch((err) => {
@@ -152,6 +152,10 @@ export default function AnalysisPage() {
       </header>
 
       <div className="mx-auto max-w-2xl space-y-4 px-4 py-4">
+        <p className="text-[11px] text-muted-foreground text-center -mb-1">
+          정답 채점이 아닌, 회고용 보조 자료입니다.
+        </p>
+
         {/* Summary card */}
         <ScoreSummary hand={hand} evaluating={evaluating} />
 
@@ -179,7 +183,7 @@ function ScoreSummary({
   hand: CompletedHand;
   evaluating: boolean;
 }) {
-  const a = hand.gtoAnalysis;
+  const a = hand.postHandInsight;
   return (
     <section className="rounded-lg border border-border bg-card p-4">
       <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
@@ -203,7 +207,7 @@ function ScoreSummary({
           {a ? (
             <>
               <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                종합 평가
+                핸드 회고
               </div>
               <div className="mt-1 text-sm text-foreground">{a.summary}</div>
               {a.strengths.length > 0 && (
@@ -215,9 +219,9 @@ function ScoreSummary({
               )}
             </>
           ) : evaluating ? (
-            <div className="text-sm text-muted-foreground">평가 중…</div>
+            <div className="text-sm text-muted-foreground">인사이트 준비 중…</div>
           ) : (
-            <div className="text-sm text-muted-foreground">평가 데이터 없음</div>
+            <div className="text-sm text-muted-foreground">회고 데이터 없음</div>
           )}
         </div>
       </div>
@@ -373,14 +377,14 @@ function Timeline({ hand }: { hand: CompletedHand }) {
   // Map actionIndex → evaluation, mistake (for fast lookup)
   const evalMap = useMemo(() => {
     const m = new Map<number, ActionEvaluation>();
-    for (const e of hand.gtoAnalysis?.actionEvaluations ?? []) m.set(e.actionIndex, e);
+    for (const e of hand.postHandInsight?.actionEvaluations ?? []) m.set(e.actionIndex, e);
     return m;
-  }, [hand.gtoAnalysis]);
+  }, [hand.postHandInsight]);
   const mistakeMap = useMemo(() => {
     const m = new Map<number, Mistake>();
-    for (const x of hand.gtoAnalysis?.mistakes ?? []) m.set(x.actionIndex, x);
+    for (const x of hand.postHandInsight?.mistakes ?? []) m.set(x.actionIndex, x);
     return m;
-  }, [hand.gtoAnalysis]);
+  }, [hand.postHandInsight]);
 
   const grouped = useMemo(() => groupByStreet(hand.actionLog), [hand.actionLog]);
 
@@ -397,14 +401,14 @@ function Timeline({ hand }: { hand: CompletedHand }) {
             <div key={st}>
               <div className="mb-1.5 flex items-baseline gap-2">
                 <div className="text-xs font-bold text-primary">{STREET_KO[st]}</div>
-                {hand.gtoAnalysis?.streetScores[st] !== undefined && (
+                {hand.postHandInsight?.streetScores[st] !== undefined && (
                   <div
                     className={clsx(
                       'text-[11px] font-semibold',
-                      scoreColorClass(hand.gtoAnalysis.streetScores[st]!),
+                      scoreColorClass(hand.postHandInsight.streetScores[st]!),
                     )}
                   >
-                    스트리트 평균 {hand.gtoAnalysis.streetScores[st]}
+                    스트리트 평균 {hand.postHandInsight.streetScores[st]}
                   </div>
                 )}
               </div>
@@ -543,7 +547,7 @@ function ScoreBadge({ score }: { score: number }) {
 /* ------------------------------------------------------------------ */
 
 function TakeAways({ hand }: { hand: CompletedHand }) {
-  const a = hand.gtoAnalysis;
+  const a = hand.postHandInsight;
   if (!a) return null;
   if (a.mistakes.length === 0 && a.strengths.length === 0) return null;
 
