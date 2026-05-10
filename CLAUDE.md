@@ -187,13 +187,15 @@ sub-app `tsconfig.json`에 `noUnusedLocals: false`, `noUnusedParameters: false` 
 
 루트에서:
 ```bash
-pnpm dev          # Hub만 (API 불필요한 앱)
-pnpm dev:all      # Hub + API
+pnpm dev          # Hub + API 동시 기동 (NUT TO 3 포함 모든 앱 정상 동작)
+pnpm dev:hub      # Hub만 (API 불필요한 앱 전용 — 빠른 시작용)
 pnpm dev:api      # API만
 pnpm build        # 모든 워크스페이스 빌드
 pnpm typecheck    # 모든 워크스페이스 타입 체크
 pnpm test         # Vitest (현재는 heads-up만 정의됨)
 ```
+
+> ⚠️ **NUT TO 3는 API 서버 필수**: 게임 시작 시 `/api/nut-to-3/game/new`를 호출한다. `pnpm dev`는 이제 API를 자동으로 같이 띄운다. Hub만 단독으로 기동하면 게임 시작 즉시 ECONNREFUSED 에러 발생.
 
 특정 워크스페이스에서:
 ```bash
