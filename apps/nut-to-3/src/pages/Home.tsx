@@ -5,7 +5,7 @@ import {
   Download, Trophy, BookOpen, Share2
 } from "lucide-react";
 import mimicLogoFull from "../assets/mimic-logo.png";
-import crownBg from "../assets/crown-bg.png";
+import crownBg from "../assets/crown-bg.mp4";
 import { useGameState, useNewGame } from "../hooks/use-game";
 import { useToast } from "../hooks/use-toast";
 import { PlayingCard } from "../components/PlayingCard";
@@ -367,14 +367,17 @@ export default function Home() {
   if (appPhase === "intro") {
     return (
       <div style={{ position: 'fixed', top: '52px', left: 0, right: 0, bottom: 0, background: '#080818', overflow: 'hidden', zIndex: 1 }}>
-        {/* Crown background — 430px 컬럼 기준 */}
-        <div style={{
-          position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
-          width: '430px', height: '100%', zIndex: 0,
-          backgroundImage: `url(${crownBg})`, backgroundSize: 'cover',
-          backgroundPosition: 'center top', backgroundRepeat: 'no-repeat',
-          pointerEvents: 'none',
-        }} />
+        {/* Crown background video — 430px 컬럼 기준 */}
+        <video
+          autoPlay muted playsInline loop
+          style={{
+            position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
+            width: '430px', height: '100%', zIndex: 0,
+            objectFit: 'cover', objectPosition: 'center top',
+            pointerEvents: 'none',
+          }}
+          src={crownBg}
+        />
         {/* 배경 오버레이 — 명도 조절 */}
         <div style={{
           position: 'absolute', inset: 0, zIndex: 0,
