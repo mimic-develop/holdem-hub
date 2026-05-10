@@ -11,11 +11,27 @@ const NAV_ITEMS = [
   { label: "HEADS-UP", path: "/heads-up" },
 ] as const;
 
+// Sub-app별 라이트/다크 테마 — Navbar 색상 자동 결정
+// `/` (Hub 홈)은 비디오 + 다크 배경이므로 dark
+const APP_THEME: { prefix: string; theme: "light" | "dark" }[] = [
+  { prefix: "/concept-quiz", theme: "light" },
+  { prefix: "/pot-quiz", theme: "light" },
+  { prefix: "/heads-up", theme: "dark" },
+  { prefix: "/nut-to-3", theme: "dark" },
+];
+
+function resolveTheme(loc: string): "light" | "dark" {
+  for (const { prefix, theme } of APP_THEME) {
+    if (loc.startsWith(prefix)) return theme;
+  }
+  return "dark"; // Hub home (/) — 비디오 배경이라 dark
+}
+
 export function Navbar() {
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const [location] = useLocation();
-  const isLight = location.startsWith("/concept-quiz");
+  const isLight = resolveTheme(location) === "light";
   const { user, busy, error, signIn, signOut, providerName } = useAuthState();
   const [errorBubble, setErrorBubble] = useState<string | null>(null);
 
@@ -49,7 +65,7 @@ export function Navbar() {
 
   return (
     <header
-      className="sticky top-0 z-30 backdrop-blur-md"
+      className="fixed top-0 left-0 right-0 z-30 backdrop-blur-md"
       style={{
         backgroundColor: isLight ? "rgba(255,255,255,0.97)" : "rgba(10,10,10,0.92)",
         borderBottom: isLight ? "1px solid rgba(0,0,0,0.08)" : "1px solid rgba(168,0,20,0.2)",

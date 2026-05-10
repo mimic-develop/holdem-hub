@@ -64,7 +64,7 @@ export default function ConceptQuizApp() {
   const authValue = useAuthProvider();
 
   return (
-    <div className="app-concept-quiz bg-background text-foreground">
+    <div className="app-concept-quiz bg-background text-foreground" data-theme="light">
       <AuthContext.Provider value={authValue}>
         <TooltipProvider>
           <Toaster />

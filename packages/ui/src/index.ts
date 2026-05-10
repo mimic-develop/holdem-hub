@@ -11,3 +11,25 @@ export {
   type PlayingCardProps,
   type PlayingCardSize,
 } from "./components/PlayingCard/index.js";
+
+// ── 레이아웃 프리미티브 ────────────────────────────
+export { PageShell, type PageShellProps } from "./components/PageShell.js";
+export { BackToHub, type BackToHubProps } from "./components/BackToHub.js";
+export {
+  SubAppHeader,
+  type SubAppHeaderProps,
+} from "./components/SubAppHeader.js";
+export {
+  CTAButton,
+  type CTAButtonProps,
+  type CTAVariant,
+  type CTASize,
+} from "./components/CTAButton.js";
+export {
+  Surface,
+  type SurfaceProps,
+  type SurfaceElevation,
+  type SurfaceRadius,
+  type SurfacePadding,
+} from "./components/Surface.js";
+export { LoginGate, type LoginGateProps } from "./components/LoginGate.js";

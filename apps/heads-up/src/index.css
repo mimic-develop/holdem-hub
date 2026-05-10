@@ -14,39 +14,36 @@
  */
 
 .app-heads-up {
-  color-scheme: light only;
+  color-scheme: dark only;
 
-  /* Base — 화이트 베이스 + 다크 텍스트 */
-  --background: 0 0% 100%;
-  --foreground: 0 0% 9%;
-  --border: 0 0% 91%;
-  --card: 0 0% 100%;
-  --card-foreground: 0 0% 9%;
+  /* Base — 다크 베이스 + 크림 텍스트 (#0a0a0a / #FFFCF3) */
+  --background: 0 0% 4%;
+  --foreground: 43 100% 99%;
+  --border: 0 0% 18%;
+  --card: 0 0% 7%;
+  --card-foreground: 43 100% 99%;
 
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 9%;
+  --popover: 0 0% 7%;
+  --popover-foreground: 43 100% 99%;
 
-  /* Primary — slate blue #2563EB 계열 (HSL 217 91% 60% → 조정: 215 62% 44%) */
-  --primary: 215 62% 44%;
+  /* Primary — MIMIC red #BA0C19 (모든 앱 통일) */
+  --primary: 354 88% 39%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 0 0% 94%;
-  --secondary-foreground: 0 0% 9%;
-  --muted: 0 0% 96%;
-  --muted-foreground: 0 0% 45%;
-  --accent: 215 62% 96%;
-  --accent-foreground: 215 62% 35%;
-  --destructive: 0 72% 42%;
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 43 100% 99%;
+  --muted: 0 0% 12%;
+  --muted-foreground: 0 0% 60%;
+  --accent: 354 88% 14%;
+  --accent-foreground: 354 88% 75%;
+  --destructive: 0 72% 50%;
   --destructive-foreground: 0 0% 100%;
-  --input: 0 0% 75%;
-  --ring: 215 62% 44%;
+  --input: 0 0% 22%;
+  --ring: 354 88% 39%;
 
-  /* Body baseline */
+  /* Body baseline — 폰트 패밀리는 공통 --font-sans 상속 (tailwind-config) */
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family:
-    "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, Roboto,
-    sans-serif;
   font-feature-settings: "ss01", "ss02";
   -webkit-font-smoothing: antialiased;
 
@@ -72,39 +69,65 @@
   color: hsl(var(--foreground));
 }
 
-/* ── 세로 슬라이더 (BetSlider) ─────────────────────────────── */
-.vertical-slider {
-  -webkit-appearance: slider-vertical;
-  writing-mode: vertical-lr;
-  direction: rtl;
-}
-.vertical-slider::-webkit-slider-runnable-track {
-  width: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.15);
-}
-.vertical-slider::-webkit-slider-thumb {
+/* ── 수평 슬라이더 (BetSlider) ─────────────────────────────── */
+.app-heads-up input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 20px;
-  height: 20px;
+  appearance: none;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: #f97316;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-  margin-left: -8px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  margin-top: -9px;
+  transition: transform 0.1s;
+}
+.app-heads-up input[type="range"]::-webkit-slider-thumb:active {
+  transform: scale(1.15);
+}
+.app-heads-up input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: transparent;
+}
+.app-heads-up input[type="range"]::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #f97316;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
   cursor: pointer;
 }
-.vertical-slider::-moz-range-track {
-  width: 4px;
+.app-heads-up input[type="range"]::-moz-range-track {
+  height: 4px;
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.15);
 }
-.vertical-slider::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #f97316;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-  cursor: pointer;
+
+/* ── 인게임 모바일 뷰포트 대응 ──────────────────────────────── */
+
+/* ActionBar 버튼 높이 축소 (max-height 740px 이하) */
+@media (max-height: 740px) {
+  .app-heads-up [role="toolbar"] button {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .app-heads-up [role="toolbar"] {
+    gap: 6px;
+    padding: 6px 10px;
+  }
+}
+
+/* 극소 기기 대응 (max-height 680px) */
+@media (max-height: 680px) {
+  .app-heads-up [role="toolbar"] button {
+    padding-top: 6px;
+    padding-bottom: 6px;
+    min-height: 44px;
+  }
+  .app-heads-up [role="toolbar"] {
+    padding: 4px 8px;
+  }
 }

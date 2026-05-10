@@ -12,7 +12,7 @@
   --foreground: 0 0% 11%;
   --border: 0 0% 91%;
   --input: 0 0% 88%;
-  --ring: 353 100% 33%;
+  --ring: 354 88% 39%;
 
   --card: 0 0% 100%;
   --card-foreground: 0 0% 11%;
@@ -21,8 +21,8 @@
   --popover: 0 0% 100%;
   --popover-foreground: 0 0% 11%;
 
-  /* MIMIC 메인 컬러 #A80014 = hsl(353 100% 33%) */
-  --primary: 353 100% 33%;
+  /* MIMIC 메인 컬러 #BA0C19 = hsl(354 88% 39%) — 모든 앱 통일 */
+  --primary: 354 88% 39%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 0 0% 96%;
@@ -31,8 +31,8 @@
   --muted: 0 0% 96%;
   --muted-foreground: 0 0% 45%;
 
-  --accent: 353 100% 96%;
-  --accent-foreground: 353 100% 28%;
+  --accent: 354 88% 96%;
+  --accent-foreground: 354 88% 28%;
 
   --destructive: 0 84% 48%;
   --destructive-foreground: 0 0% 100%;

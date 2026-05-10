@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { Brain, Trophy, Play, Timer, Users, Coins, Flame } from 'lucide-react';
+import { SubAppHeader } from '@hh/ui';
 import type { PuzzleDifficulty } from "../types/poker";
 
 export default function Home() {
@@ -21,8 +22,10 @@ export default function Home() {
   const hasAnyRecord = records.some(r => r.score > 0 || r.streak > 0);
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center px-4 py-10">
-      <div className="w-full max-w-lg">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <SubAppHeader title="Pot Split" />
+      <div className="flex flex-col items-center px-4 py-10">
+      <div className="w-full max-w-[430px]">
         {/* Header — gradient banner */}
         <div
           className="relative mb-5 overflow-hidden rounded-2xl"
@@ -194,6 +197,7 @@ export default function Home() {
         <p className="text-center text-muted-foreground text-xs mt-6 leading-relaxed">
           팟이 어떻게 나뉘는지 빠르게 판단하는<br />실전 감각을 키워보세요.
         </p>
+      </div>
       </div>
     </div>
   );

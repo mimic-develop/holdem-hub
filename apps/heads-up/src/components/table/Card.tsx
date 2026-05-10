@@ -139,12 +139,11 @@ export function Card({
       exit={{ opacity: 0, y: -30, scale: 0.85, transition: { duration: 0.22 } }}
       transition={{ delay: delay / 1000, type: 'spring', stiffness: 220, damping: 20 }}
     >
-      {/* Top-left corner: rank + suit stacked */}
+      {/* Top-left corner: rank only */}
       <div className={clsx('absolute leading-none flex flex-col items-center', dims.corner)}>
         <span className={clsx('font-black tracking-tighter', dims.rank)}>
           {rankChar}
         </span>
-        <span className={clsx('leading-none -mt-0.5', dims.suit)}>{suitChar}</span>
       </div>
 
       {/* Center: large suit symbol */}
@@ -152,12 +151,11 @@ export function Card({
         {suitChar}
       </span>
 
-      {/* Bottom-right corner: rank + suit (180° rotated) */}
+      {/* Bottom-right corner: rank only (180° rotated) */}
       <div className={clsx('absolute rotate-180 leading-none flex flex-col items-center', dims.cornerBR)}>
         <span className={clsx('font-black tracking-tighter', dims.rank)}>
           {rankChar}
         </span>
-        <span className={clsx('leading-none -mt-0.5', dims.suit)}>{suitChar}</span>
       </div>
     </motion.div>
   );
