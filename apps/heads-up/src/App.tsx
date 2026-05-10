@@ -1,8 +1,10 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Route, Routes } from 'react-router-dom';
+import { useAuthState } from '@hh/shared';
 import { CompatBanner } from './components/common/CompatBanner';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { MilestoneToast } from './components/common/MilestoneToast';
+import { useSettings } from './hooks/useSettings';
 
 // Code-split each route — keeps the initial bundle lean. HomePage loads the
 // stats dashboard eagerly; deeper routes (table, history, analysis, settings,
@@ -22,9 +24,24 @@ function RouteFallback() {
   );
 }
 
+/** 구글 로그인 displayName → 헤즈업 닉네임 자동 동기화 */
+function AuthNicknameSyncer() {
+  const { user } = useAuthState();
+  const { setNickname } = useSettings();
+
+  useEffect(() => {
+    if (user?.displayName) {
+      setNickname(user.displayName);
+    }
+  }, [user?.displayName, setNickname]);
+
+  return null;
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
+      <AuthNicknameSyncer />
       <CompatBanner />
       <Suspense fallback={<RouteFallback />}>
         <Routes>

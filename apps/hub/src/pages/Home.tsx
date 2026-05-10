@@ -23,7 +23,7 @@ const FEATURED: AppCard = {
   title: "HEADS-UP",
   desc: "AI 또는 친구와 1:1 맞대결. 빠르게 실전 감각을 키워보세요.",
   path: "/heads-up",
-  accentColor: "#A80014",
+  accentColor: "#BA0C19",
 };
 
 const SECONDARY: AppCard[] = [
@@ -41,7 +41,7 @@ const SECONDARY: AppCard[] = [
     title: "POKER IQ",
     desc: "개념부터 실전 판단까지 퀴즈로 점수화",
     path: "/concept-quiz",
-    accentColor: "#A80014",
+    accentColor: "#BA0C19",
   },
   {
     id: "pot-quiz",
@@ -109,7 +109,7 @@ export function Home() {
       >
         {/* ── 히어로 텍스트 ── */}
         <div
-          className="relative flex flex-1 items-center px-4 py-6 sm:py-14 sm:px-7"
+          className="relative flex flex-none items-start px-4 pt-10 pb-5 sm:flex-1 sm:items-center sm:py-14 sm:px-7"
           style={{ zIndex: 1 }}
         >
           <div className="mx-auto w-full max-w-6xl" style={{ paddingLeft: "16px" }}>
@@ -139,7 +139,7 @@ export function Home() {
                   textTransform: "uppercase",
                 }}
               >
-                <span style={{ color: "#A80014" }}>MIMIC</span> PLAYLAB
+                <span style={{ color: "#BA0C19" }}>MIMIC</span> PLAYLAB
               </h1>
 
               {/* 서브카피 — 모바일에서 숨김 */}
@@ -176,7 +176,7 @@ export function Home() {
                   type="button"
                   onClick={handleStartNow}
                   style={{
-                    background: "#A80014",
+                    background: "#BA0C19",
                     color: "#FFFCF3",
                     fontSize: "12px",
                     fontWeight: 700,
@@ -235,13 +235,13 @@ export function Home() {
 
         {/* ── 모드 카드 — 하단 ── */}
         <div className="relative px-4 pb-4 sm:pb-8 sm:px-7" style={{ zIndex: 1 }}>
-          <div className="mx-auto max-w-6xl">
+          <div className="mx-auto max-w-[430px]">
             <div
               style={{
-                background: "rgba(0,0,0,0.28)",
+                background: "rgba(255,255,255,0.28)",
                 backdropFilter: "blur(6px)",
                 WebkitBackdropFilter: "blur(6px)",
-                border: "1px solid rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.40)",
                 padding: "12px",
               }}
             >
@@ -263,11 +263,11 @@ export function Home() {
                 >
                   <div
                     className="absolute left-0 right-0 top-0"
-                    style={{ height: "2px", background: "#A80014" }}
+                    style={{ height: "2px", background: "#BA0C19" }}
                   />
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <p style={{ fontSize: "9px", letterSpacing: "0.3em", color: "#A80014", textTransform: "uppercase", marginBottom: "5px" }}>
+                      <p style={{ fontSize: "9px", letterSpacing: "0.3em", color: "#BA0C19", textTransform: "uppercase", marginBottom: "5px" }}>
                         {FEATURED.tag}
                       </p>
                       <p style={{ fontSize: "20px", fontWeight: 700, color: "#FFFCF3", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "4px" }}>

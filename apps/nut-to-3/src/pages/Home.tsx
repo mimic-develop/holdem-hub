@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   RotateCcw, Crown, Medal, Award, CheckCircle2, XCircle,
   Loader2, ChevronRight, AlertTriangle, Flame, Info, X, Timer,
-  Download, Trophy, Target, Clock, Zap, BookOpen, Share2
+  Download, Trophy, BookOpen, Share2
 } from "lucide-react";
 import mimicLogoFull from "../assets/mimic-logo.png";
+import crownBg from "../assets/crown-bg.png";
 import { useGameState, useNewGame } from "../hooks/use-game";
 import { useToast } from "../hooks/use-toast";
 import { PlayingCard } from "../components/PlayingCard";
@@ -283,13 +284,6 @@ async function generateShareCard(params: {
   });
 }
 
-const INTRO_STEPS = [
-  { icon: Target, title: "보드 공개", desc: "플랍 → 턴 → 리버 순서로 공개" },
-  { icon: Crown, title: "너트 찾기", desc: "Nut · 2nd · 3rd 홀카드 2장씩 입력" },
-  { icon: Clock, title: "제한 시간", desc: "플랍 18초 · 턴 20초 · 리버 22초" },
-  { icon: Zap, title: "스트릭", desc: "3슬롯 모두 정답 시 연속 스트릭 적립" },
-];
-
 export default function Home() {
   // Persistent across games
   const [streak, setStreak] = useState(0);
@@ -372,73 +366,111 @@ export default function Home() {
   // ── INTRO SCREEN ──
   if (appPhase === "intro") {
     return (
-      <div className="min-h-screen max-w-lg mx-auto px-4 pb-10 flex flex-col">
-        {/* Header branding — gradient banner */}
-        <div
-          className="relative mt-4 mb-6 overflow-hidden rounded-2xl"
-          style={{ height: '140px', background: 'linear-gradient(135deg,#7c2d12 0%,#9a3412 50%,#b45309 100%)' }}
-        >
-          <span aria-hidden className="absolute inset-0 flex items-center justify-center select-none text-7xl font-bold text-white opacity-15">♦♥</span>
-          <span aria-hidden className="absolute top-3 left-4 select-none text-2xl text-white opacity-10">♣</span>
-          <span aria-hidden className="absolute bottom-2 right-4 select-none text-3xl text-white opacity-10">♠</span>
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
-              <img src={mimicLogoFull} alt="MIMIC" className="w-8 h-8 object-contain" />
+      <div style={{ position: 'fixed', top: '52px', left: 0, right: 0, bottom: 0, background: '#080818', overflow: 'hidden', zIndex: 1 }}>
+        {/* Crown background — 430px 컬럼 기준 */}
+        <div style={{
+          position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
+          width: '430px', height: '100%', zIndex: 0,
+          backgroundImage: `url(${crownBg})`, backgroundSize: 'cover',
+          backgroundPosition: 'center top', backgroundRepeat: 'no-repeat',
+          pointerEvents: 'none',
+        }} />
+        {/* 배경 오버레이 — 명도 조절 */}
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 0,
+          background: 'rgba(8,8,24,0.45)',
+          pointerEvents: 'none',
+        }} />
+
+        {/* 430px 센터 컨테이너 */}
+        <div style={{ position: 'relative', zIndex: 1, maxWidth: '430px', margin: '0 auto', display: 'flex', flexDirection: 'column', height: '100%', paddingTop: 'clamp(20px, 9vh, 64px)' }}>
+
+          {/* HERO */}
+          <div style={{ position: 'relative', padding: '20px 20px 24px', overflow: 'hidden', borderBottom: '1px solid rgba(212,175,55,0.2)', textAlign: 'center' }}>
+            {/* 텍스트 가독성 오버레이 */}
+            <div style={{
+              position: 'absolute', inset: 0, pointerEvents: 'none',
+              background: 'linear-gradient(to bottom, rgba(8,8,24,0.72) 0%, rgba(8,8,24,0.45) 60%, rgba(8,8,24,0.72) 100%)',
+            }} />
+            {/* Gold glow */}
+            <div style={{
+              position: 'absolute', top: '-40px', left: '50%', transform: 'translateX(-50%)',
+              width: '320px', height: '160px', borderRadius: '50%',
+              background: 'rgba(212,175,55,0.18)', filter: 'blur(60px)', pointerEvents: 'none',
+            }} />
+            <div style={{ position: 'relative', zIndex: 2 }}>
+              <div style={{ fontSize: '9px', letterSpacing: '0.4em', color: 'rgba(212,175,55,0.8)', textTransform: 'uppercase', marginBottom: '14px' }}>
+                Board Reading · Speed Challenge
+              </div>
+              <div style={{ fontSize: 'clamp(40px, 10vw, 52px)', fontWeight: 700, color: '#FFFCF3', letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1, marginBottom: '12px' }}>
+                NUT <span style={{ color: '#D4AF37' }}>TO</span> 3
+              </div>
+              <div style={{ fontSize: '12px', color: 'rgba(255,252,243,0.65)', letterSpacing: '0.08em', fontStyle: 'italic' }}>
+                "가능한 최강 핸드 3개를 가장 빠르게"
+              </div>
             </div>
-            <h1 className="font-display font-bold text-2xl tracking-tight text-white">NUT TO 3</h1>
-            <p className="text-white/70 text-xs">가능한 최강 핸드 3개 찾기</p>
           </div>
-        </div>
 
-        {/* How to play — 2×2 compact grid */}
-        <div className="bg-card border border-gray-200 rounded-2xl p-4 mb-3">
-          <h2 className="font-display font-bold text-sm text-muted-foreground uppercase tracking-widest mb-3 border-l-4 border-amber-400 pl-2">게임 방법</h2>
-          <div className="grid grid-cols-2 gap-2.5">
-            {INTRO_STEPS.map((step, i) => {
-              const Icon = step.icon;
-              return (
-                <div key={i} className="flex flex-col items-center text-center gap-1.5 p-3 rounded-xl bg-gray-50 border border-gray-100">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0">
-                    <Icon className="w-4 h-4 text-indigo-600" />
-                  </div>
-                  <div className="font-display font-bold text-xs text-foreground leading-tight">{step.title}</div>
-                  <p className="text-[10px] text-muted-foreground leading-snug">{step.desc}</p>
-                </div>
-              );
-            })}
+          {/* MY STATS BAR */}
+          <div style={{ padding: '20px 20px 0' }}>
+            <div style={{ fontSize: '10px', letterSpacing: '0.3em', color: 'rgba(255,252,243,0.75)', textTransform: 'uppercase', marginBottom: '10px', textAlign: 'center' }}>
+              내 기록
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', border: '1px solid rgba(212,175,55,0.6)', background: 'rgba(8,8,24,0.75)', marginBottom: '12px' }}>
+              <div style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid rgba(212,175,55,0.35)' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.12em', color: 'rgba(255,252,243,0.75)', textTransform: 'uppercase', marginBottom: '6px' }}>현재 스트릭</div>
+                <div style={{ fontSize: '26px', fontWeight: 700, color: '#F5C842' }}>{streak}</div>
+              </div>
+              <div style={{ padding: '14px 8px', textAlign: 'center', borderRight: '1px solid rgba(212,175,55,0.35)' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.12em', color: 'rgba(255,252,243,0.75)', textTransform: 'uppercase', marginBottom: '6px' }}>최고 스트릭</div>
+                <div style={{ fontSize: '26px', fontWeight: 700, color: '#F5C842' }}>{bestStreak}</div>
+              </div>
+              <div style={{ padding: '14px 8px', textAlign: 'center' }}>
+                <div style={{ fontSize: '10px', letterSpacing: '0.12em', color: 'rgba(255,252,243,0.75)', textTransform: 'uppercase', marginBottom: '6px' }}>제한 시간</div>
+                <div style={{ fontSize: '22px', fontWeight: 700, color: '#F5C842' }}>18-22s</div>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Hand rankings — collapsed, opens modal */}
-        <button
-          data-testid="button-info-intro"
-          onClick={() => setShowInfo(true)}
-          className="w-full flex flex-col items-center justify-center gap-1.5 px-4 py-3 rounded-2xl border border-amber-300/60 bg-amber-50/40 hover:bg-amber-50 hover:border-amber-400/70 transition-all active:scale-[0.98] mb-4"
-        >
-          <div className="w-8 h-8 rounded-lg bg-yellow-400/15 flex items-center justify-center shrink-0">
-            <Crown className="w-4 h-4 text-yellow-500" />
+          {/* CTA */}
+          <div style={{ padding: '12px 20px 20px', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto' }}>
+            <button
+              data-testid="button-start-game"
+              onClick={() => setAppPhase("playing")}
+              style={{
+                width: '100%', minHeight: '52px', background: '#D4AF37', color: '#080818',
+                fontSize: '14px', fontWeight: 700, letterSpacing: '0.18em',
+                textTransform: 'uppercase', padding: '14px 20px', border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              게임 스타트 →
+            </button>
+            <button
+              data-testid="button-info-intro"
+              onClick={() => setShowInfo(true)}
+              style={{
+                width: '100%', minHeight: '52px', background: 'transparent', color: 'rgba(255,252,243,0.65)',
+                fontSize: '11px', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase',
+                padding: '13px 20px', border: '1px solid rgba(212,175,55,0.25)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              }}
+            >
+              게임 방법 · 족보 순위 확인
+              <span style={{ fontSize: '8px', padding: '2px 7px', background: 'rgba(212,175,55,0.15)', color: '#D4AF37', border: '1px solid rgba(212,175,55,0.35)', letterSpacing: '0.1em' }}>
+                특수 룰 포함
+              </span>
+            </button>
           </div>
-          <div className="text-center">
-            <div className="font-display font-bold text-sm">족보 순위 확인</div>
-            <div className="text-[10px] text-muted-foreground">스트레이트 플러시 → 하이카드 · 특수 룰 포함</div>
-          </div>
-        </button>
 
-        {/* Start button — large, full-width primary */}
-        <button
-          data-testid="button-start-game"
-          onClick={() => setAppPhase("playing")}
-          className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-display font-bold text-lg shadow-xl shadow-primary/30 hover:bg-primary/90 hover:-translate-y-0.5 transition-all active:scale-[0.98]"
-        >
-          게임 스타트
-        </button>
+          {isLoading && (
+            <p className="text-center text-xs text-muted-foreground pb-3 flex items-center justify-center gap-1.5">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              게임 데이터 준비 중...
+            </p>
+          )}
 
-        {isLoading && (
-          <p className="text-center text-xs text-muted-foreground mt-3 flex items-center justify-center gap-1.5">
-            <Loader2 className="w-3 h-3 animate-spin" />
-            게임 데이터 준비 중...
-          </p>
-        )}
+        </div>{/* end 430px container */}
 
         {/* Info modal (족보) — reused from playing screen */}
         <AnimatePresence>
@@ -456,7 +488,7 @@ export default function Home() {
                 animate={{ y: 0 }}
                 exit={{ y: "100%" }}
                 transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                className="relative w-full max-w-lg bg-background border-t border-gray-200 rounded-t-2xl px-4 pt-4 pb-10 overflow-y-auto max-h-[85vh]"
+                className="relative w-full max-w-[430px] bg-background border-t border-gray-200 rounded-t-2xl px-4 pt-4 pb-10 overflow-y-auto max-h-[85vh]"
               >
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="font-display font-bold text-base">족보 순위</h2>
@@ -511,7 +543,7 @@ export default function Home() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <Loader2 className="w-10 h-10 text-primary animate-spin" />
-        <p className="text-muted-foreground font-display tracking-widest uppercase text-sm">Shuffling Deck...</p>
+        <p className="text-white/60 font-display tracking-widest uppercase text-sm">Shuffling Deck...</p>
       </div>
     );
   }
@@ -596,15 +628,15 @@ export default function Home() {
     }
 
     return (
-      <div className="min-h-screen max-w-lg mx-auto px-4 pb-10 flex flex-col">
+      <div className="min-h-screen px-4 pb-10 flex flex-col" style={{ maxWidth: '430px', margin: '0 auto' }}>
         <div className="flex flex-col gap-4 pt-8 pb-4">
 
           {/* Branding row */}
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-white border border-gray-200 shadow-sm flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-white border border-white/20 shadow-sm flex items-center justify-center">
               <img src={mimicLogoFull} alt="MIMIC" className="w-7 h-7 object-contain" />
             </div>
-            <span className="font-display font-bold text-lg tracking-tight">NUT TO 3</span>
+            <span className="font-display font-bold text-lg tracking-tight text-white">NUT TO 3</span>
           </div>
 
           {/* Title section */}
@@ -614,7 +646,7 @@ export default function Home() {
               <span className="font-display font-bold text-4xl text-emerald-600">완주!</span>
               <Trophy className="w-6 h-6 text-yellow-400" />
             </div>
-            <p className="text-muted-foreground text-sm mt-1">
+            <p className="text-white/60 text-sm mt-1">
               {totalCorrect === totalPossible ? "플랍·턴·리버 모두 완벽 정답" : `총 ${totalCorrect}/${totalPossible} 정답`}
             </p>
             {finalStreak > 0 && (
@@ -629,16 +661,16 @@ export default function Home() {
           </div>
 
           {/* A안: 3×3 스코어카드 */}
-          <div className="bg-card border border-gray-200 rounded-2xl overflow-hidden">
+          <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
             {/* 헤더 행 */}
-            <div className="grid grid-cols-4 bg-gray-50 border-b border-gray-100">
+            <div className="grid grid-cols-4 bg-white/8 border-b border-white/10">
               <div className="p-2.5" />
               {SLOT_CONFIG.map(cfg => {
                 const Icon = cfg.Icon;
                 return (
-                  <div key={cfg.label} className="p-2.5 flex flex-col items-center justify-center border-l border-gray-100 gap-0.5">
+                  <div key={cfg.label} className="p-2.5 flex flex-col items-center justify-center border-l border-white/10 gap-0.5">
                     <Icon className={cn("w-3.5 h-3.5", cfg.color)} />
-                    <span className="text-[9px] font-bold text-muted-foreground">{cfg.label}</span>
+                    <span className="text-[9px] font-bold text-white/50">{cfg.label}</span>
                   </div>
                 );
               })}
@@ -650,16 +682,16 @@ export default function Home() {
               const summaryLabel = correctInRow === 3 ? "완벽" : correctInRow === 2 ? "2정답" : correctInRow === 1 ? "1정답" : "아웃";
               const summaryColor = correctInRow === 3 ? "text-green-600" : correctInRow === 2 ? "text-amber-500" : correctInRow === 1 ? "text-orange-500" : "text-red-400";
               return (
-                <div key={label} className={cn("grid grid-cols-4", si < 2 && "border-b border-gray-100")}>
+                <div key={label} className={cn("grid grid-cols-4", si < 2 && "border-b border-white/10")}>
                   <div className="p-2.5 flex flex-col justify-center gap-0.5">
-                    <span className="text-xs font-display font-bold">{label}</span>
+                    <span className="text-xs font-display font-bold text-white">{label}</span>
                     <span className={cn("text-[9px] font-bold", summaryColor)}>{summaryLabel}</span>
                   </div>
                   {SLOT_CONFIG.map((_, slotIdx) => {
                     const ok = r?.[slotIdx] ?? false;
                     return (
                       <div key={slotIdx} className={cn(
-                        "p-2.5 flex items-center justify-center border-l border-gray-100",
+                        "p-2.5 flex items-center justify-center border-l border-white/10",
                         ok ? "bg-green-500/5" : "bg-red-500/5"
                       )}>
                         <div className={cn("w-3 h-3 rounded-full", ok ? "bg-green-500" : "bg-red-400")} />
@@ -673,19 +705,19 @@ export default function Home() {
 
           {/* Streak row */}
           {(finalStreak > 0 || bs > 0) && (
-            <div className="bg-card border border-gray-200 rounded-2xl p-4 flex items-center justify-between">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Flame className={cn("w-5 h-5", finalStreak > 0 ? "text-orange-500" : "text-muted-foreground")} />
+                <Flame className={cn("w-5 h-5", finalStreak > 0 ? "text-orange-500" : "text-white/50")} />
                 <div>
-                  <div className="text-[10px] text-muted-foreground font-semibold">이번 스트릭</div>
-                  <div className={cn("font-display font-bold text-xl", finalStreak > 0 ? "text-orange-500" : "text-muted-foreground")}>
+                  <div className="text-[10px] text-white/50 font-semibold">이번 스트릭</div>
+                  <div className={cn("font-display font-bold text-xl", finalStreak > 0 ? "text-orange-500" : "text-white/50")}>
                     {finalStreak}연속
                   </div>
                 </div>
               </div>
               {bs > 0 && (
                 <div className="text-right">
-                  <div className="text-[10px] text-muted-foreground font-semibold">최고 기록</div>
+                  <div className="text-[10px] text-white/50 font-semibold">최고 기록</div>
                   <div className="font-display font-bold text-xl text-amber-600">{bs}연속</div>
                 </div>
               )}
@@ -700,7 +732,7 @@ export default function Home() {
               data-testid="button-share"
               onClick={handleShare}
               disabled={isDownloading}
-              className="flex-1 py-3 rounded-2xl bg-card border border-gray-200 text-muted-foreground font-display font-bold text-sm hover:text-foreground hover:border-gray-300 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
+              className="flex-1 py-3 rounded-2xl bg-white/5 border border-white/10 text-white/70 font-display font-bold text-sm hover:text-white hover:border-white/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
               공유하기
@@ -709,7 +741,7 @@ export default function Home() {
               data-testid="button-download"
               onClick={handleDownload}
               disabled={isDownloading}
-              className="flex-1 py-3 rounded-2xl bg-card border border-gray-200 text-muted-foreground font-display font-bold text-sm hover:text-foreground hover:border-gray-300 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
+              className="flex-1 py-3 rounded-2xl bg-white/5 border border-white/10 text-white/70 font-display font-bold text-sm hover:text-white hover:border-white/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               이미지 저장
@@ -749,15 +781,15 @@ export default function Home() {
                 animate={{ y: 0 }}
                 exit={{ y: "100%" }}
                 transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                className="relative w-full max-w-lg bg-background border-t border-gray-200 rounded-t-2xl px-4 pt-4 pb-10 overflow-y-auto max-h-[90vh]"
+                className="relative w-full max-w-[430px] bg-[#080818] border-t border-white/10 rounded-t-2xl px-4 pt-4 pb-10 overflow-y-auto max-h-[90vh]"
               >
                 {/* 헤더 */}
                 <div className="flex items-center justify-between mb-5">
-                  <h2 className="font-display font-bold text-base">게임 리뷰</h2>
+                  <h2 className="font-display font-bold text-base text-white">게임 리뷰</h2>
                   <button
                     data-testid="button-close-review"
                     onClick={() => setShowReview(false)}
-                    className="w-7 h-7 rounded-lg border border-gray-200 flex items-center justify-center text-muted-foreground hover:text-foreground transition-all"
+                    className="w-7 h-7 rounded-lg border border-white/10 flex items-center justify-center text-white/50 hover:text-white transition-all"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -771,7 +803,7 @@ export default function Home() {
                   return (
                     <div key={si} className="mb-5">
                       {/* 스트리트 라벨 + 보드 카드 */}
-                      <div className="text-[10px] font-display font-bold text-muted-foreground uppercase tracking-widest mb-2">
+                      <div className="text-[10px] font-display font-bold text-white/50 uppercase tracking-widest mb-2">
                         {label} 보드
                       </div>
                       <div className="flex gap-1 mb-3 flex-wrap">
@@ -800,14 +832,14 @@ export default function Home() {
                                 {/* 슬롯 아이콘 + 라벨 */}
                                 <div className="flex items-center gap-1 w-14 shrink-0">
                                   <Icon className={cn("w-3.5 h-3.5 shrink-0", cfg.color)} />
-                                  <span className="text-[10px] font-bold">{cfg.label}</span>
+                                  <span className="text-[10px] font-bold text-white">{cfg.label}</span>
                                 </div>
 
                                 {/* 내가 선택한 카드 */}
                                 <div className="flex gap-0.5">
                                   {userCards.length > 0
                                     ? userCards.map((c, i) => <PlayingCard key={i} card={c} size="sm" />)
-                                    : <span className="text-[10px] text-muted-foreground italic">미입력</span>
+                                    : <span className="text-[10px] text-white/30 italic">미입력</span>
                                   }
                                 </div>
 
@@ -819,7 +851,7 @@ export default function Home() {
 
                                 {/* 족보명 */}
                                 {tier && (
-                                  <span className="text-[10px] text-muted-foreground ml-auto truncate">{tier.koreanDescr}</span>
+                                  <span className="text-[10px] text-white/50 ml-auto truncate">{tier.koreanDescr}</span>
                                 )}
                               </div>
 
@@ -828,7 +860,7 @@ export default function Home() {
                                 <div className="flex items-center gap-2 px-2.5 pb-2.5">
                                   <div className="w-14 shrink-0" />
                                   <div className="flex flex-col gap-1">
-                                    <span className="text-[9px] text-muted-foreground">정답 예시 · {tier.koreanDescr}</span>
+                                    <span className="text-[9px] text-white/50">정답 예시 · {tier.koreanDescr}</span>
                                     <div className="flex gap-0.5">
                                       {tier.exampleCards.map((c, i) => (
                                         <PlayingCard key={i} card={c} size="sm" noAnimation />
@@ -842,7 +874,7 @@ export default function Home() {
                         })}
                       </div>
 
-                      {si < 2 && <div className="border-b border-gray-100 mt-4" />}
+                      {si < 2 && <div className="border-b border-white/10 mt-4" />}
                     </div>
                   );
                 })}
@@ -945,14 +977,14 @@ export default function Home() {
   const correctCount = currentResults ? currentResults.filter(Boolean).length : 0;
 
   return (
-    <div className="min-h-screen max-w-lg mx-auto px-3 pb-6 flex flex-col">
+    <div className="min-h-screen px-3 pb-6 flex flex-col" style={{ maxWidth: '430px', margin: '0 auto' }}>
       {/* Header */}
-      <header className="py-4 flex items-center justify-between border-b border-gray-100">
+      <header className="py-4 flex items-center justify-between border-b border-white/10">
         <div className="flex items-center gap-2.5">
           <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center shadow-md shrink-0">
             <img src={mimicLogoFull} alt="MIMIC" className="w-9 h-9 object-contain" />
           </div>
-          <span className="font-display font-bold text-xl leading-none tracking-tight">NUT TO 3</span>
+          <span className="font-display font-bold text-xl leading-none tracking-tight text-white">NUT TO 3</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -963,7 +995,7 @@ export default function Home() {
                 "px-2 py-0.5 rounded-full text-xs font-bold font-display transition-all",
                 i < streetIndex && "bg-emerald-500/25 text-emerald-600",
                 i === streetIndex && "bg-primary text-primary-foreground",
-                i > streetIndex && "bg-gray-100 text-muted-foreground",
+                i > streetIndex && "bg-white/8 text-white/50",
               )}>
                 {label}
               </div>
@@ -973,10 +1005,10 @@ export default function Home() {
           {/* Streak */}
           <div data-testid="streak-display" className={cn(
             "flex items-center gap-1 px-2.5 py-1 rounded-lg border transition-all",
-            streak > 0 ? "border-orange-400/60 bg-orange-500/10" : "border-gray-200 bg-card"
+            streak > 0 ? "border-orange-400/60 bg-orange-500/10" : "border-white/10 bg-white/5"
           )}>
-            <Flame className={cn("w-3.5 h-3.5", streak > 0 ? "text-orange-500" : "text-muted-foreground")} />
-            <span className={cn("font-display font-bold text-sm", streak > 0 ? "text-orange-500" : "text-muted-foreground")}>
+            <Flame className={cn("w-3.5 h-3.5", streak > 0 ? "text-orange-500" : "text-white/50")} />
+            <span className={cn("font-display font-bold text-sm", streak > 0 ? "text-orange-500" : "text-white/50")}>
               {streak}
             </span>
           </div>
@@ -987,7 +1019,7 @@ export default function Home() {
       <button
         data-testid="button-info"
         onClick={() => setShowInfo(true)}
-        className="mt-3 w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-muted-foreground hover:bg-gray-100 hover:border-gray-300 hover:text-foreground active:scale-[0.98] transition-all"
+        className="mt-3 w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:border-white/20 hover:text-white active:scale-[0.98] transition-all"
       >
         <div className="flex items-center gap-2">
           <Info className="w-4 h-4 shrink-0 text-blue-500" />
@@ -998,7 +1030,7 @@ export default function Home() {
 
       {/* Board */}
       <div className="mt-4 mb-3">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2 text-center">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/50 mb-2 text-center">
           {STREET_LABELS[streetIndex]} 보드
         </p>
         <div className="flex gap-2 justify-center items-center flex-wrap">
@@ -1031,23 +1063,23 @@ export default function Home() {
                   onClick={() => handleActivateSlot(idx as 0 | 1 | 2)}
                   className={cn(
                     "flex flex-col items-center gap-2 p-2 rounded-xl border-2 transition-colors duration-200 cursor-pointer select-none",
-                    !isActive && "border-gray-200 bg-card hover:border-gray-300",
+                    !isActive && "border-white/10 bg-white/5 hover:border-white/20",
                     isActive && `${cfg.borderActive} ${cfg.bg}`,
                   )}
                 >
                   <div className="flex items-center gap-1">
                     <Icon className={cn("w-3.5 h-3.5", cfg.color)} />
-                    <span className="text-[11px] font-display font-bold">{cfg.label}</span>
+                    <span className="text-[11px] font-display font-bold text-white">{cfg.label}</span>
                   </div>
 
                   <div className="flex gap-1.5 justify-center min-h-[56px] items-center">
                     {cards.length === 0 && (
                       <>
-                        <div className="w-10 h-14 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
-                          <span className="text-gray-300 text-xs font-bold">1</span>
+                        <div className="w-10 h-14 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center">
+                          <span className="text-white/30 text-xs font-bold">1</span>
                         </div>
-                        <div className="w-10 h-14 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
-                          <span className="text-gray-300 text-xs font-bold">2</span>
+                        <div className="w-10 h-14 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center">
+                          <span className="text-white/30 text-xs font-bold">2</span>
                         </div>
                       </>
                     )}
@@ -1061,8 +1093,8 @@ export default function Home() {
                       </div>
                     ))}
                     {cards.length === 1 && (
-                      <div className="w-10 h-14 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
-                        <span className="text-gray-300 text-xs font-bold">2</span>
+                      <div className="w-10 h-14 rounded-lg border-2 border-dashed border-white/20 flex items-center justify-center">
+                        <span className="text-white/30 text-xs font-bold">2</span>
                       </div>
                     )}
                   </div>
@@ -1072,11 +1104,11 @@ export default function Home() {
           </div>
 
           {/* 52-Card Grid Picker */}
-          <div className="bg-card border border-gray-200 rounded-2xl p-3 flex flex-col gap-2">
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col gap-2">
             <div className="flex items-center gap-1.5">
               {(() => { const cfg = SLOT_CONFIG[activeSlot]; const Icon = cfg.Icon; return <Icon className={cn("w-3.5 h-3.5", cfg.color)} />; })()}
-              <span className="text-xs font-bold">{SLOT_CONFIG[activeSlot].label} 슬롯</span>
-              <span className="text-muted-foreground text-xs">
+              <span className="text-xs font-bold text-white">{SLOT_CONFIG[activeSlot].label} 슬롯</span>
+              <span className="text-white/50 text-xs">
                 — 카드 탭으로 선택 ({slotCards[activeSlot].length}/2)
               </span>
             </div>
@@ -1089,8 +1121,8 @@ export default function Home() {
                     <div className={cn(
                       "w-6 h-7 rounded flex items-center justify-center flex-shrink-0 text-sm font-bold leading-none",
                       redSuit
-                        ? "bg-red-50 text-red-600 border border-red-200"
-                        : "bg-gray-100 text-gray-700 border border-gray-200"
+                        ? "bg-red-900/30 text-red-400 border border-red-700/30"
+                        : "bg-white/10 text-white border border-white/20"
                     )}>
                       {SUIT_SYMBOLS[suit]}
                     </div>
@@ -1108,7 +1140,7 @@ export default function Home() {
                             disabled={isBoard}
                             className={cn(
                               "flex-1 h-7 rounded text-[11px] font-bold transition-colors select-none touch-manipulation border",
-                              isBoard && "border-transparent bg-gray-100 text-gray-300 cursor-not-allowed",
+                              isBoard && "border-transparent bg-white/5 text-white/20 cursor-not-allowed",
                               isInActiveSlot && "border-transparent bg-primary text-primary-foreground ring-1 ring-primary/70 cursor-default",
                               !isBoard && !isInActiveSlot && cn(
                                 "border-gray-200 bg-white hover:border-primary hover:ring-1 hover:ring-primary/60 active:scale-95",
@@ -1133,7 +1165,7 @@ export default function Home() {
               "w-4 h-4 shrink-0 transition-colors",
               timeLeft <= 5 ? "text-red-500" : timeLeft <= 10 ? "text-orange-400" : "text-green-500"
             )} />
-            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
               <div
                 data-testid="timer-bar"
                 className={cn(
@@ -1163,7 +1195,7 @@ export default function Home() {
               "w-full mt-3 py-3.5 rounded-xl font-display font-bold text-base transition-all shadow-xl",
               allReady
                 ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:-translate-y-0.5 shadow-primary/25"
-                : "bg-card text-muted-foreground cursor-not-allowed border border-gray-200"
+                : "bg-white/5 text-white/30 cursor-not-allowed border border-white/10"
             )}
           >
             {allReady ? "제출하기" : `슬롯을 채워주세요 (${slotCards.filter(s => s.length >= 2).length}/3)`}
@@ -1183,7 +1215,7 @@ export default function Home() {
             {correctCount === 3 ? (
               <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/30 p-5 text-center">
                 <div className="font-display font-bold text-3xl text-emerald-600 mb-1">완벽!</div>
-                <div className="text-muted-foreground text-sm">3/3 정답</div>
+                <div className="text-white/60 text-sm">3/3 정답</div>
                 <div className="flex items-center justify-center gap-1.5 mt-2">
                   <Flame className="w-4 h-4 text-orange-500" />
                   <span className="font-bold text-sm text-orange-500">{streak}연속 정답!</span>
@@ -1239,7 +1271,7 @@ export default function Home() {
                     </div>
 
                     {/* Slot label */}
-                    <span className="text-[11px] font-display font-bold text-center">{cfg.label}</span>
+                    <span className="text-[11px] font-display font-bold text-center text-white">{cfg.label}</span>
 
                     {/* User's selected cards */}
                     <div className="flex gap-0.5 justify-center">
@@ -1285,14 +1317,14 @@ export default function Home() {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="relative w-full max-w-lg bg-background border-t border-gray-200 rounded-t-2xl px-4 pt-4 pb-10 overflow-y-auto max-h-[85vh]"
+              className="relative w-full max-w-[430px] bg-[#080818] border-t border-white/10 rounded-t-2xl px-4 pt-4 pb-10 overflow-y-auto max-h-[85vh]"
             >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-display font-bold text-base">족보 순위</h2>
+                <h2 className="font-display font-bold text-base text-white">족보 순위</h2>
                 <button
                   data-testid="button-close-info"
                   onClick={() => setShowInfo(false)}
-                  className="w-7 h-7 rounded-lg border border-gray-200 flex items-center justify-center text-muted-foreground hover:text-foreground transition-all"
+                  className="w-7 h-7 rounded-lg border border-white/10 flex items-center justify-center text-white/50 hover:text-white transition-all"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1306,20 +1338,20 @@ export default function Home() {
                       "flex items-start gap-3 rounded-xl px-3 py-2.5 border",
                       hand.highlight
                         ? "bg-amber-50 border-amber-300"
-                        : "bg-card border-gray-100"
+                        : "bg-white/5 border-white/10"
                     )}
                   >
-                    <span className="text-muted-foreground text-xs font-mono w-5 shrink-0 mt-0.5 text-right">{i + 1}</span>
+                    <span className="text-white/50 text-xs font-mono w-5 shrink-0 mt-0.5 text-right">{i + 1}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className={cn("font-bold text-sm", hand.highlight && "text-amber-700")}>{hand.name}</span>
+                        <span className={cn("font-bold text-sm text-white", hand.highlight && "text-amber-700")}>{hand.name}</span>
                         {hand.tag && (
                           <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold shrink-0">
                             {hand.tag}
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{hand.desc}</p>
+                      <p className="text-[11px] text-white/50 mt-0.5 leading-snug">{hand.desc}</p>
                       {hand.rule && (
                         <p className="text-[11px] text-amber-700/80 mt-1.5 leading-snug border-t border-amber-200 pt-1.5">
                           {hand.rule}

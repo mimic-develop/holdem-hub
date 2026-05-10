@@ -9,26 +9,30 @@
  */
 
 import { Switch, Route } from "wouter";
+import { LoginGate } from "@hh/ui";
 import { Toaster } from "./components/ui/toaster";
 import { TooltipProvider } from "./components/ui/tooltip";
 import Home from "./pages/Home";
 import Quiz from "./pages/Quiz";
 import Summary from "./pages/Summary";
 import NotFound from "./pages/not-found";
+import mimicLogo from "./assets/mimic-logo.png";
 import "./index.css";
 
 export default function PotQuizApp() {
   return (
-    <div className="app-pot-quiz bg-background text-foreground">
-      <TooltipProvider>
-        <Toaster />
-        <Switch>
-          <Route path="/" component={Home} />
-          <Route path="/quiz/:difficulty" component={Quiz} />
-          <Route path="/summary/:difficulty" component={Summary} />
-          <Route component={NotFound} />
-        </Switch>
-      </TooltipProvider>
-    </div>
+    <LoginGate appName="POT SPLIT" subtitle="팟 분배 계산 퀴즈" logoSrc={mimicLogo}>
+      <div className="app-pot-quiz bg-background text-foreground" data-theme="light">
+        <TooltipProvider>
+          <Toaster />
+          <Switch>
+            <Route path="/" component={Home} />
+            <Route path="/quiz/:difficulty" component={Quiz} />
+            <Route path="/summary/:difficulty" component={Summary} />
+            <Route component={NotFound} />
+          </Switch>
+        </TooltipProvider>
+      </div>
+    </LoginGate>
   );
 }

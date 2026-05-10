@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock } from "lucide-react";
+import { SubAppHeader } from "@hh/ui";
 import { CATEGORIES } from "../lib/categories";
 import { getQuestionsByCategory, type Difficulty } from "../lib/quizData";
 import { useProgress } from "../hooks/useProgress";
@@ -74,7 +75,7 @@ function DeckFace({ card, isActive }: { card: DeckCard; isActive: boolean }) {
         boxShadow: isActive
           ? `0 8px 32px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.5)`
           : "0 4px 16px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.5)",
-        fontFamily: "'Nunito', sans-serif",
+        fontFamily: "inherit",
         overflow: "hidden",
         transition: "box-shadow 0.3s ease, border 0.3s ease, background 0.3s ease",
       }}
@@ -330,19 +331,29 @@ export default function Home() {
   return (
     <div
       style={{
-        height: "100dvh",
+        height: "calc(100dvh - 52px)",
         background: "#ffffff",
         display: "flex",
-        justifyContent: "center",
+        flexDirection: "column",
       }}
     >
+      <SubAppHeader
+        title="Poker IQ"
+        right={
+          <span className="text-[10px] font-bold tracking-wider text-foreground/40">
+            {totalCleared}/52
+          </span>
+        }
+      />
+
+      {/* 카드덱 영역 — 남은 높이 채움 */}
+      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', overflow: 'hidden' }}>
     <div
       ref={containerRef}
       className="flex flex-col overflow-hidden w-full relative"
       style={{
         maxWidth: 430,
         height: "100%",
-        paddingTop: "env(safe-area-inset-top)",
         paddingBottom: "env(safe-area-inset-bottom)",
       }}
     >
@@ -603,6 +614,7 @@ export default function Home() {
         </div>
       </div>
     </div>
+      </div>
     </div>
   );
 }

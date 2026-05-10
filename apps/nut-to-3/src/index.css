@@ -1,14 +1,12 @@
 /*
  * @hh/nut-to-3 — 다크 블루 테마 (#080818 배경 + #000CED Primary Blue)
  * 디자인 핸드오프 03_nutto3.html 기준.
+ *
+ * 폰트는 공통 Pretendard 스택 상속 (tailwind-config의 --font-sans).
  */
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:wght@400;500;700&display=swap");
 
 .app-nut-to-3 {
   color-scheme: dark only;
-
-  --font-sans: "DM Sans", sans-serif;
-  --font-display: "Outfit", sans-serif;
 
   /* 다크 배경 #080818 */
   --background: 240 43% 6%;
@@ -42,19 +40,8 @@
 
   --radius: 0.375rem;
 
-  font-family: var(--font-sans);
   background-color: #080818;
   -webkit-font-smoothing: antialiased;
-}
-
-/* heading은 Outfit (display) 폰트 */
-.app-nut-to-3 h1,
-.app-nut-to-3 h2,
-.app-nut-to-3 h3,
-.app-nut-to-3 h4,
-.app-nut-to-3 h5,
-.app-nut-to-3 h6 {
-  font-family: var(--font-display);
 }
 
 /* 원본 ::selection 동작 보존 */
@@ -78,9 +65,10 @@
   color: #111827;
 }
 
-/* font-display Tailwind utility (원본 className `font-display` 사용) */
+/* font-display는 Pretendard 통일 후 그냥 weight 강조용으로 남김 */
 .app-nut-to-3 .font-display {
-  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 /* Overlapping cards for hands (원본) */

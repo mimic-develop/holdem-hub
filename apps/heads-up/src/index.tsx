@@ -12,26 +12,30 @@
  *   (`storage/history.ts`의 DB 이름, `storage/settings.ts`/`stats.ts`의 localStorage 키 참조)
  */
 import { BrowserRouter } from "react-router-dom";
+import { LoginGate } from "@hh/ui";
 import App from "./App";
+import mimicLogo from "./assets/mimic-logo.png";
 import "./index.css";
 
 export default function HeadsUpApp() {
   return (
-    <div className="app-heads-up">
-      {/*
-        RR6 v6 + React 18 StrictMode + Suspense 조합에서 BrowserRouter가 render 도중
-        history state를 sync 업데이트해서 발생하는 "Cannot update a component while
-        rendering a different component" 경고 해결을 위해 v7 future flag 활성화.
-        v7_startTransition: 상태 업데이트를 startTransition으로 defer (경고 제거).
-        v7_relativeSplatPath: splat 라우트의 상대 경로 동작을 v7과 동일하게 (현재
-        heads-up은 splat 라우트 미사용이라 영향 없음, 호환성 차원에서 함께 켬).
-      */}
-      <BrowserRouter
-        basename="/heads-up"
-        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
-      >
-        <App />
-      </BrowserRouter>
-    </div>
+    <LoginGate appName="HEADS-UP" subtitle="헤즈업 트레이너" logoSrc={mimicLogo}>
+      <div className="app-heads-up" data-theme="dark">
+        {/*
+          RR6 v6 + React 18 StrictMode + Suspense 조합에서 BrowserRouter가 render 도중
+          history state를 sync 업데이트해서 발생하는 "Cannot update a component while
+          rendering a different component" 경고 해결을 위해 v7 future flag 활성화.
+          v7_startTransition: 상태 업데이트를 startTransition으로 defer (경고 제거).
+          v7_relativeSplatPath: splat 라우트의 상대 경로 동작을 v7과 동일하게 (현재
+          heads-up은 splat 라우트 미사용이라 영향 없음, 호환성 차원에서 함께 켬).
+        */}
+        <BrowserRouter
+          basename="/heads-up"
+          future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        >
+          <App />
+        </BrowserRouter>
+      </div>
+    </LoginGate>
   );
 }

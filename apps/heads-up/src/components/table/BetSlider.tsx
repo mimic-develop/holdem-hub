@@ -64,12 +64,13 @@ function clamp(n: number, lo: number, hi: number): number {
 }
 
 /**
- * 베팅 사이저 패널 — 세로형.
+ * 베팅 사이저 패널 — 수평 컴팩트 레이아웃.
  *
  * Layout (top → bottom):
- *   1. [−]  현재 금액 (BB · 팟%)  [+]   (정밀 조절, 롱프레스 지원)
- *   2. 프리셋 버튼 컬럼 + 세로 슬라이더 (휠 스크롤 지원)
- *   3. [취소]  [Raise / Bet  xbb]  (확정)
+ *   1. 금액 표시 (중앙) + [−] [+] 버튼
+ *   2. 프리셋 칩 버튼 (수평 스크롤)
+ *   3. 수평 슬라이더 (표준 range input — 크로스브라우저 안정적)
+ *   4. [취소] [Raise / Bet  xbb]
  */
 export function BetSlider({
   min,
@@ -86,13 +87,10 @@ export function BetSlider({
 }: BetSliderProps) {
   const safeMin = Math.min(min, max);
   const safeMax = Math.max(min, max);
-  // 팟 퍼센트 계산 기준: 내가 콜한 뒤의 팟
   const potAfterCall = potSize + currentBet;
-
-  // ±1bb 스텝
   const step = bigBlind;
 
-  // 롱프레스용 interval ref — 최신 value를 ref로 미러링해 closure 문제 방지
+  // 롱프레스용 ref — 최신 value를 미러링해 closure 문제 방지
   const valueRef = useRef(value);
   valueRef.current = value;
   const pressTimerRef = useRef<number | null>(null);
@@ -107,13 +105,11 @@ export function BetSlider({
 
   const startPress = useCallback(
     (delta: number) => {
-      // 첫 클릭 즉시 반응
       onChange(clamp(valueRef.current + delta, safeMin, safeMax));
-      // 500ms 후 반복 시작
       pressTimerRef.current = window.setTimeout(() => {
         pressIntervalRef.current = window.setInterval(() => {
           onChange(clamp(valueRef.current + delta, safeMin, safeMax));
-        }, 100);
+        }, 80);
       }, 400);
     },
     [onChange, safeMin, safeMax],
@@ -121,7 +117,6 @@ export function BetSlider({
 
   const presets: Preset[] = useMemo(() => {
     const list: Preset[] = presetFractions.map((frac) => {
-      // raise-to = call_amount + frac × (pot_after_call)
       const raw = Math.round(currentBet + frac * (potSize + currentBet));
       const clamped = clamp(raw, safeMin, safeMax);
       return {
@@ -131,21 +126,19 @@ export function BetSlider({
         isAllIn: clamped >= safeMax,
       };
     });
-    // All-In은 항상 추가
     list.push({
       fracLabel: 'All-In',
       bbLabel: toBBLabel(safeMax, bigBlind),
       value: safeMax,
       isAllIn: true,
     });
-    // 칩 금액 기준 중복 제거
     const seen = new Set<number>();
     return list.filter((p) => (seen.has(p.value) ? false : (seen.add(p.value), true)));
   }, [safeMin, safeMax, potSize, currentBet, presetFractions, bigBlind]);
 
-  // 위에서 아래로 = 큰 금액 → 작은 금액 순서
-  const sortedDesc = useMemo(
-    () => [...presets].sort((a, b) => b.value - a.value),
+  // 작은 금액 → 큰 금액 순 (좌→우)
+  const sortedAsc = useMemo(
+    () => [...presets].sort((a, b) => a.value - b.value),
     [presets],
   );
 
@@ -153,10 +146,15 @@ export function BetSlider({
   const currentBBDisplay = toBBLabel(value, bigBlind);
   const currentPotPct = toPotPct(value, potAfterCall);
 
-  return (
-    <div className="flex w-full flex-col gap-1.5">
+  // 슬라이더 fill 퍼센트 (배경 gradient용)
+  const fillPct = safeMax > safeMin
+    ? ((value - safeMin) / (safeMax - safeMin)) * 100
+    : 0;
 
-      {/* ── 1. 금액 표시 + ±1bb (롱프레스) ──────────────────────────── */}
+  return (
+    <div className="flex w-full flex-col gap-2">
+
+      {/* ── 1. 금액 표시 + ±bb 버튼 ─────────────────────────────── */}
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -165,7 +163,7 @@ export function BetSlider({
           onPointerLeave={stopPress}
           disabled={value <= safeMin}
           aria-label="베팅 1bb 감소"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10 text-base font-bold text-white/80 transition-colors hover:bg-white/20 active:scale-95 disabled:opacity-30"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-lg font-bold text-white/80 transition-colors hover:bg-white/20 active:scale-95 disabled:opacity-30"
         >
           −
         </button>
@@ -173,7 +171,7 @@ export function BetSlider({
         <div className="flex flex-1 flex-col items-center">
           <span
             className={clsx(
-              'text-[20px] font-black leading-none tabular-nums tracking-tight',
+              'text-[22px] font-black leading-none tabular-nums tracking-tight',
               isAllIn ? 'text-amber-400' : 'text-white',
             )}
           >
@@ -191,102 +189,78 @@ export function BetSlider({
           onPointerLeave={stopPress}
           disabled={value >= safeMax}
           aria-label="베팅 1bb 증가"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10 text-base font-bold text-white/80 transition-colors hover:bg-white/20 active:scale-95 disabled:opacity-30"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-lg font-bold text-white/80 transition-colors hover:bg-white/20 active:scale-95 disabled:opacity-30"
         >
           +
         </button>
       </div>
 
-      {/* ── 2. 프리셋 버튼 + 세로 슬라이더 ─────────────── */}
-      <div className="flex gap-2">
-
-        {/* 프리셋 버튼 (좌) */}
-        <div className="flex flex-1 flex-col gap-1">
-          {sortedDesc.map((p) => {
-            const active = value === p.value;
-            return (
-              <button
-                key={p.value}
-                type="button"
-                onClick={() => onChange(p.value)}
-                className={clsx(
-                  'flex w-full items-center justify-between rounded-lg px-3 py-1.5 transition-all active:scale-[0.98]',
-                  p.isAllIn
-                    ? active
-                      ? 'bg-amber-500 text-black'
-                      : 'border border-amber-500/40 text-amber-400 hover:bg-amber-500/10'
-                    : active
-                      ? 'bg-amber-500 text-black'
-                      : 'bg-white/[0.07] text-white/80 hover:bg-white/[0.13]',
-                )}
-              >
-                <span className="text-[12px] font-bold leading-none">{p.fracLabel}</span>
-                <span
-                  className={clsx(
-                    'text-[11px] font-semibold leading-none',
-                    active ? 'text-black/70' : 'text-white/50',
-                  )}
-                >
-                  {p.bbLabel}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* 세로 슬라이더 (우) — 휠 스크롤 지원 */}
-        <div className="flex w-9 flex-col items-center gap-1 rounded-xl bg-white/[0.06] py-2">
-          <span className="text-[9px] font-semibold text-white/35 leading-none">MAX</span>
-          <div
-            className="relative flex flex-1 items-center justify-center overflow-hidden"
-            onWheel={(e) => {
-              e.preventDefault();
-              // 위로 스크롤 = deltaY < 0 = 금액 증가
-              onChange(clamp(value + (e.deltaY > 0 ? -step : step), safeMin, safeMax));
-            }}
-          >
-            <input
-              type="range"
-              min={safeMin}
-              max={safeMax}
-              step={step}
-              value={value}
-              onChange={(e) => onChange(clamp(Number(e.target.value), safeMin, safeMax))}
-              aria-label="베팅 금액 슬라이더"
-              // Firefox 전용 비표준 속성 — TS 타입에 없으므로 spread로 우회
-              {...{ orient: "vertical" }}
-              className="vertical-slider"
-              style={{
-                writingMode: 'vertical-lr',
-                direction: 'rtl',
-                WebkitAppearance: 'slider-vertical',
-                appearance: 'none' as React.CSSProperties['appearance'],
-                width: '28px',
-                height: '100%',
-                cursor: 'pointer',
-                accentColor: isAllIn ? '#f59e0b' : '#f97316',
-                background: 'transparent',
-              }}
-            />
-          </div>
-          <span className="text-[9px] font-semibold text-white/35 leading-none">MIN</span>
-        </div>
-
+      {/* ── 2. 프리셋 칩 — 수평 스크롤 ──────────────────────────── */}
+      <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+        {sortedAsc.map((p) => {
+          const active = value === p.value;
+          return (
+            <button
+              key={p.value}
+              type="button"
+              onClick={() => onChange(p.value)}
+              className={clsx(
+                'flex shrink-0 flex-col items-center rounded-lg px-3 py-1.5 transition-all active:scale-95',
+                p.isAllIn
+                  ? active
+                    ? 'bg-amber-500 text-black'
+                    : 'border border-amber-500/40 text-amber-400 hover:bg-amber-500/10'
+                  : active
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-white/[0.08] text-white/75 hover:bg-white/[0.14]',
+              )}
+            >
+              <span className="text-[12px] font-bold leading-none">{p.fracLabel}</span>
+              <span className={clsx('mt-0.5 text-[10px] leading-none', active ? 'text-white/70' : 'text-white/40')}>
+                {p.bbLabel}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* ── 3. 취소 + 확정 ──────────────────────────────── */}
+      {/* ── 3. 수평 슬라이더 ─────────────────────────────────────── */}
+      <div className="px-1">
+        <input
+          type="range"
+          min={safeMin}
+          max={safeMax}
+          step={step}
+          value={value}
+          onChange={(e) => onChange(clamp(Number(e.target.value), safeMin, safeMax))}
+          aria-label="베팅 금액 슬라이더"
+          className="w-full cursor-pointer"
+          style={{
+            accentColor: isAllIn ? '#f59e0b' : '#f97316',
+            // fill track via background gradient
+            background: `linear-gradient(to right, ${isAllIn ? '#f59e0b' : '#f97316'} ${fillPct}%, rgba(255,255,255,0.15) ${fillPct}%)`,
+            height: '4px',
+            borderRadius: '2px',
+            outline: 'none',
+            WebkitAppearance: 'none',
+            appearance: 'none',
+          }}
+        />
+      </div>
+
+      {/* ── 4. 취소 + 확정 ───────────────────────────────────────── */}
       <div className="grid grid-cols-5 gap-2">
         <button
           type="button"
           onClick={onCancel}
-          className="col-span-2 rounded-lg border border-white/15 py-2 text-xs font-semibold text-white/55 transition-colors hover:bg-white/10"
+          className="col-span-2 rounded-lg border border-white/15 py-2.5 text-sm font-semibold text-white/55 transition-colors hover:bg-white/10 active:scale-95"
         >
           취소
         </button>
         <button
           type="button"
           onClick={onConfirm}
-          className="col-span-3 rounded-lg py-2 text-xs font-bold text-white shadow-lg transition-all hover:scale-[1.02] active:scale-95"
+          className="col-span-3 rounded-lg py-2.5 text-sm font-bold text-white transition-all hover:brightness-110 active:scale-95"
           style={{
             background: 'linear-gradient(180deg, #fb923c 0%, #ea580c 100%)',
             boxShadow: '0 4px 12px rgba(249,115,22,0.45), inset 0 1px 0 rgba(255,255,255,0.25)',
@@ -295,6 +269,7 @@ export function BetSlider({
           {raiseLabel} {isAllIn ? 'ALL-IN' : currentBBDisplay}
         </button>
       </div>
+
     </div>
   );
 }

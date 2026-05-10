@@ -6,7 +6,7 @@
 ## 정체성
 
 - **출처**: 기존 Replit 프로젝트 `Poker-Quiz-Master` 이식. 룰부터 수학·실전 응용까지 카테고리별 문제 풀이.
-- **테마**: **라이트 + MIMIC red `#E5343A` (HSL: 355 72% 50%)** + Pretendard 폰트.
+- **테마**: **라이트 + MIMIC red `#BA0C19` (HSL: 354 88% 39%)** + Pretendard 폰트. (모든 앱 통일)
 - **라우터**: wouter. 내부 경로 `/`, `/login`, `/quiz/:category`.
 - **데이터**: 문제 데이터는 클라이언트에 정적 (`src/lib/questions/*`). 진행률은 Firestore 동기화.
 - **인증**: **Firebase Auth (Google)**. 환경변수 미설정 시 UI는 정상 로드, 로그인만 실패.
@@ -117,7 +117,7 @@ export const isFirebaseConfigured = Boolean(firebaseConfig.apiKey);
   color-scheme: light only;
   --background: 0 0% 100%;
   --foreground: 220 25% 12%;
-  --primary: 355 72% 50%;     /* #E5343A — concept-quiz 한정 (Hub의 #BA0C19와 다름) */
+  --primary: 354 88% 39%;     /* #BA0C19 — 모든 앱 통일 */
   --primary-foreground: 0 0% 100%;
   --radius: 0.75rem;          /* 다른 sub-app보다 둥근 */
   font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Inter", sans-serif;
