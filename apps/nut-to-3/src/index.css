@@ -1,6 +1,6 @@
 /*
- * @hh/nut-to-3 — 다크 블루 테마 (#080818 배경 + #000CED Primary Blue)
- * 디자인 핸드오프 03_nutto3.html 기준.
+ * @hh/nut-to-3 — 다크 베이스 #050408 (인트로와 통일) + #000CED Primary Blue
+ * 디자인 핸드오프 03_nutto3.html 기준 → 인트로 메달 크라운 톤에 맞춰 베이스 컬러 통일.
  *
  * 폰트는 공통 Pretendard 스택 상속 (tailwind-config의 --font-sans).
  */
@@ -8,14 +8,14 @@
 .app-nut-to-3 {
   color-scheme: dark only;
 
-  /* 다크 배경 #080818 */
-  --background: 240 43% 6%;
+  /* 다크 베이스 #050408 — 인트로와 동일 */
+  --background: 252 33% 2%;
   --foreground: 43 100% 99%;        /* #FFFCF3 — 크림 화이트 */
 
-  --card: 240 43% 8%;               /* #0E0E1E */
+  --card: 252 25% 5%;               /* 살짝 밝은 카드 톤 */
   --card-foreground: 43 100% 99%;
 
-  --popover: 240 43% 8%;
+  --popover: 252 25% 5%;
   --popover-foreground: 43 100% 99%;
 
   /* Primary Blue #000CED = hsl(237 100% 46%) */
@@ -40,7 +40,7 @@
 
   --radius: 0.375rem;
 
-  background-color: #080818;
+  background-color: #050408;
   -webkit-font-smoothing: antialiased;
 }
 

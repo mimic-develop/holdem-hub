@@ -61,7 +61,7 @@ export function PlayingCard({
     const centerSuitCls = cn(
       "leading-none select-none",
       size === "sm" && (suit === "s" || suit === "h" || suit === "c") ? "text-[12px]" : size === "sm" ? "text-[14px]" : "",
-      size === "md"  && "text-[22px] sm:text-[26px]",
+      size === "md"  && "text-[30px] sm:text-[36px]",
       size === "lg"  && "text-[32px] sm:text-[40px]",
     );
 
