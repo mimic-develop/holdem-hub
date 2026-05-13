@@ -233,6 +233,27 @@ export default function TablePage() {
     }
   }, [gameState, mode, navigate]);
 
+  // 탭 복귀 시 봇 턴 복구 — 백그라운드에서 setTimeout이 throttle/suspend되어
+  // 봇 액션 타이머가 소실된 경우 재시작. isWaitingForBot=false이지만 여전히
+  // 봇 턴이면 applyBotAction을 다시 호출해 게임을 재개한다.
+  useEffect(() => {
+    if (mode !== 'AI') return;
+    const handleVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const s = useGameStore.getState();
+      if (
+        s.gameState &&
+        !s.isHandOver &&
+        !s.isWaitingForBot &&
+        s.gameState.toActId === s.opponentPlayerId
+      ) {
+        void s.applyBotAction();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisible);
+    return () => document.removeEventListener('visibilitychange', handleVisible);
+  }, [mode]);
+
   if (!gameState) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center p-8" style={{ background: '#0a0a0a', color: '#e5e5e5' }}>
@@ -397,7 +418,10 @@ export default function TablePage() {
             >
               {/* 팟 표시 + 커뮤니티 카드를 하나의 단위로 중앙 배치 */}
               <div className="flex flex-col items-center gap-1.5">
-                <PotDisplay pot={gameState.pot} street={gameState.street} />
+                {/* PotDisplay 높이를 고정해 pot=0↔non-0 전환 시 CommunityBoard 위치가 움직이지 않도록 */}
+                <div className="flex h-8 shrink-0 items-center justify-center">
+                  <PotDisplay pot={gameState.pot} street={gameState.street} />
+                </div>
                 <CommunityBoard board={gameState.board} />
               </div>
             </PokerTable>
@@ -566,7 +590,7 @@ export default function TablePage() {
       <AnimatePresence>
         {isMatchOver && mode === 'AI' && me && (
           <MatchEndOverlay
-            netBB={Math.round((me.stack - startingStackBB * 2) / 2)}
+            netBB={Math.round((me.stack - startingStackBB * gameState.bigBlind) / gameState.bigBlind)}
             totalHands={matchTotalHands}
             personaId={aiPersona}
             handHistory={handHistory}

@@ -17,7 +17,7 @@ const ACTION_META: Record<PlayerAction, { label: string; bg: string; ring: strin
   raise: { label: 'RAISE', bg: 'linear-gradient(180deg, #fb923c 0%, #c2410c 100%)', ring: 'rgba(249,115,22,0.45)' },
 };
 
-const CHIPS_PER_BB = 2;
+const CHIPS_PER_BB = 20;
 
 function formatAmount(chips: number, unit: 'bb' | 'chips'): string {
   if (unit === 'chips') return String(chips);

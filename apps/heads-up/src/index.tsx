@@ -11,15 +11,26 @@
  * - localStorage / IndexedDB는 origin 단위로 공유. 키 prefix는 `heads-up:`로 격리
  *   (`storage/history.ts`의 DB 이름, `storage/settings.ts`/`stats.ts`의 localStorage 키 참조)
  */
+import React from "react";
 import { BrowserRouter } from "react-router-dom";
 import { LoginGate } from "@hh/ui";
 import App from "./App";
 import mimicLogo from "./assets/mimic-logo.png";
 import "./index.css";
 
+// DEV: 로그인 게이트 우회 (인트로 UI 점검용). 운영 빌드 전 복구 필요.
+const BYPASS_LOGIN_GATE = (import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV ?? false;
+
 export default function HeadsUpApp() {
+  const Gate = BYPASS_LOGIN_GATE ? React.Fragment : LoginGate;
+  const gateProps = BYPASS_LOGIN_GATE
+    ? {}
+    : { appName: "HEADS-UP", subtitle: "헤즈업 트레이너", logoSrc: mimicLogo };
+  // suppress unused import warning when bypassed
+  void LoginGate; void mimicLogo;
   return (
-    <LoginGate appName="HEADS-UP" subtitle="헤즈업 트레이너" logoSrc={mimicLogo}>
+    // @ts-expect-error — Fragment doesn't accept LoginGate props
+    <Gate {...gateProps}>
       <div className="app-heads-up" data-theme="dark">
         {/*
           RR6 v6 + React 18 StrictMode + Suspense 조합에서 BrowserRouter가 render 도중
@@ -36,6 +47,6 @@ export default function HeadsUpApp() {
           <App />
         </BrowserRouter>
       </div>
-    </LoginGate>
+    </Gate>
   );
 }

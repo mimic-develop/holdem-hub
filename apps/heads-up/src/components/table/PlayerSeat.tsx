@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import type { Player } from '../../types/game';
 import { HoleCards } from './HoleCards';
+import { useChipDisplay } from '../../hooks/useChipDisplay';
 
 interface PlayerSeatProps {
   player: Player;
@@ -40,6 +41,7 @@ export function PlayerSeat({
   avatarSrc,
   compact = false,
 }: PlayerSeatProps) {
+  const { fmt, toggle } = useChipDisplay();
   const faceDown = !isMe && !revealCards;
   const showCards = !!player.holeCards;
 
@@ -139,28 +141,35 @@ export function PlayerSeat({
         initial={{ scale: 1.15, color: '#fcd34d' }}
         animate={{ scale: 1, color: 'rgba(255,255,255,0.7)' }}
         transition={{ duration: 0.4 }}
-        className="text-[20px] font-bold leading-tight"
+        className="text-[20px] font-bold leading-tight cursor-pointer"
+        onClick={toggle}
       >
-        {player.stack / 2}bb
+        {fmt(player.stack)}
       </motion.span>
     </motion.div>
   );
 
   if (layout === 'cards-top') {
-    // Player (me) — cards big above, pill below
+    // Player (me) — cards big above, pill below.
+    // 카드 슬롯은 항상 80px 고정 — 폴드 exit 애니메이션 종료 후
+    // AnimatePresence가 DOM에서 카드를 제거해도 높이가 붕괴하지 않아
+    // 테이블(flex-1 구역) 위치가 밀리지 않는다.
     return (
       <div className="flex flex-col items-center gap-1">
-        {showCards ? (
-          <HoleCards
-            cards={player.holeCards!}
-            faceDown={faceDown}
-            size="md"
-            baseDelay={cardBaseDelay}
-            folded={player.hasFolded}
-          />
-        ) : (
-          <div className="h-20" />
-        )}
+        <div
+          className="flex items-end justify-center overflow-visible"
+          style={{ height: 80 }}
+        >
+          {showCards && (
+            <HoleCards
+              cards={player.holeCards!}
+              faceDown={faceDown}
+              size="md"
+              baseDelay={cardBaseDelay}
+              folded={player.hasFolded}
+            />
+          )}
+        </div>
         {namePill}
       </div>
     );

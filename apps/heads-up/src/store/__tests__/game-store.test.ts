@@ -31,7 +31,7 @@ describe('game-store — core flow', () => {
     expect(s.mode).toBe('AI');
     expect(s.handNumber).toBe(1);
     expect(s.gameState!.players).toHaveLength(2);
-    expect(s.gameState!.pot).toBe(3);
+    expect(s.gameState!.pot).toBe(30); // SB(10) + BB(20) = 30
   });
 
   it('sequential applyMyAction calls do not throw (meta survives clones)', () => {
@@ -86,8 +86,8 @@ describe('game-store — core flow', () => {
     if (final.gameState) {
       const totalStacks = final.gameState.players.reduce((sum, p) => sum + p.stack, 0);
       // stacks + pot should be conserved
-      // 25BB × 2 big-blinds × 2 players = 100 chips total.
-      expect(totalStacks + final.gameState.pot).toBe(100);
+      // 25BB × 20 chips/BB × 2 players = 1000 chips total.
+      expect(totalStacks + final.gameState.pot).toBe(1000);
     }
   });
 
@@ -171,8 +171,8 @@ describe('game-store — core flow', () => {
     const final = useGameStore.getState();
     if (final.gameState) {
       const total = final.gameState.players.reduce((sum, p) => sum + p.stack, 0);
-      // 25BB × 2 big-blinds × 2 players = 100 chips total.
-      expect(total + final.gameState.pot).toBe(100);
+      // 25BB × 20 chips/BB × 2 players = 1000 chips total.
+      expect(total + final.gameState.pot).toBe(1000);
     }
   }, 10000);
 

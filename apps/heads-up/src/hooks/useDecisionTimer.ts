@@ -24,15 +24,20 @@ interface DecisionTimerState {
 }
 
 /**
- * Manages an 8-second decision countdown with 2×10-second timebank support.
+ * Manages a 16-second decision countdown with 2×20-second timebank support.
  *
  * Resets to base when `isActive` transitions false → true.
  * When time reaches 0:
- *   - If timebank available: fires `onUsedTimebank`, extends to +10s.
+ *   - If timebank available: fires `onUsedTimebank`, extends to +20s.
  *   - Otherwise: fires `onExpire`.
  *
  * Uses a local variable for the running value to avoid stale-closure issues
  * with `setInterval`; React state is updated each tick only for rendering.
+ *
+ * 탭 비활성화(백그라운드) 대응:
+ *   브라우저가 백그라운드 탭의 setInterval을 1초 단위로 스로틀하면 타이머가
+ *   느리게 흐르다 expired=true가 된 채 멈출 수 있다.
+ *   visibilitychange 핸들러가 탭 복귀 시 타이머를 재시작한다.
  */
 export function useDecisionTimer({
   isActive,
@@ -51,13 +56,25 @@ export function useDecisionTimer({
   onUsedTimebankRef.current = onUsedTimebank;
   timebanksLeftRef.current = timebanksLeft;
 
+  // 내부 인터벌을 외부에서 재시작할 수 있도록 epoch를 카운터로 관리.
+  // isActive가 true인 채로 탭이 복귀하면 epoch를 올려 effect를 재실행시킨다.
+  const [epoch, setEpoch] = useState(0);
+
   useEffect(() => {
     if (!isActive) {
-      // Reset when turn ends.
       setRemaining(DECISION_BASE_SECONDS);
       setMaxTime(DECISION_BASE_SECONDS);
       return;
     }
+
+    // 탭 복귀 감지 — 백그라운드에서 타이머가 throttle/suspend되어
+    // expired=true로 죽었을 때 epoch를 올려 타이머를 재시작한다.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        setEpoch((e) => e + 1);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
 
     // Start fresh countdown.
     setRemaining(DECISION_BASE_SECONDS);
@@ -89,10 +106,12 @@ export function useDecisionTimer({
       setRemaining(current);
     }, 100);
 
-    return () => clearInterval(interval);
-    // Only restart when the active state changes. Callbacks are kept current via refs.
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive]);
+  }, [isActive, epoch]);
 
   return { remaining, maxTime };
 }

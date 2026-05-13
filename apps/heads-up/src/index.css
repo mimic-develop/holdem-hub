@@ -16,8 +16,8 @@
 .app-heads-up {
   color-scheme: dark only;
 
-  /* Base — 다크 베이스 + 크림 텍스트 (#0a0a0a / #FFFCF3) */
-  --background: 0 0% 4%;
+  /* Base — 순수 블랙 + 크림 텍스트 (#000 / #FFFCF3) */
+  --background: 0 0% 0%;
   --foreground: 43 100% 99%;
   --border: 0 0% 18%;
   --card: 0 0% 7%;

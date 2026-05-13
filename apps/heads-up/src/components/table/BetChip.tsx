@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useChipDisplay } from '../../hooks/useChipDisplay';
 
 interface BetChipProps {
   amount: number;
@@ -46,8 +47,8 @@ const PALETTE: Record<NonNullable<BetChipProps['color']>, ChipPalette> = {
   },
 };
 
-/** 1 BB = 2 chips in heads-up (SB=1, BB=2). */
-const CHIPS_PER_BB = 2;
+/** 1 BB = 20 chips in heads-up (SB=10, BB=20). */
+const CHIPS_PER_BB = 20;
 
 /**
  * Map bet size (in chips) to a poker-style color tier.
@@ -70,6 +71,7 @@ function tierForAmount(chips: number): NonNullable<BetChipProps['color']> {
  * - 라벨이 칩 옆에 붙어 있어 "이 금액이 누구의 베팅인지" 모호하지 않음
  */
 export function BetChip({ amount, color }: BetChipProps) {
+  const { fmt, toggle } = useChipDisplay();
   if (amount <= 0) return null;
   const tier = color ?? tierForAmount(amount);
   const p = PALETTE[tier];
@@ -80,7 +82,8 @@ export function BetChip({ amount, color }: BetChipProps) {
       initial={{ scale: 0.4, opacity: 0, y: 6 }}
       animate={{ scale: 1, opacity: 1, y: 0 }}
       transition={{ type: 'spring', stiffness: 380, damping: 22 }}
-      className="inline-flex items-center gap-1.5"
+      className="inline-flex items-center gap-1.5 cursor-pointer"
+      onClick={toggle}
     >
       {/* Stacked chips: render 3 discs with vertical offset to imply a stack. */}
       <div className="relative" style={{ width: 28, height: 18 }}>
@@ -108,7 +111,7 @@ export function BetChip({ amount, color }: BetChipProps) {
           boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
         }}
       >
-        {amount / CHIPS_PER_BB}bb
+        {fmt(amount)}
       </span>
     </motion.div>
   );

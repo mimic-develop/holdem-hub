@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 
-const BIG_BLIND = 2;
+const BIG_BLIND = 20;
 
 interface PotAwardAnimationProps {
   /** Did I (the human player) win? */
