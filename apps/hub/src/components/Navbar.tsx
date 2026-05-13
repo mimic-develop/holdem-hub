@@ -32,8 +32,26 @@ export function Navbar() {
   const [open, setOpen] = useState(false);
   const [location] = useLocation();
   const isLight = resolveTheme(location) === "light";
+  const isHome = location === "/";
   const { user, busy, error, signIn, signOut, providerName } = useAuthState();
   const [errorBubble, setErrorBubble] = useState<string | null>(null);
+
+  // Hub 홈에서는 hero의 MIMIC PLAYLAB 타이틀이 화면에 있을 때 navbar 로고만 숨김 →
+  // 히어로 타이틀이 스크롤로 가려지면 navbar 로고가 슬라이드인. 다른 라우트는 항상 노출.
+  const [logoHidden, setLogoHidden] = useState(isHome);
+  useEffect(() => {
+    if (!isHome) {
+      setLogoHidden(false);
+      return;
+    }
+    const handler = () => {
+      // 히어로 영역(약 200px)을 지나면 로고 노출
+      setLogoHidden(window.scrollY < 200);
+    };
+    handler();
+    window.addEventListener("scroll", handler, { passive: true });
+    return () => window.removeEventListener("scroll", handler);
+  }, [isHome]);
 
   // signIn 에러는 4초간 작은 토스트(브라우저 alert 대체)로만 표시 — UI 폭주 방지.
   useEffect(() => {
@@ -71,19 +89,26 @@ export function Navbar() {
         borderBottom: isLight ? "1px solid rgba(0,0,0,0.08)" : "1px solid rgba(168,0,20,0.2)",
       }}
     >
-      <nav className="mx-auto flex h-[52px] max-w-6xl items-center justify-between gap-4 px-4 sm:px-7">
-        {/* Logo */}
+      <nav className="mx-auto flex h-[52px] max-w-[430px] items-center justify-between gap-4 px-4">
+        {/* Logo — Hub 홈에서는 hero 타이틀이 보일 때 숨겨졌다가, 히어로가 스크롤되면 슬라이드인 */}
         <Link
           href="/"
-          className="flex items-center gap-0 text-[13px] font-bold tracking-[0.22em] uppercase"
-          style={{ color: isLight ? "#1a1a2e" : "#FFFCF3" }}
+          className="flex items-center gap-0 text-[13px] font-extrabold tracking-[0.18em] uppercase"
+          style={{
+            color: isLight ? "#1a1a2e" : "#FFFCF3",
+            opacity: logoHidden ? 0 : 1,
+            transform: logoHidden ? "translateY(-8px)" : "translateY(0)",
+            transition: "opacity 0.28s ease, transform 0.28s ease",
+            pointerEvents: logoHidden ? "none" : "auto",
+            willChange: "opacity, transform",
+          }}
         >
-          <span style={{ color: "#A80014" }}>MIMIC</span>
-          <span className="ml-[0.22em]">PLAYLAB</span>
+          <span style={{ color: "#E53935" }}>MIMIC</span>
+          <span className="ml-[0.18em]">PLAYLAB</span>
         </Link>
 
-        {/* Desktop nav links */}
-        {!isMobile && (
+        {/* Desktop nav links — 모바일 레이아웃 통일을 위해 항상 햄버거 메뉴 사용 (현재 비활성) */}
+        {false && !isMobile && (
           <ul className="flex items-center gap-1">
             {NAV_ITEMS.map((item) => (
               <li key={item.path}>
@@ -135,25 +160,27 @@ export function Navbar() {
           >
             {authLabel}
           </button>
-          {isMobile && (
-            <button
-              type="button"
-              onClick={() => setOpen((v) => !v)}
-              aria-label={open ? "메뉴 닫기" : "메뉴 열기"}
-              className="rounded p-2 transition-colors"
-              style={{ color: isLight ? "rgba(0,0,0,0.5)" : "rgba(255,252,243,0.6)" }}
-            >
-              {open ? <X size={18} /> : <Menu size={18} />}
-            </button>
-          )}
+          {/* 모바일·데스크톱 공통 햄버거 메뉴 */}
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-label={open ? "메뉴 닫기" : "메뉴 열기"}
+            className="rounded p-2 transition-colors"
+            style={{ color: isLight ? "rgba(0,0,0,0.5)" : "rgba(255,252,243,0.6)" }}
+          >
+            {open ? <X size={18} /> : <Menu size={18} />}
+          </button>
         </div>
       </nav>
 
-      {/* Mobile drawer */}
-      {isMobile && open && (
+      {/* Drawer — 모바일/데스크톱 공통 */}
+      {open && (
         <ul
-          className="flex flex-col gap-0.5 px-4 pb-3 pt-2"
-          style={{ borderTop: isLight ? "1px solid rgba(0,0,0,0.08)" : "1px solid rgba(255,252,243,0.08)" }}
+          className="mx-auto flex flex-col gap-0.5 px-4 pb-3 pt-2"
+          style={{
+            maxWidth: 430,
+            borderTop: isLight ? "1px solid rgba(0,0,0,0.08)" : "1px solid rgba(255,252,243,0.08)",
+          }}
         >
           {NAV_ITEMS.map((item) => (
             <li key={item.path}>
