@@ -52,7 +52,7 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <div className="app-hub min-h-screen bg-background text-foreground">
         <Navbar />
-        <main>
+        <main className="pt-[52px]">
           <Suspense fallback={<PageFallback />}>
             <Switch>
               {/* Home 페이지는 자체 풀폭 레이아웃을 가짐 */}

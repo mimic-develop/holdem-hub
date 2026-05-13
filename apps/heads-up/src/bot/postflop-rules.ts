@@ -14,6 +14,14 @@ export interface PostflopContext {
   /** Optional hand-strength hint. When a player is on a strong draw we treat
    *  low-equity spots as semi-bluff candidates instead of pure folds. */
   strength?: HandStrength;
+  /** callDownBias > 1 → 콜 에퀴티 기준 낮춤 (CALLING). default 1.0 */
+  callDownBias?: number;
+  /** showdownCuriosity > 1 → 특히 리버에서 콜 성향 증가 (CALLING). default 1.0 */
+  showdownCuriosity?: number;
+  /** trapBias > 1 → 강한 핸드 슬로우플레이 (NIT). default 1.0 */
+  trapBias?: number;
+  /** 현재 스트릿 — showdownCuriosity 리버 보정에 사용 */
+  street?: string;
 }
 
 export interface PostflopDecision {
@@ -205,11 +213,31 @@ export function potOddsFromBet(potSize: number, toCall: number): number {
 
 export function decidePostflop(ctx: PostflopContext, rng: () => number): PostflopDecision {
   const { equity, potOdds, potSize, toCall, stackSize, aggression, bluffRate, strength } = ctx;
-  const canCheck = toCall === 0;
+
+  // New bias fields — STANDARD=1.0 is no-op for all three
+  const callDownBias      = ctx.callDownBias      ?? 1.0;
+  const showdownCuriosity = ctx.showdownCuriosity ?? 1.0;
+  const trapBias          = ctx.trapBias          ?? 1.0;
+  const isRiver           = ctx.street === 'river';
+
+  const canCheck      = toCall === 0;
   const effectiveStack = stackSize;
 
-  // Very strong: bet/raise big, ~2/3 to full pot.
+  // ── Adjusted call threshold ─────────────────────────────────────────────
+  // callDownBias > 1 → divides required equity (CALLING calls with less equity)
+  // showdownCuriosity > 1 on river → subtracts curiosity bonus
+  const riverBonus = isRiver ? Math.max(0, (showdownCuriosity - 1.0) * 0.06) : 0;
+  const adjustedCallThreshold = (potOdds / callDownBias) - riverBonus;
+
+  // ── Very strong (≥75%): bet/raise — trapBias may slow-play ──────────────
   if (equity >= 0.75) {
+    // trapBias > 1.0 → NIT-style slow-play. Only consumes RNG when trapBias > 1.0.
+    // STANDARD/LAG/MANIAC (trapBias ≤ 1.0 in V2) → trapChance=0, no RNG call.
+    const trapChance = trapBias > 1.0 ? (trapBias - 1.0) * 0.4 : 0;
+    if (canCheck && trapChance > 0 && rng() < trapChance) {
+      return { action: 'check', amount: 0 };
+    }
+
     const sizing = roundChips(potSize * clamp(0.66 + rng() * 0.34, 0.5, 1.0) * aggression);
     if (canCheck) {
       return { action: 'bet', amount: Math.min(effectiveStack, Math.max(1, sizing)) };
@@ -224,7 +252,7 @@ export function decidePostflop(ctx: PostflopContext, rng: () => number): Postflo
     return { action: 'call', amount: Math.min(effectiveStack, toCall) };
   }
 
-  // Decent: mid-sized bet or call
+  // ── Decent (55–75%): mid-sized bet or call ───────────────────────────────
   if (equity >= 0.55) {
     if (canCheck) {
       if (rng() < 0.6) {
@@ -236,21 +264,20 @@ export function decidePostflop(ctx: PostflopContext, rng: () => number): Postflo
     return { action: 'call', amount: Math.min(effectiveStack, toCall) };
   }
 
-  // Marginal: check/call on good pot odds
+  // ── Marginal (35–55%): check/call on adjusted pot odds ───────────────────
   if (equity >= 0.35) {
     if (canCheck) {
-      // With a strong draw + decent equity, occasionally semi-bluff
       if (strength?.hasDraw && rng() < bluffRate * 2) {
         const sizing = roundChips(potSize * (0.35 + rng() * 0.25) * aggression);
         return { action: 'bet', amount: Math.min(effectiveStack, Math.max(1, sizing)) };
       }
       return { action: 'check', amount: 0 };
     }
-    if (equity >= potOdds) return { action: 'call', amount: Math.min(effectiveStack, toCall) };
+    if (equity >= adjustedCallThreshold) return { action: 'call', amount: Math.min(effectiveStack, toCall) };
     return { action: 'fold', amount: 0 };
   }
 
-  // Weak: fold or occasional bluff; boost bluff rate when on a draw
+  // ── Weak (<35%): fold or bluff; draws get semi-bluff boost ───────────────
   const draws = strength?.hasDraw === true;
   const effectiveBluff = draws ? Math.min(1, bluffRate * 2.5) : bluffRate;
   if (canCheck) {
@@ -260,8 +287,10 @@ export function decidePostflop(ctx: PostflopContext, rng: () => number): Postflo
     }
     return { action: 'check', amount: 0 };
   }
-  // Draws also justify pot-odds calls with implied odds slack
-  const callThreshold = draws ? potOdds * 0.85 : potOdds * 1.1;
+  // Draws: use adjustedCallThreshold with implied-odds slack
+  const callThreshold = draws
+    ? Math.min(adjustedCallThreshold, potOdds * 0.85)
+    : adjustedCallThreshold * 1.1;
   if (equity >= callThreshold) {
     return { action: 'call', amount: Math.min(effectiveStack, toCall) };
   }

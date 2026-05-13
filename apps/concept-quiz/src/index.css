@@ -24,29 +24,29 @@
   --sidebar: 0 0% 100%;
   --sidebar-foreground: 220 25% 12%;
   --sidebar-border: 220 12% 91%;
-  --sidebar-primary: 353 100% 33%;
+  --sidebar-primary: 354 88% 39%;
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 220 12% 94%;
   --sidebar-accent-foreground: 220 25% 12%;
-  --sidebar-ring: 353 100% 33%;
+  --sidebar-ring: 354 88% 39%;
   --popover: 0 0% 100%;
   --popover-foreground: 220 25% 12%;
   --popover-border: 220 12% 91%;
 
-  /* MIMIC red (#A80014) */
-  --primary: 353 100% 33%;
+  /* MIMIC red (#BA0C19) — 모든 앱 통일 */
+  --primary: 354 88% 39%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 220 12% 93%;
   --secondary-foreground: 220 25% 12%;
   --muted: 220 12% 91%;
   --muted-foreground: 220 12% 48%;
-  --accent: 355 72% 97%;
-  --accent-foreground: 355 72% 40%;
-  --destructive: 353 100% 33%;
+  --accent: 354 88% 97%;
+  --accent-foreground: 354 88% 35%;
+  --destructive: 354 88% 39%;
   --destructive-foreground: 0 0% 100%;
   --input: 220 12% 84%;
-  --ring: 353 100% 33%;
+  --ring: 354 88% 39%;
 
   --shadow-2xs: 0px 1px 2px 0px rgba(0, 0, 0, 0.06);
   --shadow-xs: 0px 1px 3px 0px rgba(0, 0, 0, 0.08);
@@ -60,8 +60,10 @@
   /* concept-quiz는 다른 앱들보다 둥근 .75rem 라운드를 자체 사용 */
   --radius: 0.75rem;
 
-  /* Pretendard 폰트 */
-  font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Inter", sans-serif;
+  font-family: "Pretendard Variable", "Pretendard", "SUIT", "Noto Sans KR", "Apple SD Gothic Neo", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── elevate 유틸리티 시스템 (원본 보존) ──────────────────── */

@@ -4,13 +4,7 @@ import type { LegalActions } from '../../engine/game-engine';
 import type { PlayerAction } from '../../types/game';
 import { BetSlider } from './BetSlider';
 import { useSettings } from '../../hooks/useSettings';
-
-const BIG_BLIND = 2; // SB=1, BB=2
-
-function chipsToBB(chips: number): string {
-  const val = chips / BIG_BLIND;
-  return Number.isInteger(val) ? `${val}bb` : `${val.toFixed(1)}bb`;
-}
+import { useChipDisplay } from '../../hooks/useChipDisplay';
 
 interface ActionBarProps {
   legal: LegalActions | null;
@@ -38,6 +32,7 @@ export function ActionBar({
   onAction,
 }: ActionBarProps) {
   const { settings } = useSettings();
+  const { fmt } = useChipDisplay();
   const [showSlider, setShowSlider] = useState(false);
   const [raiseAmount, setRaiseAmount] = useState(0);
 
@@ -101,16 +96,19 @@ export function ActionBar({
     <div
       role="toolbar"
       aria-label="액션 선택"
-      className="flex w-full flex-col gap-2 p-3 sm:max-w-md"
+      className="relative flex w-full flex-col gap-2 p-3 sm:max-w-md"
     >
-      {showSlider && raiseAvailable ? (
-        /* ── 사이징 모드: 3버튼 row를 패널로 전체 교체 ── */
+      {/* ── 사이징 패널: absolute 오버레이 — 레이아웃을 밀어내지 않음 ── */}
+      {showSlider && raiseAvailable && (
         <div
-          className="w-full rounded-xl p-3"
+          className="absolute left-0 right-0 bottom-full mb-2 rounded-xl p-3"
           style={{
             background: 'rgba(18,18,22,0.96)',
             border: '1px solid rgba(255,255,255,0.1)',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.55)',
+            boxShadow: '0 -6px 24px rgba(0,0,0,0.6), 0 10px 30px rgba(0,0,0,0.55)',
+            zIndex: 10,
+            maxHeight: 'calc(100dvh - 100px)',
+            overflowY: 'auto',
           }}
         >
           <BetSlider
@@ -126,45 +124,45 @@ export function ActionBar({
             onCancel={() => setShowSlider(false)}
           />
         </div>
-      ) : (
-        /* ── 기본 상태: 3버튼 row ── */
-        <div className="grid w-full grid-cols-3 gap-2">
-          <ActionButton
-            variant="fold"
-            shortcut="Q"
-            label="Fold"
-            disabled={disabled || !canFold}
-            onClick={() => {
-              setShowSlider(false);
-              onAction('fold');
-            }}
-          />
-          <ActionButton
-            variant="call"
-            shortcut="W"
-            label={
-              legal?.canCheck
-                ? 'Check'
-                : legal?.canCall
-                  ? `Call ${chipsToBB(legal.callAmount)}`
-                  : 'Check'
-            }
-            disabled={disabled || !canCheckOrCall}
-            onClick={() => {
-              setShowSlider(false);
-              if (legal?.canCheck) onAction('check');
-              else if (legal?.canCall) onAction('call', legal.callAmount);
-            }}
-          />
-          <ActionButton
-            variant="raise"
-            shortcut="E"
-            label={raiseLabel}
-            disabled={disabled || !raiseAvailable}
-            onClick={() => setShowSlider(true)}
-          />
-        </div>
       )}
+
+      {/* ── 3버튼 row — 항상 같은 높이 유지 ── */}
+      <div className={clsx('grid w-full grid-cols-3 gap-2', showSlider && 'pointer-events-none opacity-40')}>
+        <ActionButton
+          variant="fold"
+          shortcut="Q"
+          label="Fold"
+          disabled={disabled || !canFold}
+          onClick={() => {
+            setShowSlider(false);
+            onAction('fold');
+          }}
+        />
+        <ActionButton
+          variant="call"
+          shortcut="W"
+          label={
+            legal?.canCheck
+              ? 'Check'
+              : legal?.canCall
+                ? `Call ${fmt(legal.callAmount)}`
+                : 'Check'
+          }
+          disabled={disabled || !canCheckOrCall}
+          onClick={() => {
+            setShowSlider(false);
+            if (legal?.canCheck) onAction('check');
+            else if (legal?.canCall) onAction('call', legal.callAmount);
+          }}
+        />
+        <ActionButton
+          variant="raise"
+          shortcut="E"
+          label={raiseLabel}
+          disabled={disabled || !raiseAvailable}
+          onClick={() => setShowSlider(true)}
+        />
+      </div>
     </div>
   );
 }

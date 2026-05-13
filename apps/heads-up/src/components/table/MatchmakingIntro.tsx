@@ -47,7 +47,7 @@ export function MatchmakingIntro({
       transition={{ duration: 0.25 }}
       className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-black/90 backdrop-blur-sm"
     >
-      <div className="flex w-full max-w-sm items-end justify-around gap-2 px-4">
+      <div className="flex w-full max-w-sm items-center justify-around gap-2 px-4">
         {/* Me */}
         <motion.div
           initial={{ x: -100, opacity: 0 }}
@@ -71,7 +71,7 @@ export function MatchmakingIntro({
           initial={{ scale: 0.4, opacity: 0, rotate: -10 }}
           animate={{ scale: 1, opacity: 1, rotate: 0 }}
           transition={{ type: 'spring', stiffness: 220, damping: 12, delay: 0.35 }}
-          className="select-none pb-8 text-5xl font-black tracking-tighter text-mimic-red"
+          className="select-none text-5xl font-black tracking-tighter text-mimic-red"
           style={{ textShadow: '0 0 24px rgba(186,12,25,0.7)' }}
         >
           VS
@@ -89,7 +89,7 @@ export function MatchmakingIntro({
               initial={{ scale: 0.85 }}
               animate={{ scale: 1 }}
               transition={{ type: 'spring', stiffness: 200, damping: 14, delay: 0.2 }}
-              className="relative h-32 w-32 overflow-hidden rounded-2xl shadow-2xl ring-2 ring-mimic-red/50"
+              className="relative h-24 w-24 overflow-hidden rounded-2xl shadow-2xl ring-2 ring-mimic-red/50"
             >
               <img
                 src={oppAvatarSrc}

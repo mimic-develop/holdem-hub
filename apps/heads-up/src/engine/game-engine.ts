@@ -114,14 +114,30 @@ function nextToAct(state: GameState, currentId: string): string {
 }
 
 function makePlayer(id: string, position: Position, stack: number, posted: number): Player {
+  // Cap blind posting at the player's actual stack — never allow negative stacks.
+  // A short-stacked player posts all-in for their remaining chips.
+  const actual = Math.min(posted, stack);
   return {
     id,
-    stack: stack - posted,
+    stack: stack - actual,
     holeCards: null,
     position,
     hasFolded: false,
-    currentBet: posted,
+    currentBet: actual,
   };
+}
+
+/**
+ * If the initial hand state is already "resolved" — i.e., one or both players
+ * went all-in posting the blind and no further action is possible — run the
+ * board out and return a HandResolution immediately.
+ * Returns null if the hand needs normal action.
+ */
+export function resolveImmediate(state: GameState): HandResolution | null {
+  const meta = META.get(state);
+  if (!meta) return null;
+  if (!isStreetClosed(state, meta)) return null;
+  return resolveShowdown(state, meta);
 }
 
 export function startNewHand(opts: NewHandOptions): GameState {
@@ -133,8 +149,12 @@ export function startNewHand(opts: NewHandOptions): GameState {
   // reversing the snapshot puts the first-dealt card at index 0.
   const initialDeck = deck.snapshot().slice().reverse();
 
-  const sb = makePlayer(opts.sbPlayerId, 'SB', opts.sbStack, opts.smallBlind);
-  const bb = makePlayer(opts.bbPlayerId, 'BB', opts.bbStack, opts.bigBlind);
+  // Cap blind posting at each player's actual stack (handles short-stack edge case).
+  const sbPosted = Math.min(opts.smallBlind, opts.sbStack);
+  const bbPosted = Math.min(opts.bigBlind, opts.bbStack);
+
+  const sb = makePlayer(opts.sbPlayerId, 'SB', opts.sbStack, sbPosted);
+  const bb = makePlayer(opts.bbPlayerId, 'BB', opts.bbStack, bbPosted);
 
   const sbHole: [Card, Card] = [deck.deal(), deck.deal()];
   const bbHole: [Card, Card] = [deck.deal(), deck.deal()];
@@ -149,9 +169,11 @@ export function startNewHand(opts: NewHandOptions): GameState {
   const state: GameState = {
     players: [sb, bb],
     board: [],
-    pot: opts.smallBlind + opts.bigBlind,
+    // Pot = actual chips posted (not nominal blind amounts).
+    pot: sbPosted + bbPosted,
     street: 'preflop',
-    currentBet: opts.bigBlind,
+    // currentBet = the highest actual commitment (BB's posted amount if full, else SB's).
+    currentBet: Math.max(sbPosted, bbPosted),
     minRaise: opts.bigBlind,
     toActId: sb.id, // SB acts first preflop in heads-up
     bigBlind: opts.bigBlind,

@@ -1,11 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
-import clsx from 'clsx';
+import { SubAppHeader, BackToHub } from '@hh/ui';
 import { CreateRoomDialog } from '../components/home/CreateRoomDialog';
-import { GrowthStats } from '../components/home/GrowthStats';
 import { JoinRoomDialog } from '../components/home/JoinRoomDialog';
-import { SpotBreakdown } from '../components/home/SpotBreakdown';
 import { useSettings } from '../hooks/useSettings';
 import { useStats } from '../hooks/useStats';
 import { useGameStore } from '../store/game-store';
@@ -13,316 +10,553 @@ import { AI_PERSONAS, ALL_PERSONA_IDS } from '../bot/personas';
 import { ALL_LEVELS, LEVEL_LABEL } from '../bot/levels';
 import type { AiLevel, AiPersonaId } from '../types/ai';
 
-const LEVEL_BLURB: Record<AiLevel, string> = {
-  EASY: '들쑥날쑥 · 누수 많음',
-  MEDIUM: '기본 전략 일관 유지',
-  HARD: '성향을 정교하게 수행',
+type RemoteDialog = 'none' | 'create' | 'join';
+
+const RANGE_LABELS: Record<string, string> = {
+  today: '오늘',
+  week: '주간',
+  month: '월간',
+  all: '전체',
 };
 
-type AiStartStep = 'idle' | 'persona' | 'level';
+/* ── 색상 토큰 (MIMIC PLAYLAB 톤앤매너) ─────────────────── */
+const COLORS = {
+  bg: '#000',
+  cardBg: '#141414',
+  cardBgInset: '#1a1a1a',
+  border: 'rgba(255,255,255,0.06)',
+  borderStrong: 'rgba(255,255,255,0.12)',
+  red: '#E53935',
+  redDim: 'rgba(229,57,53,0.18)',
+  redGlow: 'rgba(229,57,53,0.28)',
+  textPrimary: '#FFFCF3',
+  textSecondary: 'rgba(255,252,243,0.65)',
+  textMuted: 'rgba(255,252,243,0.4)',
+  blue: '#4F6BED',
+  blueDim: 'rgba(79,107,237,0.15)',
+};
 
-type RemoteDialog = 'none' | 'create' | 'join';
+const s: Record<string, React.CSSProperties> = {
+  page: { position: 'relative', minHeight: '100vh', background: COLORS.bg },
+  inner: { position: 'relative', zIndex: 1, maxWidth: 430, margin: '0 auto', padding: '12px 16px 24px' },
+
+  /* ARENA — VS 영역 */
+  arena: {
+    position: 'relative', overflow: 'hidden',
+    background: COLORS.cardBg, borderRadius: 16,
+    border: `1px solid ${COLORS.border}`, padding: '24px 18px 20px', marginBottom: 12,
+  },
+
+  vsRow: {
+    position: 'relative', zIndex: 2,
+    display: 'grid', gridTemplateColumns: '1fr auto 1fr',
+    alignItems: 'center', gap: '10px',
+  },
+  vsSide: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' },
+  vsCenter: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' },
+  vsLabel: { fontSize: '24px', fontWeight: 800, color: COLORS.red, letterSpacing: '0.08em' },
+  vsDot: { width: '5px', height: '5px', borderRadius: '50%', background: COLORS.red, boxShadow: `0 0 8px ${COLORS.red}` },
+  vsName: { fontSize: '13px', fontWeight: 700, color: COLORS.textPrimary, letterSpacing: '0.15em', textTransform: 'uppercase' },
+  vsSub: { fontSize: '10px', color: COLORS.textSecondary, letterSpacing: 0 },
+
+  /* AI/친구 토글 — 카드형 */
+  modeToggle: {
+    display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6,
+    marginTop: 10, padding: 4, background: COLORS.cardBgInset,
+    borderRadius: 10, border: `1px solid ${COLORS.border}`,
+  },
+
+  /* 페르소나 그리드 */
+  charGrid: { display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6, marginTop: 14 },
+
+  /* 페르소나 정보 카드 */
+  charInfo: {
+    background: COLORS.cardBgInset, borderRadius: 12,
+    border: `1px solid ${COLORS.border}`,
+    padding: '12px 14px', marginTop: 10,
+    display: 'flex', alignItems: 'center', gap: 12,
+  },
+  charName: { fontSize: '14px', fontWeight: 700, color: COLORS.textPrimary, letterSpacing: '0.06em', marginBottom: 2 },
+  charDesc: { fontSize: '11px', color: COLORS.textSecondary, lineHeight: 1.45, letterSpacing: 0 },
+
+  diffPills: { display: 'flex', gap: 4, padding: 3, background: 'rgba(0,0,0,0.35)', borderRadius: 8 },
+
+  /* CTA */
+  btnStart: {
+    width: '100%', background: COLORS.red, color: COLORS.textPrimary,
+    fontSize: '15px', fontWeight: 800, letterSpacing: '0.08em',
+    padding: '15px', border: 'none', borderRadius: 12,
+    cursor: 'pointer', fontFamily: 'inherit', marginTop: 14,
+    boxShadow: `0 6px 20px rgba(229,57,53,0.35)`,
+    transition: 'transform 0.1s, box-shadow 0.2s',
+  },
+
+  /* 성장 지표 카드 */
+  statsCard: {
+    background: COLORS.cardBg, borderRadius: 16,
+    border: `1px solid ${COLORS.border}`, padding: '16px 16px 18px', marginBottom: 10,
+  },
+  secLabel: { fontSize: '12px', color: COLORS.textPrimary, fontWeight: 700, marginBottom: 10, letterSpacing: 0 },
+  statsTabs: {
+    display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 0,
+    padding: 3, background: COLORS.cardBgInset, borderRadius: 8,
+    marginBottom: 12,
+  },
+  statsEmpty: { padding: '20px', textAlign: 'center', background: COLORS.cardBgInset, borderRadius: 10 },
+  statsEmptyT: { fontSize: '13px', color: COLORS.textPrimary, marginBottom: 4 },
+  statsEmptyS: { fontSize: '11px', color: COLORS.textSecondary },
+  statsRow: { display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', background: COLORS.cardBgInset, borderRadius: 10, overflow: 'hidden' },
+  statsItem: { padding: '14px 8px', textAlign: 'center', borderRight: `1px solid ${COLORS.border}` },
+  statsItemLast: { padding: '14px 8px', textAlign: 'center' },
+  statsVal: { fontSize: '22px', fontWeight: 800, color: COLORS.red, marginBottom: 3, letterSpacing: 0 },
+  statsLbl: { fontSize: '10px', color: COLORS.textSecondary, letterSpacing: 0 },
+
+  /* 기록 카드 */
+  recordCard: {
+    width: '100%', background: COLORS.cardBg, borderRadius: 14,
+    border: `1px solid ${COLORS.border}`, padding: '14px 16px',
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    cursor: 'pointer', fontFamily: 'inherit',
+    transition: 'background 0.15s',
+  },
+  recordIcon: {
+    width: 36, height: 36, borderRadius: 10,
+    background: COLORS.cardBgInset, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 18, color: COLORS.textSecondary,
+  },
+  recordT: { fontSize: '14px', fontWeight: 700, color: COLORS.textPrimary, letterSpacing: 0 },
+  recordS: { fontSize: '11px', color: COLORS.textSecondary, marginTop: 2, letterSpacing: 0 },
+
+  /* 친구 모드 */
+  friendGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 14 },
+  btnFriend: {
+    padding: '16px', border: `1px solid ${COLORS.blue}`,
+    background: COLORS.blueDim, color: COLORS.blue,
+    fontSize: '13px', fontWeight: 700, letterSpacing: '0.05em',
+    borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
+  },
+  btnFriendStart: {
+    width: '100%', background: COLORS.blue, color: COLORS.textPrimary,
+    fontSize: '15px', fontWeight: 800, letterSpacing: '0.08em',
+    padding: '15px', border: 'none', borderRadius: 12,
+    cursor: 'pointer', fontFamily: 'inherit', marginTop: 10,
+    boxShadow: `0 6px 20px rgba(79,107,237,0.3)`,
+  },
+};
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { settings } = useSettings();
-  const [aiStep, setAiStep] = useState<AiStartStep>('idle');
-  const [pickedPersona, setPickedPersona] = useState<AiPersonaId>('STANDARD');
-  const [personaIdx, setPersonaIdx] = useState(0);
-  const [slideDir, setSlideDir] = useState(1);
+  const { settings, setNickname } = useSettings();
+  const [pickedPersona, setPickedPersona] = useState<AiPersonaId>('MANIAC');
+  const [pickedLevel, setPickedLevel] = useState<AiLevel>('MEDIUM');
+  const [mode, setMode] = useState<'ai' | 'friend'>('ai');
   const [remoteDialog, setRemoteDialog] = useState<RemoteDialog>('none');
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
-  const goPersona = (nextIdx: number) => {
-    setSlideDir(nextIdx > personaIdx ? 1 : -1);
-    setPersonaIdx(nextIdx);
-  };
-  const prevPersona = () => goPersona((personaIdx - 1 + ALL_PERSONA_IDS.length) % ALL_PERSONA_IDS.length);
-  const nextPersona = () => goPersona((personaIdx + 1) % ALL_PERSONA_IDS.length);
-  const startAiGame = useGameStore((s) => s.startAiGame);
-  const handHistory = useGameStore((s) => s.handHistory);
+  const startAiGame = useGameStore((st) => st.startAiGame);
   const { stats, isLoading: statsLoading, range, setRange } = useStats('today');
 
-  const start = (level: AiLevel) => {
-    startAiGame(pickedPersona, level);
+  const handleStart = () => {
+    startAiGame(pickedPersona, pickedLevel);
     navigate('/table');
   };
 
+  const persona = AI_PERSONAS[pickedPersona];
+  const nickname = settings.nickname || '익명';
+  const avatarInitials = nickname.slice(0, 2).toUpperCase();
+  const isAiMode = mode === 'ai';
+
+  const handleNameEdit = () => {
+    setNameInput(nickname === '익명' ? '' : nickname);
+    setEditingName(true);
+    setTimeout(() => nameInputRef.current?.focus(), 50);
+  };
+  const commitName = () => {
+    const trimmed = nameInput.trim();
+    if (trimmed) setNickname(trimmed);
+    setEditingName(false);
+  };
+  const handleNameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') commitName();
+    if (e.key === 'Escape') setEditingName(false);
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center gap-6 px-6 py-10">
-      {/* Header banner */}
-      <div
-        className="w-full max-w-lg overflow-hidden rounded-2xl border border-border"
-        style={{ background: 'linear-gradient(135deg,#0f172a 0%,#1e293b 70%,#334155 100%)' }}
-      >
-        <div className="relative flex h-16 items-center justify-center overflow-hidden">
-          <span aria-hidden className="absolute inset-0 flex items-center justify-center select-none text-6xl font-bold text-white opacity-10">♥♠</span>
-        </div>
-        <div className="flex items-center justify-between px-5 pb-4">
-          <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">HEADS-UP</h1>
-            <p className="text-xs text-white/60 mt-0.5">AI 또는 친구와 빠른 1:1 대결</p>
-          </div>
+    <main style={s.page}>
+      <SubAppHeader
+        title="HEADS-UP"
+        className="!bg-black !border-b !border-white/10 [&_h1]:!text-white [&_h1]:!text-[15px] [&_h1]:!font-extrabold [&_h1]:!tracking-[0.18em]"
+        left={
+          <BackToHub
+            className="!text-white hover:!text-white !text-[14px] !font-semibold !tracking-normal"
+          >
+            <span style={{ fontSize: 16, marginRight: 4, lineHeight: 1 }}>←</span>
+            <span>홈</span>
+          </BackToHub>
+        }
+        right={
           <Link
             to="/settings"
             aria-label="설정"
-            className="rounded-full border border-white/20 bg-white/10 p-2 text-white/60 hover:bg-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 36, height: 36, borderRadius: 10,
+              border: `1px solid rgba(255,255,255,0.14)`,
+              background: 'rgba(255,255,255,0.04)',
+              color: '#fff', textDecoration: 'none',
+              fontSize: 16, lineHeight: 1,
+              transition: 'background 0.15s, border-color 0.15s',
+            }}
           >
-            <SettingsIcon />
+            ⚙
           </Link>
-        </div>
-      </div>
+        }
+      />
 
-      <div className="w-full max-w-lg flex flex-col gap-3 mt-4">
-        {aiStep === 'idle' && (
-          <button
-            type="button"
-            onClick={() => setAiStep('persona')}
-            className="group rounded-xl border border-mimic-red/20 bg-white p-5 text-left shadow-lg transition-all hover:border-mimic-red/40 hover:scale-[1.02] active:scale-100"
-          >
-            <div className="text-xl font-bold text-mimic-red">AI와 한 판</div>
-            <div className="text-sm text-zinc-600">기다림 없이 바로 대결</div>
-          </button>
-        )}
+      <div style={s.inner}>
 
-        {/* STEP 1: persona 선택 — 스와이프 캐러셀 */}
-        {aiStep === 'persona' && (() => {
-          const currentId = ALL_PERSONA_IDS[personaIdx];
-          const p = AI_PERSONAS[currentId];
-          return (
-            <div className="rounded-xl border border-mimic-red/20 bg-white shadow-lg overflow-hidden">
-              {/* Header */}
-              <div className="flex items-center justify-between px-4 pt-4 pb-3">
-                <div className="text-xl font-bold text-mimic-red">상대 성향 선택</div>
+        {/* ════════════════════════════════════════════
+            ARENA — VS 영역 + AI/친구 토글 + 페르소나
+            ════════════════════════════════════════════ */}
+        <div style={s.arena}>
+          {/* 좌우 글로우 */}
+          <div style={{
+            position: 'absolute', top: 0, left: '-30px', width: '180px', height: '180px',
+            borderRadius: '50%', background: COLORS.redGlow, filter: 'blur(60px)', pointerEvents: 'none',
+          }} />
+          <div style={{
+            position: 'absolute', top: 0, right: '-30px', width: '180px', height: '180px',
+            borderRadius: '50%', filter: 'blur(60px)', pointerEvents: 'none',
+            background: isAiMode ? COLORS.redGlow : 'rgba(79,107,237,0.28)',
+          }} />
+          {/* ── VS ROW ── */}
+          <div style={{ ...s.vsRow, position: 'relative' }}>
+            {/* VS row 한정 짧은 중앙 라인 */}
+            <div style={{
+              position: 'absolute', top: 8, bottom: 8, left: '50%', width: '1px',
+              transform: 'translateX(-0.5px)',
+              background: 'linear-gradient(180deg, transparent 0%, rgba(229,57,53,0.45) 50%, transparent 100%)',
+              pointerEvents: 'none', zIndex: 0,
+            }} />
+            {/* 플레이어 */}
+            <div style={s.vsSide}>
+              <div style={{
+                width: 72, height: 72, borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 22, fontWeight: 800,
+                background: COLORS.cardBgInset,
+                border: `2px solid ${COLORS.red}`,
+                color: COLORS.red,
+                boxShadow: `0 0 18px ${COLORS.redGlow}, inset 0 0 12px rgba(229,57,53,0.15)`,
+              }}>
+                {avatarInitials}
+              </div>
+              {editingName ? (
+                <input
+                  ref={nameInputRef}
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value.slice(0, 12))}
+                  onBlur={commitName}
+                  onKeyDown={handleNameKeyDown}
+                  placeholder="닉네임"
+                  maxLength={12}
+                  style={{
+                    background: 'transparent',
+                    border: 'none', borderBottom: `1px solid ${COLORS.red}`,
+                    color: COLORS.textPrimary, fontSize: '13px', fontWeight: 700,
+                    letterSpacing: '0.1em', textAlign: 'center',
+                    width: '100px', outline: 'none', fontFamily: 'inherit',
+                    padding: '2px 0',
+                  }}
+                />
+              ) : (
                 <button
                   type="button"
-                  onClick={() => setAiStep('idle')}
-                  className="text-xs text-zinc-500 underline hover:text-zinc-900"
+                  onClick={handleNameEdit}
+                  title="이름 변경"
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    position: 'relative', display: 'inline-flex', alignItems: 'center',
+                    padding: 0, fontFamily: 'inherit',
+                  }}
                 >
-                  취소
+                  <span style={s.vsName as React.CSSProperties}>{nickname.slice(0, 10)}</span>
+                  <span style={{
+                    position: 'absolute', left: '100%', marginLeft: 4,
+                    fontSize: 10, color: COLORS.textMuted,
+                  }}>✎</span>
                 </button>
-              </div>
+              )}
+              <div style={s.vsSub}>나</div>
+            </div>
 
-              {/* Carousel — image fills panel, slides overlap during transition */}
-              <div className="relative overflow-hidden" style={{ height: '280px' }}>
-                <AnimatePresence initial={false} custom={slideDir}>
-                  <motion.div
-                    key={currentId}
-                    custom={slideDir}
-                    variants={{
-                      enter:  (dir: number) => ({ x: `${dir * 100}%` }),
-                      center: { x: '0%' },
-                      exit:   (dir: number) => ({ x: `${dir * -100}%` }),
-                    }}
-                    initial="enter"
-                    animate="center"
-                    exit="exit"
-                    transition={{ type: 'spring', stiffness: 340, damping: 32, mass: 0.8 }}
-                    drag="x"
-                    dragConstraints={{ left: 0, right: 0 }}
-                    dragElastic={0.12}
-                    onDragEnd={(_, info) => {
-                      if (info.offset.x < -60) nextPersona();
-                      else if (info.offset.x > 60) prevPersona();
-                    }}
-                    className="absolute inset-0 cursor-grab active:cursor-grabbing"
-                  >
-                    {p.avatarSrc ? (
+            {/* 중앙 VS */}
+            <div style={s.vsCenter}>
+              <div style={s.vsDot} />
+              <div style={s.vsLabel}>VS</div>
+              <div style={s.vsDot} />
+            </div>
+
+            {/* 상대 */}
+            <div style={s.vsSide}>
+              {isAiMode ? (
+                <img
+                  src={persona.avatarSrc}
+                  alt={persona.displayName}
+                  style={{
+                    width: 72, height: 72, borderRadius: '50%',
+                    objectFit: 'cover',
+                    border: `2px solid ${COLORS.red}`,
+                    boxShadow: `0 0 18px ${COLORS.redGlow}`,
+                  }}
+                />
+              ) : (
+                <div style={{
+                  width: 72, height: 72, borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 24, fontWeight: 700,
+                  background: COLORS.blueDim,
+                  border: `2px solid ${COLORS.blue}`,
+                  color: COLORS.blue,
+                  boxShadow: `0 0 18px rgba(79,107,237,0.28)`,
+                }}>
+                  ?
+                </div>
+              )}
+              <div style={s.vsName as React.CSSProperties}>
+                {isAiMode ? persona.displayName.toUpperCase() : '친구'}
+              </div>
+              <div style={s.vsSub}>{isAiMode ? LEVEL_LABEL[pickedLevel] : 'P2P'}</div>
+            </div>
+          </div>
+
+          {/* ── AI/친구 토글 (카드형) ── */}
+          <div style={s.modeToggle}>
+            {(['ai', 'friend'] as const).map((m) => {
+              const active = mode === m;
+              const activeColor = m === 'ai' ? COLORS.red : COLORS.blue;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  style={{
+                    background: active ? activeColor : 'transparent',
+                    border: 'none',
+                    padding: '10px',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    letterSpacing: '0.06em',
+                    color: active ? COLORS.textPrimary : COLORS.textSecondary,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    borderRadius: 7,
+                    transition: 'all 0.15s',
+                    boxShadow: active ? `0 2px 10px ${activeColor}55` : 'none',
+                  }}
+                >
+                  {m === 'ai' ? 'AI' : '친구'}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── AI ZONE ── */}
+          {isAiMode && (
+            <>
+              {/* 페르소나 그리드 */}
+              <div style={s.charGrid}>
+                {ALL_PERSONA_IDS.map((id) => {
+                  const p = AI_PERSONAS[id];
+                  const selected = pickedPersona === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setPickedPersona(id)}
+                      style={{
+                        position: 'relative', overflow: 'hidden',
+                        background: COLORS.cardBgInset,
+                        border: selected ? `1.5px solid ${COLORS.red}` : `1px solid ${COLORS.border}`,
+                        borderRadius: 10,
+                        padding: '10px 6px 8px', cursor: 'pointer',
+                        textAlign: 'center', fontFamily: 'inherit',
+                        boxShadow: selected ? `0 0 14px ${COLORS.redGlow}` : 'none',
+                        transition: 'all 0.15s',
+                      }}
+                    >
                       <img
                         src={p.avatarSrc}
                         alt={p.displayName}
-                        draggable={false}
-                        className="h-full w-full object-cover object-top select-none pointer-events-none"
+                        style={{
+                          width: 44, height: 44, borderRadius: '50%',
+                          objectFit: 'cover', display: 'block', margin: '0 auto 5px',
+                          opacity: selected ? 1 : 0.55,
+                          transition: 'opacity 0.15s',
+                          filter: selected ? 'none' : 'grayscale(0.3)',
+                        }}
                       />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-zinc-100">
-                        <span className="text-6xl font-bold text-zinc-300">{p.displayName[0]}</span>
+                      <div style={{
+                        fontSize: 9, fontWeight: 700,
+                        color: selected ? COLORS.textPrimary : COLORS.textSecondary,
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%',
+                      }}>
+                        {p.displayName}
                       </div>
-                    )}
-                    {/* Bottom gradient + name/desc overlay */}
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent px-4 pb-3 pt-10">
-                      <div className="text-base font-bold text-white">{p.displayName}</div>
-                      <div className="text-xs text-white/70 mt-0.5">{p.description}</div>
-                    </div>
-                  </motion.div>
-                </AnimatePresence>
-
-                {/* Side nav buttons */}
-                <button
-                  type="button"
-                  onClick={prevPersona}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/25 text-white backdrop-blur-sm hover:bg-white/40 transition-colors text-lg"
-                >
-                  ‹
-                </button>
-                <button
-                  type="button"
-                  onClick={nextPersona}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/25 text-white backdrop-blur-sm hover:bg-white/40 transition-colors text-lg"
-                >
-                  ›
-                </button>
-              </div>
-
-              {/* Dot indicators */}
-              <div className="flex justify-center gap-1.5 py-3">
-                {ALL_PERSONA_IDS.map((id, i) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => goPersona(i)}
-                    className={clsx(
-                      'rounded-full transition-all',
-                      i === personaIdx
-                        ? 'w-5 h-2 bg-mimic-red'
-                        : 'w-2 h-2 bg-zinc-300 hover:bg-zinc-400',
-                    )}
-                  />
-                ))}
-              </div>
-
-              {/* Select button */}
-              <div className="px-4 pb-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPickedPersona(currentId);
-                    setAiStep('level');
-                  }}
-                  className="w-full rounded-lg bg-mimic-red py-3 text-sm font-bold text-white transition-opacity hover:opacity-90 active:scale-[0.98]"
-                >
-                  {p.displayName}와 대결
-                </button>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* STEP 2: level 선택 → 즉시 시작 */}
-        {aiStep === 'level' && (() => {
-          const p = AI_PERSONAS[pickedPersona];
-          return (
-            <div className="rounded-xl border border-mimic-red/20 bg-white shadow-lg overflow-hidden">
-              {/* Selected persona header */}
-              <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-100">
-                {p.avatarSrc && (
-                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-zinc-950">
-                    <img
-                      src={p.avatarSrc}
-                      alt=""
-                      aria-hidden
-                      draggable={false}
-                      className="h-full w-full object-contain select-none"
-                    />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs text-zinc-500">선택한 상대</div>
-                  <div className="text-base font-bold text-mimic-red">{p.displayName}</div>
-                  <div className="text-xs text-zinc-400 truncate">{p.description}</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setAiStep('persona')}
-                  className="text-xs text-zinc-500 underline hover:text-zinc-900 shrink-0"
-                >
-                  ← 다시
-                </button>
-              </div>
-
-              {/* Level buttons */}
-              <div className="p-4">
-                <div className="text-xs font-medium text-zinc-500 mb-2.5">난이도 선택</div>
-                <div className="flex flex-col gap-2">
-                  {ALL_LEVELS.map((lv) => (
-                    <button
-                      key={lv}
-                      type="button"
-                      onClick={() => start(lv)}
-                      className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-4 py-3 text-left transition-all hover:border-mimic-red hover:bg-mimic-red/5 active:scale-[0.98]"
-                    >
-                      <div>
-                        <div className="text-sm font-semibold text-zinc-800">{LEVEL_LABEL[lv]}</div>
-                        <div className="text-xs text-zinc-500 mt-0.5">{LEVEL_BLURB[lv]}</div>
-                      </div>
-                      <span className="text-mimic-red text-lg">▶</span>
                     </button>
-                  ))}
+                  );
+                })}
+              </div>
+
+              {/* 페르소나 정보 + 난이도 */}
+              <div style={s.charInfo}>
+                <img
+                  src={persona.avatarSrc}
+                  alt={persona.displayName}
+                  style={{
+                    width: 46, height: 46, borderRadius: '50%',
+                    objectFit: 'cover', flexShrink: 0,
+                    border: `1px solid ${COLORS.red}`,
+                  }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={s.charName as React.CSSProperties}>{persona.displayName}</div>
+                  <div style={s.charDesc}>{persona.description}</div>
+                </div>
+                <div style={s.diffPills}>
+                  {ALL_LEVELS.map((lv) => {
+                    const active = pickedLevel === lv;
+                    return (
+                      <button
+                        key={lv}
+                        type="button"
+                        onClick={() => setPickedLevel(lv)}
+                        style={{
+                          background: active ? COLORS.red : 'transparent',
+                          border: 'none',
+                          padding: '5px 10px',
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: active ? COLORS.textPrimary : COLORS.textSecondary,
+                          cursor: 'pointer', fontFamily: 'inherit',
+                          letterSpacing: 0,
+                          whiteSpace: 'nowrap',
+                          borderRadius: 6,
+                          boxShadow: active ? `0 2px 8px ${COLORS.redGlow}` : 'none',
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        {LEVEL_LABEL[lv]}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-            </div>
-          );
-        })()}
 
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="mb-2 text-base font-semibold text-foreground">친구와 플레이</div>
-          <div className="mb-3 text-xs text-muted-foreground">
-            WebRTC P2P 연결 · 서버 없음
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setRemoteDialog('create')}
-              className="flex-1 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 active:scale-95"
-            >
-              방 만들기
-            </button>
-            <button
-              type="button"
-              onClick={() => setRemoteDialog('join')}
-              className="flex-1 rounded-md border border-border bg-muted px-3 py-2 text-sm font-semibold text-foreground hover:bg-secondary active:scale-95"
-            >
-              코드 입력
-            </button>
-          </div>
+              <button type="button" onClick={handleStart} style={s.btnStart as React.CSSProperties}>
+                대결 시작 →
+              </button>
+            </>
+          )}
+
+          {/* ── 친구 ZONE ── */}
+          {!isAiMode && (
+            <>
+              <div style={s.friendGrid}>
+                <button type="button" onClick={() => setRemoteDialog('create')} style={s.btnFriend as React.CSSProperties}>
+                  방 만들기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRemoteDialog('join')}
+                  style={{ ...(s.btnFriend as React.CSSProperties), background: 'transparent' }}
+                >
+                  코드 입력
+                </button>
+              </div>
+              <button type="button" style={s.btnFriendStart as React.CSSProperties}>
+                입장하기 →
+              </button>
+            </>
+          )}
         </div>
 
-        {!statsLoading && stats && stats.totalHands > 0 && (
-          <div className="flex items-center gap-3 rounded-xl bg-card border border-border px-4 py-2.5 w-full">
-            <div className="text-center">
-              <div className="text-lg font-bold text-foreground">{stats.totalHands}</div>
-              <div className="text-[10px] text-muted-foreground">핸드</div>
-            </div>
-            <div className="h-8 w-px bg-border" />
-            <div className="text-center">
-              <div className="text-lg font-bold text-foreground">{Math.round(stats.winRate * 100)}%</div>
-              <div className="text-[10px] text-muted-foreground">승률</div>
-            </div>
-            {stats.winStreak >= 2 && (
-              <>
-                <div className="h-8 w-px bg-border" />
-                <div className="text-center">
-                  <div className="text-lg font-bold text-orange-500">{stats.winStreak}연승</div>
-                  <div className="text-[10px] text-muted-foreground">현재 연승</div>
-                </div>
-              </>
-            )}
+        {/* ════════════════════════════════════════════
+            성장 지표
+            ════════════════════════════════════════════ */}
+        <div style={s.statsCard}>
+          <div style={s.secLabel}>📈 내 성장 지표</div>
+
+          <div style={s.statsTabs}>
+            {(['today', 'week', 'month', 'all'] as const).map((r) => {
+              const active = range === r;
+              return (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRange(r)}
+                  style={{
+                    padding: '7px',
+                    textAlign: 'center',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    border: 'none',
+                    fontFamily: 'inherit',
+                    letterSpacing: 0,
+                    background: active ? COLORS.red : 'transparent',
+                    color: active ? COLORS.textPrimary : COLORS.textSecondary,
+                    borderRadius: 6,
+                    boxShadow: active ? `0 2px 8px ${COLORS.redGlow}` : 'none',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {RANGE_LABELS[r]}
+                </button>
+              );
+            })}
           </div>
-        )}
-        <GrowthStats
-          stats={stats}
-          range={range}
-          onRangeChange={setRange}
-          isLoading={statsLoading}
-        />
 
-        <SpotBreakdown stats={stats} />
+          {statsLoading || !stats || stats.totalHands === 0 ? (
+            <div style={s.statsEmpty}>
+              <div style={s.statsEmptyT}>오늘 플레이한 핸드가 없습니다</div>
+              <div style={s.statsEmptyS}>첫 대결을 시작해보세요</div>
+            </div>
+          ) : (
+            <div style={s.statsRow}>
+              <div style={s.statsItem}>
+                <div style={s.statsVal}>{stats.totalHands}</div>
+                <div style={s.statsLbl}>핸드</div>
+              </div>
+              <div style={s.statsItem}>
+                <div style={s.statsVal}>{Math.round(stats.winRate * 100)}%</div>
+                <div style={s.statsLbl}>승률</div>
+              </div>
+              <div style={s.statsItemLast}>
+                <div style={{ ...s.statsVal, color: stats.winStreak >= 2 ? '#EF9F27' : COLORS.red }}>
+                  {stats.winStreak >= 2 ? `${stats.winStreak}연승` : '-'}
+                </div>
+                <div style={s.statsLbl}>연승</div>
+              </div>
+            </div>
+          )}
+        </div>
 
-        <button
-          type="button"
-          onClick={() => navigate('/history')}
-          className="rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-muted"
-        >
-          <div className="text-base font-semibold text-foreground">내 기록 보기</div>
-          <div className="text-xs text-muted-foreground">과거 플레이한 핸드 검토</div>
+        {/* ════════════════════════════════════════════
+            기록 카드
+            ════════════════════════════════════════════ */}
+        <button type="button" onClick={() => navigate('/history')} style={s.recordCard as React.CSSProperties}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={s.recordIcon}>📋</div>
+            <div style={{ textAlign: 'left' }}>
+              <div style={s.recordT}>내 기록 보기</div>
+              <div style={s.recordS}>과거 플레이한 핸드 검토</div>
+            </div>
+          </div>
+          <div style={{ color: COLORS.textSecondary, fontSize: 18 }}>›</div>
         </button>
-      </div>
-
-      <div className="mt-auto pt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        <div>이번 세션: {handHistory.length} 핸드</div>
-        <div>닉네임: {settings.nickname}</div>
-        <Link to="/about" className="hover:text-foreground">
-          앱 정보
-        </Link>
       </div>
 
       <CreateRoomDialog
@@ -336,24 +570,5 @@ export default function HomePage() {
         myName={settings.nickname}
       />
     </main>
-  );
-}
-
-function SettingsIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
   );
 }

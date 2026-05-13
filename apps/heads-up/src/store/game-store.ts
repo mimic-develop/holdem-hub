@@ -7,6 +7,7 @@ import {
   cloneState,
   getLegalActions,
   getMeta,
+  resolveImmediate,
   startNewHand,
   type HandResolution,
   type LegalActions,
@@ -23,6 +24,7 @@ import type { PeerConnection, ConnectionStatus } from '../rtc/peer-connection';
 import type { ProtocolMessage } from '../rtc/protocol';
 import type {
   ActionLogEntry,
+  BotDecision,
   CompletedHand,
   GameMode,
   GameState,
@@ -30,9 +32,9 @@ import type {
   PlayerAction,
 } from '../types/game';
 
-const DEFAULT_STARTING_STACK = 200;
-const DEFAULT_SMALL_BLIND = 1;
-const DEFAULT_BIG_BLIND = 2;
+const DEFAULT_STARTING_STACK = 500;
+const DEFAULT_SMALL_BLIND = 10;
+const DEFAULT_BIG_BLIND = 20;
 
 const MY_ID_AI = 'me';
 const BOT_ID = 'bot';
@@ -496,38 +498,87 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (s.isWaitingForBot) return;
     set({ isWaitingForBot: true });
 
-    const decision = s._bot.decide(s.gameState, s.opponentPlayerId);
+    let decision: BotDecision;
+    try {
+      decision = s._bot.decide(s.gameState, s.opponentPlayerId);
+    } catch (err) {
+      console.error('[applyBotAction] decide() threw — using safe fallback:', err);
+      // decide()가 실패해도 게임이 멈추지 않도록 안전한 폴백 결정 사용.
+      // fold 대신 check/call을 우선해 상대에게 공짜 핸드를 주지 않음.
+      const fallbackLegal = getLegalActions(s.gameState, s.opponentPlayerId);
+      decision = {
+        action: fallbackLegal.canCheck
+          ? 'check'
+          : fallbackLegal.canCall
+            ? 'call'
+            : 'fold',
+        amount: fallbackLegal.canCall ? fallbackLegal.callAmount : 0,
+        thinkingTimeMs: 300,
+      };
+    }
     const delayMs = Math.max(200, decision.thinkingTimeMs);
 
     const timer = setTimeout(() => {
-      const cur = get();
-      if (
-        !cur.gameState ||
-        cur.isHandOver ||
-        cur.gameState.toActId !== cur.opponentPlayerId
-      ) {
+      try {
+        const cur = get();
+        if (
+          !cur.gameState ||
+          cur.isHandOver ||
+          cur.gameState.toActId !== cur.opponentPlayerId
+        ) {
+          set({ isWaitingForBot: false, _pendingBotTimer: null });
+          return;
+        }
+        const result = applyAction(
+          cur.gameState,
+          cur.opponentPlayerId,
+          decision.action,
+          decision.amount,
+        );
+        if (result.resolution) {
+          set({ isWaitingForBot: false, _pendingBotTimer: null });
+          finalizeHand(set, get, result.resolution);
+          return;
+        }
+        const newState = cloneState(result.state);
+        set({
+          gameState: newState,
+          isWaitingForBot: false,
+          _pendingBotTimer: null,
+        });
+        if (newState.toActId === cur.opponentPlayerId) {
+          void get().applyBotAction();
+        }
+      } catch (err) {
+        console.error('[applyBotAction] timer callback threw — retrying with safe fallback:', err);
+        // applyAction 실패 시 안전한 폴백(check/call)으로 재시도.
+        const cur2 = get();
         set({ isWaitingForBot: false, _pendingBotTimer: null });
-        return;
-      }
-      const result = applyAction(
-        cur.gameState,
-        cur.opponentPlayerId,
-        decision.action,
-        decision.amount,
-      );
-      if (result.resolution) {
-        set({ isWaitingForBot: false, _pendingBotTimer: null });
-        finalizeHand(set, get, result.resolution);
-        return;
-      }
-      const newState = cloneState(result.state);
-      set({
-        gameState: newState,
-        isWaitingForBot: false,
-        _pendingBotTimer: null,
-      });
-      if (newState.toActId === cur.opponentPlayerId) {
-        void get().applyBotAction();
+        if (cur2.gameState && !cur2.isHandOver && cur2.gameState.toActId === cur2.opponentPlayerId) {
+          try {
+            const fallbackLegal = getLegalActions(cur2.gameState, cur2.opponentPlayerId);
+            const fallbackAction: PlayerAction = fallbackLegal.canCheck
+              ? 'check'
+              : fallbackLegal.canCall
+                ? 'call'
+                : 'fold';
+            const fallbackAmount = fallbackLegal.canCall ? fallbackLegal.callAmount : 0;
+            const fallbackResult = applyAction(
+              cur2.gameState, cur2.opponentPlayerId, fallbackAction, fallbackAmount,
+            );
+            if (fallbackResult.resolution) {
+              finalizeHand(set, get, fallbackResult.resolution);
+            } else {
+              const newState = cloneState(fallbackResult.state);
+              set({ gameState: newState });
+              if (newState.toActId === cur2.opponentPlayerId) {
+                void get().applyBotAction();
+              }
+            }
+          } catch (fallbackErr) {
+            console.error('[applyBotAction] fallback also failed:', fallbackErr);
+          }
+        }
       }
     }, delayMs);
     set({ _pendingBotTimer: timer });
@@ -564,8 +615,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       nextSb === s.myPlayerId ? s.opponentPlayerId : s.myPlayerId;
 
     let stacks = { ...s.stacks };
-    if (stacks[s.myPlayerId] <= 0 || stacks[s.opponentPlayerId] <= 0) {
-      // 칩이 바닥나면 핸드 수와 무관하게 매치 종료.
+    // 칩이 바닥나거나 음수(엔진 버그 방어)이면 핸드 수와 무관하게 매치 종료.
+    if ((stacks[s.myPlayerId] ?? 0) <= 0 || (stacks[s.opponentPlayerId] ?? 0) <= 0) {
       set({ isMatchOver: true });
       return;
     }
@@ -580,6 +631,33 @@ export const useGameStore = create<GameStore>((set, get) => ({
       bigBlind: DEFAULT_BIG_BLIND,
       deckSeed: seed,
     });
+
+    const nextHandNumber = s.handNumber + 1;
+    const nextHandInMatch =
+      s.matchTotalHands > 0 ? s.currentHandInMatch + 1 : s.currentHandInMatch;
+
+    // 블라인드 포스팅만으로 올인이 된 경우(short-stack) — 즉시 쇼다운 처리.
+    const immediateResolution = resolveImmediate(state);
+    if (immediateResolution) {
+      // 스토어 상태를 먼저 이번 핸드 기준으로 설정한 뒤 finalizeHand 호출.
+      set({
+        gameState: state,
+        isHandOver: false,
+        lastResolution: null,
+        showOpponentCards: false,
+        isWaitingForBot: false,
+        isSendingAction: false,
+        stacks,
+        sbPlayerId: nextSb,
+        handNumber: nextHandNumber,
+        currentHandInMatch: nextHandInMatch,
+        _pendingBotTimer: null,
+        _currentSeed: seed ?? null,
+      });
+      finalizeHand(set, get, immediateResolution);
+      return;
+    }
+
     set({
       gameState: state,
       isHandOver: false,
@@ -589,9 +667,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       isSendingAction: false,
       stacks,
       sbPlayerId: nextSb,
-      handNumber: s.handNumber + 1,
-      currentHandInMatch:
-        s.matchTotalHands > 0 ? s.currentHandInMatch + 1 : s.currentHandInMatch,
+      handNumber: nextHandNumber,
+      currentHandInMatch: nextHandInMatch,
       _pendingBotTimer: null,
       _currentSeed: seed ?? null,
     });
@@ -603,7 +680,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         type: 'HAND_START',
         state: forPeer,
         deckSeed: seed,
-        handNumber: s.handNumber + 1,
+        handNumber: nextHandNumber,
       });
     }
 

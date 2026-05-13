@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import type { Player } from '../../types/game';
 import { HoleCards } from './HoleCards';
+import { useChipDisplay } from '../../hooks/useChipDisplay';
 
 interface PlayerSeatProps {
   player: Player;
@@ -16,6 +17,8 @@ interface PlayerSeatProps {
   cardBaseDelay?: number;
   /** AI character avatar image URL. Shown only for opponent seat. */
   avatarSrc?: string;
+  /** Compact mode — reduces avatar/pill sizes for small screens. */
+  compact?: boolean;
 }
 
 /**
@@ -36,7 +39,9 @@ export function PlayerSeat({
   layout = 'avatar-top',
   cardBaseDelay = 0,
   avatarSrc,
+  compact = false,
 }: PlayerSeatProps) {
+  const { fmt, toggle } = useChipDisplay();
   const faceDown = !isMe && !revealCards;
   const showCards = !!player.holeCards;
 
@@ -74,7 +79,7 @@ export function PlayerSeat({
       }
       className={clsx(
         'relative flex items-center justify-center rounded-full transition-all',
-        'h-16 w-16',
+        compact ? 'h-24 w-24' : 'h-24 w-24',
         isToAct &&
           (isMe
             ? 'ring-[3px] ring-amber-300 ring-offset-2 ring-offset-transparent'
@@ -99,7 +104,7 @@ export function PlayerSeat({
           className="h-full w-full rounded-full object-cover select-none"
         />
       ) : (
-        <span className="text-xl font-bold text-white/90">
+        <span className="text-3xl font-bold text-white/90">
           {(label[0] ?? (isMe ? '나' : 'AI')).toUpperCase()}
         </span>
       )}
@@ -121,8 +126,8 @@ export function PlayerSeat({
           : { duration: 0.3 }
       }
       className={clsx(
-        'flex flex-col items-center rounded-xl px-4 py-1.5 transition-colors',
-        'min-w-[120px]',
+        'flex flex-col items-center rounded-xl transition-colors',
+        compact ? 'min-w-[150px] px-5 py-2' : 'min-w-[150px] px-5 py-2',
         player.hasFolded && 'opacity-50',
       )}
       style={{
@@ -130,34 +135,41 @@ export function PlayerSeat({
         border: isToAct ? '1px solid rgba(252,211,77,0.5)' : '1px solid rgba(255,255,255,0.08)',
       }}
     >
-      <span className="text-xs font-semibold text-white/95 leading-tight">{label}</span>
+      <span className="text-[22px] font-semibold text-white/95 leading-tight">{label}</span>
       <motion.span
         key={`stack-${player.stack}`}
         initial={{ scale: 1.15, color: '#fcd34d' }}
         animate={{ scale: 1, color: 'rgba(255,255,255,0.7)' }}
         transition={{ duration: 0.4 }}
-        className="text-[11px] font-bold leading-tight"
+        className="text-[20px] font-bold leading-tight cursor-pointer"
+        onClick={toggle}
       >
-        {player.stack / 2}bb
+        {fmt(player.stack)}
       </motion.span>
     </motion.div>
   );
 
   if (layout === 'cards-top') {
-    // Player (me) — cards big above, pill below
+    // Player (me) — cards big above, pill below.
+    // 카드 슬롯은 항상 80px 고정 — 폴드 exit 애니메이션 종료 후
+    // AnimatePresence가 DOM에서 카드를 제거해도 높이가 붕괴하지 않아
+    // 테이블(flex-1 구역) 위치가 밀리지 않는다.
     return (
       <div className="flex flex-col items-center gap-1">
-        {showCards ? (
-          <HoleCards
-            cards={player.holeCards!}
-            faceDown={faceDown}
-            size="md"
-            baseDelay={cardBaseDelay}
-            folded={player.hasFolded}
-          />
-        ) : (
-          <div className="h-20" />
-        )}
+        <div
+          className="flex items-end justify-center overflow-visible"
+          style={{ height: 80 }}
+        >
+          {showCards && (
+            <HoleCards
+              cards={player.holeCards!}
+              faceDown={faceDown}
+              size="md"
+              baseDelay={cardBaseDelay}
+              folded={player.hasFolded}
+            />
+          )}
+        </div>
         {namePill}
       </div>
     );

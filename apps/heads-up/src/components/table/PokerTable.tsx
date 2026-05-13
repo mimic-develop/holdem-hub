@@ -12,12 +12,12 @@ interface PokerTableProps {
 
 export function PokerTable({ children, oppBet, myBet }: PokerTableProps) {
   return (
-    <div className="relative mx-auto w-full max-w-2xl">
+    <div className="relative mx-auto w-full" style={{ maxWidth: '480px' }}>
       {/* Bezel */}
       <div
         className="relative w-full overflow-hidden rounded-[50%/30%]"
         style={{
-          aspectRatio: '16 / 10',
+          height: 'clamp(180px, 40dvh, 340px)',
           padding: '10px',
           background:
             'radial-gradient(ellipse at center, #1a1a1a 0%, #0a0a0a 70%, #000 100%)',
@@ -62,7 +62,7 @@ export function PokerTable({ children, oppBet, myBet }: PokerTableProps) {
           {oppBet && (
             <div
               className="pointer-events-none absolute left-0 right-0 z-20 flex justify-center"
-              style={{ top: '14%' }}
+              style={{ top: '11%' }}
             >
               {oppBet}
             </div>
@@ -77,7 +77,7 @@ export function PokerTable({ children, oppBet, myBet }: PokerTableProps) {
           {myBet && (
             <div
               className="pointer-events-none absolute left-0 right-0 z-20 flex justify-center"
-              style={{ bottom: '14%' }}
+              style={{ bottom: '11%' }}
             >
               {myBet}
             </div>

@@ -233,6 +233,27 @@ export default function TablePage() {
     }
   }, [gameState, mode, navigate]);
 
+  // 탭 복귀 시 봇 턴 복구 — 백그라운드에서 setTimeout이 throttle/suspend되어
+  // 봇 액션 타이머가 소실된 경우 재시작. isWaitingForBot=false이지만 여전히
+  // 봇 턴이면 applyBotAction을 다시 호출해 게임을 재개한다.
+  useEffect(() => {
+    if (mode !== 'AI') return;
+    const handleVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const s = useGameStore.getState();
+      if (
+        s.gameState &&
+        !s.isHandOver &&
+        !s.isWaitingForBot &&
+        s.gameState.toActId === s.opponentPlayerId
+      ) {
+        void s.applyBotAction();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisible);
+    return () => document.removeEventListener('visibilitychange', handleVisible);
+  }, [mode]);
+
   if (!gameState) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center p-8" style={{ background: '#0a0a0a', color: '#e5e5e5' }}>
@@ -280,8 +301,11 @@ export default function TablePage() {
 
   return (
     <main
-      className="flex h-screen flex-col overflow-hidden"
+      className="flex flex-col overflow-hidden"
       style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 40,
         background:
           'radial-gradient(ellipse 80% 50% at 50% 30%, #1a1a1a 0%, #0a0a0a 60%, #050505 100%)',
         color: '#e5e5e5',
@@ -302,7 +326,7 @@ export default function TablePage() {
       )}
 
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 text-sm">
+      <div className="flex items-center justify-between px-3 py-1.5 text-sm" style={{ flexShrink: 0 }}>
         <button
           type="button"
           onClick={handleExit}
@@ -337,16 +361,16 @@ export default function TablePage() {
       </div>
 
       {/* Game area — 3-section flex column */}
-      <div className="flex flex-1 flex-col min-h-0">
+      <div className="flex flex-1 flex-col min-h-0" style={{ gap: 'clamp(4px, 1dvh, 10px)' }}>
 
         {/* ── Opponent section ── */}
         <div
           className="relative flex justify-center px-2"
-          style={{ zIndex: 20, minHeight: '124px', alignItems: 'flex-end' }}
+          style={{ zIndex: 20, flexShrink: 0 }}
         >
-          <div className="relative flex flex-col items-center" style={{ marginBottom: '-32px' }}>
+          <div className="relative flex flex-col items-center">
             {/* ActionToast above opponent */}
-            <div className="h-7 flex items-end justify-center mb-0.5">
+            <div className="h-6 flex items-end justify-center mb-0.5">
               <AnimatePresence>
                 {lastActionByPlayer[opp.id] && (
                   <ActionToast
@@ -379,21 +403,25 @@ export default function TablePage() {
                 layout="avatar-top"
                 cardBaseDelay={0}
                 avatarSrc={opponentAvatarSrc}
+                compact={true}
               />
             </div>
           </div>
         </div>
 
         {/* ── Table section — flex-1 fills remaining height ── */}
-        <div className="flex flex-1 items-center justify-center px-2" style={{ zIndex: 10 }}>
-          <div className="relative w-full max-w-2xl">
+        <div className="flex flex-1 min-h-0 items-center justify-center px-2 overflow-hidden" style={{ zIndex: 10 }}>
+          <div className="relative w-full" style={{ maxWidth: '480px' }}>
             <PokerTable
               oppBet={opp.currentBet > 0 ? <BetChip amount={opp.currentBet} /> : undefined}
               myBet={me.currentBet > 0 ? <BetChip amount={me.currentBet} /> : undefined}
             >
               {/* 팟 표시 + 커뮤니티 카드를 하나의 단위로 중앙 배치 */}
               <div className="flex flex-col items-center gap-1.5">
-                <PotDisplay pot={gameState.pot} street={gameState.street} />
+                {/* PotDisplay 높이를 고정해 pot=0↔non-0 전환 시 CommunityBoard 위치가 움직이지 않도록 */}
+                <div className="flex h-8 shrink-0 items-center justify-center">
+                  <PotDisplay pot={gameState.pot} street={gameState.street} />
+                </div>
                 <CommunityBoard board={gameState.board} />
               </div>
             </PokerTable>
@@ -415,9 +443,9 @@ export default function TablePage() {
         {/* ── Player section ── */}
         <div
           className="relative flex justify-center px-2"
-          style={{ zIndex: 20, minHeight: '128px', alignItems: 'flex-start' }}
+          style={{ zIndex: 20, flexShrink: 0 }}
         >
-          <div className="relative flex flex-col items-center" style={{ marginTop: '-32px' }}>
+          <div className="relative flex flex-col items-center">
             <div className="relative">
               {/* Dealer button — right of player seat */}
               {dealerIsMe && (
@@ -433,10 +461,11 @@ export default function TablePage() {
                 label="나"
                 layout="cards-top"
                 cardBaseDelay={120}
+                compact={true}
               />
             </div>
             {/* ActionToast below player */}
-            <div className="h-7 flex items-start justify-center mt-0.5">
+            <div className="h-6 flex items-start justify-center mt-0.5">
               <AnimatePresence>
                 {lastActionByPlayer[me.id] && (
                   <ActionToast
@@ -456,7 +485,13 @@ export default function TablePage() {
 
       {/* Bottom area — ActionBar + optional chat (normal flow).
            z-30: player-section(z-20)/table-section(z-10)보다 위에 렌더링 보장. */}
-      <div className="relative z-30 flex w-full items-end">
+      <div
+        className="relative z-30 flex w-full items-end"
+        style={{
+          flexShrink: 0,
+          paddingBottom: 'max(4px, env(safe-area-inset-bottom))',
+        }}
+      >
         {mode === 'REMOTE' && (
           <>
             <ChatToast entries={chatMessages} />
@@ -555,7 +590,7 @@ export default function TablePage() {
       <AnimatePresence>
         {isMatchOver && mode === 'AI' && me && (
           <MatchEndOverlay
-            netBB={Math.round((me.stack - startingStackBB * 2) / 2)}
+            netBB={Math.round((me.stack - startingStackBB * gameState.bigBlind) / gameState.bigBlind)}
             totalHands={matchTotalHands}
             personaId={aiPersona}
             handHistory={handHistory}

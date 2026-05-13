@@ -1,27 +1,62 @@
-import type { AuthProvider } from "./types.js";
+import type { AuthProvider, AuthUser } from "./types.js";
+
+const STORAGE_KEY = "mimic:auth_user";
+
+const MIMIC_USER: AuthUser = {
+  id: "mimic-user-001",
+  displayName: "MIMIC User",
+  email: "user@mimic.gg",
+  photoURL: null,
+};
 
 /**
- * Mimic 서버 OAuth provider stub.
+ * Mimic 인증 provider — sessionStorage 기반 로컬 mock.
  *
- * TODO: Mimic 서버 인증 사양 확정 후 실제 구현.
- *  - signIn() 시 Mimic OAuth 페이지로 redirect (또는 popup)
- *  - 콜백 처리 후 토큰을 sessionStorage에 보관
- *  - getCurrentUser() / onAuthChange()는 토큰 만료 감시
+ * VITE_AUTH_PROVIDER=mimic 설정 시 활성화.
+ * Firebase 없이 로그인 흐름을 테스트할 때 사용.
+ * 탭을 닫으면 세션이 초기화된다.
  */
 export function createMimicAuthStub(): AuthProvider {
+  const listeners = new Set<(user: AuthUser | null) => void>();
+
+  function readUser(): AuthUser | null {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      return raw ? (JSON.parse(raw) as AuthUser) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function notify(user: AuthUser | null) {
+    listeners.forEach((cb) => cb(user));
+  }
+
   return {
     name: "mimic",
+
     async signIn() {
-      throw new Error("Mimic 인증은 아직 구현되지 않았습니다.");
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(MIMIC_USER));
+      notify(MIMIC_USER);
+      return MIMIC_USER;
     },
+
     async signOut() {
-      // no-op
+      sessionStorage.removeItem(STORAGE_KEY);
+      notify(null);
     },
+
     getCurrentUser() {
-      return null;
+      return readUser();
     },
-    onAuthChange() {
-      return () => undefined;
+
+    onAuthChange(cb) {
+      listeners.add(cb);
+      // 현재 세션 상태를 즉시 전달
+      cb(readUser());
+      return () => {
+        listeners.delete(cb);
+      };
     },
   };
 }

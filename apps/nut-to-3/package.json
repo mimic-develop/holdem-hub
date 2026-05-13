@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "firebase": "^12.11.0",
     "@hh/poker-engine": "workspace:*",
     "@hh/shared": "workspace:*",
     "@hh/ui": "workspace:*",

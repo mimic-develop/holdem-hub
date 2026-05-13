@@ -8,7 +8,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "pnpm --filter @hh/hub dev",
+    "dev": "concurrently -n api,hub -c blue,magenta \"pnpm --filter @hh/api dev\" \"pnpm --filter @hh/hub dev\"",
+    "dev:hub": "pnpm --filter @hh/hub dev",
     "dev:all": "concurrently -n api,hub -c blue,magenta \"pnpm --filter @hh/api dev\" \"pnpm --filter @hh/hub dev\"",
     "dev:api": "pnpm --filter @hh/api dev",
     "build": "pnpm -r build",
