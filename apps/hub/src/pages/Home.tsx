@@ -15,6 +15,12 @@ interface Mode {
   desc: string;
   path: string;
   icon: React.ReactNode;
+  /** 각 sub-app 인트로에서 차용한 시그니처 컬러 — 카드 차별화에 사용. */
+  accent: string;
+  /** 아이콘 박스 배경. 골드처럼 metallic 효과는 gradient 로 줄 수 있도록 string. */
+  accentBg: string;
+  /** 카드 border / soft tint — accent 의 약 14% alpha. */
+  accentSoft: string;
   comingSoon?: boolean;
 }
 
@@ -25,25 +31,33 @@ const MODES: Mode[] = [
     desc: "상대보다 높은 족보를 만들어 3번 이기세요.",
     path: "/nut-to-3",
     icon: (
-      <span style={{ fontSize: 15, fontWeight: 900, letterSpacing: "-0.04em", color: "#fff" }}>
+      <span style={{ fontSize: 15, fontWeight: 900, letterSpacing: "-0.04em", color: "#1a1208" }}>
         N3
       </span>
     ),
+    accent: "#F5E070",
+    accentBg: "linear-gradient(135deg, #F5E070 0%, #D4AF37 55%, #A07820 100%)",
+    accentSoft: "rgba(212,175,55,0.22)",
   },
   {
     id: "concept-quiz",
     title: "POKER IQ",
     desc: "퀴즈로 포커 판단력을 점수화하세요.",
     path: "/concept-quiz",
-    icon: <Brain size={17} color="#fff" strokeWidth={2} />,
+    icon: <Brain size={17} color="#fff" strokeWidth={2.2} />,
+    accent: "#34D399",
+    accentBg: "linear-gradient(135deg, #34D399 0%, #10B981 55%, #047857 100%)",
+    accentSoft: "rgba(16,185,129,0.22)",
   },
   {
     id: "pot-quiz",
     title: "POT SPLIT",
     desc: "사이드팟과 분배 계산을 연습하세요.",
     path: "/pot-quiz",
-    icon: <Scale size={17} color="#666" strokeWidth={2} />,
-    comingSoon: true,
+    icon: <Scale size={17} color="#fff" strokeWidth={2.2} />,
+    accent: "#60A5FA",
+    accentBg: "linear-gradient(135deg, #60A5FA 0%, #3B82F6 55%, #2563EB 100%)",
+    accentSoft: "rgba(59,130,246,0.22)",
   },
 ];
 
@@ -236,10 +250,21 @@ export function Home() {
                   key={mode.id}
                   type="button"
                   className="flex w-full flex-col overflow-hidden rounded-xl p-3.5 transition-all active:scale-[0.97] hover:brightness-110"
-                  style={{ background: CARD_BG, border: "1px solid rgba(255,255,255,0.07)", minHeight: 120, textAlign: "left" }}
+                  style={{
+                    background: CARD_BG,
+                    border: `1px solid ${mode.accentSoft}`,
+                    minHeight: 120,
+                    textAlign: "left",
+                  }}
                   onClick={() => handleNavigate(mode.id, mode.path)}
                 >
-                  <div className="mb-2.5 flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: "rgba(255,255,255,0.08)" }}>
+                  <div
+                    className="mb-2.5 flex h-7 w-7 items-center justify-center rounded-lg"
+                    style={{
+                      background: mode.accentBg,
+                      boxShadow: `0 4px 14px ${mode.accentSoft}`,
+                    }}
+                  >
                     {mode.icon}
                   </div>
                   <p className="mb-1 text-[12px] font-bold leading-tight" style={{ letterSpacing: "0.04em" }}>
@@ -248,7 +273,7 @@ export function Home() {
                   <p className="mb-auto text-[11px] leading-snug" style={{ color: SUB_TEXT, letterSpacing: 0 }}>
                     {mode.desc}
                   </p>
-                  <p className="mt-2.5 text-[11px] font-semibold" style={{ color: RED, letterSpacing: 0 }}>
+                  <p className="mt-2.5 text-[11px] font-semibold" style={{ color: mode.accent, letterSpacing: 0 }}>
                     시작하기 →
                   </p>
                 </button>

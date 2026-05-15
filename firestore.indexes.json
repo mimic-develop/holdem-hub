@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "nutTo3Leaderboard_all_time",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "streak", "order": "DESCENDING" },
+        { "fieldPath": "score", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

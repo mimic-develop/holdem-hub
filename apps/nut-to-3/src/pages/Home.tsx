@@ -15,6 +15,9 @@ import confetti from "canvas-confetti";
 import type { NutTier } from "../lib/api-schema";
 import { useAuthState } from "@hh/shared";
 import { loadStreakFromFirestore, saveStreakToFirestore } from "../lib/firestore-streak";
+import { deriveMetrics, type DerivedMetrics } from "../lib/score";
+import { submitIfBetter, type SubmitResult } from "../lib/firestore-leaderboard";
+import { LeaderboardPanel } from "../components/LeaderboardPanel";
 
 interface RunStats {
   streetsPlayed: number;
@@ -24,6 +27,12 @@ interface RunStats {
   bestStreak: number;
   completedAll: boolean;
   timedOut: boolean;
+  /** Per-street response time in ms. Filled per submit; timed-out streets get
+   *  the timer limit (STREET_TIMERS[i] × 1000). 길이는 항상 3. */
+  responseTimes: number[];
+  /** Derived metrics used by leaderboard submit / UI. Optional for legacy
+   *  call sites that haven't filled it yet — will be ensured at results-phase entry. */
+  metrics?: DerivedMetrics;
 }
 
 const HAND_RANKINGS = [
@@ -307,6 +316,7 @@ export default function Home() {
   const [showInfo, setShowInfo] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [appPhase, setAppPhase] = useState<"intro" | "countdown" | "playing" | "results">("intro");
   const refBoard = React.useRef<HTMLDivElement>(null);
   const refSlots = React.useRef<HTMLDivElement>(null);
@@ -314,6 +324,17 @@ export default function Home() {
   const [annotationRects, setAnnotationRects] = useState<{ board: DOMRect | null; slots: DOMRect | null; picker: DOMRect | null }>({ board: null, slots: null, picker: null });
   const [runStats, setRunStats] = useState<RunStats | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  // 응답 시간 추적 — 매 스트릿 시작 시점과 그 스트릿의 응답 ms (낮을수록 좋음).
+  // useRef 로 보관해 매 frame 마다 rerender 발생 안 함.
+  const streetStartTimesRef = React.useRef<number[]>([0, 0, 0]);
+  const responseTimesRef = React.useRef<number[]>([0, 0, 0]);
+  /** leaderboard submit 결과 — results phase 진입 시 자동 채워짐. UI 가 소비. */
+  const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
+  const submitRequestedRef = React.useRef<string | null>(null);
+  /** new-record toast/confetti 가 한 게임에서 한 번만 발동되도록 가드. resetGame 에서 false. */
+  const newRecordNotifiedRef = React.useRef(false);
+  /** results 헤더에서 표시할 내 순위 — LeaderboardPanel onRankResolved 콜백이 채움. */
+  const [myRank, setMyRank] = useState<number | "overflow" | null>(null);
 
   // Per-game
   const [streetIndex, setStreetIndex] = useState(0);
@@ -361,6 +382,14 @@ export default function Home() {
     setTimeLeft(STREET_TIMERS[0]);
     setTimedOut(false);
     setSessionAllCorrect(true);
+    // 응답 시간 ref 초기화. 첫 스트릿 시작 시각은 playing phase 진입 useEffect 에서 기록.
+    streetStartTimesRef.current = [0, 0, 0];
+    responseTimesRef.current = [0, 0, 0];
+    // leaderboard submit 가드 해제 + 이전 결과 비움 (다음 게임 종료 시 다시 submit).
+    submitRequestedRef.current = null;
+    setSubmitResult(null);
+    newRecordNotifiedRef.current = false;
+    setMyRank(null);
   }
 
   function resetStreet(newStreetIdx?: number) {
@@ -370,6 +399,61 @@ export default function Home() {
     setTimeLeft(STREET_TIMERS[newStreetIdx ?? streetIndex]);
     setTimedOut(false);
   }
+
+  // playing phase + selecting 진입 시점에 그 스트릿 시작 시각 기록. 응답 ms 측정 기준.
+  useEffect(() => {
+    if (appPhase !== "playing") return;
+    if (phase !== "selecting") return;
+    if (streetStartTimesRef.current[streetIndex] === 0) {
+      streetStartTimesRef.current[streetIndex] = performance.now();
+    }
+  }, [appPhase, phase, streetIndex]);
+
+  // new-record toast/confetti 알림 — submitResult.wasUpdated 가 true 가 된 직후 한 번.
+  useEffect(() => {
+    if (!submitResult?.wasUpdated) return;
+    if (newRecordNotifiedRef.current) return;
+    newRecordNotifiedRef.current = true;
+    try { triggerConfetti(); } catch {}
+    const prev = submitResult.previousBest;
+    const next = submitResult.newBest;
+    const diffParts: string[] = [];
+    if (next && prev) {
+      if (next.streak > prev.streak) diffParts.push(`스트릭 ${prev.streak}→${next.streak}`);
+      if (next.score > prev.score)   diffParts.push(`점수 ${prev.score}→${next.score}`);
+    }
+    toast({
+      title: "🎉 새 기록 갱신!",
+      description: diffParts.length > 0
+        ? diffParts.join(' · ')
+        : "전체 best record 를 새로 썼습니다.",
+    });
+  }, [submitResult]);
+
+  // results phase 진입 시 한 번 leaderboard upsert. metrics 가 채워졌고 로그인된 경우만.
+  // submitRequestedRef 가드로 동일 게임 결과를 두 번 submit 하지 않음.
+  useEffect(() => {
+    if (appPhase !== "results") return;
+    const metrics = runStats?.metrics;
+    if (!metrics) return;
+    if (!user?.id) return;
+    if (submitRequestedRef.current === user.id) return;
+    submitRequestedRef.current = user.id;
+    const displayName = user.displayName?.trim() || `익명-${user.id.slice(0, 6)}`;
+    const payload = {
+      uid: user.id,
+      displayName,
+      streak: runStats?.finalStreak ?? 0,
+      accuracy: metrics.accuracy,
+      avgResponseMs: metrics.avgResponseMs,
+      score: metrics.score,
+    };
+    console.log("[nut-to-3] leaderboard submit start →", payload);
+    void submitIfBetter(payload).then((res) => {
+      console.log("[nut-to-3] leaderboard submit result →", res);
+      setSubmitResult(res);
+    });
+  }, [appPhase, runStats?.metrics, runStats?.finalStreak, user?.id, user?.displayName]);
 
   // (카운트다운 제거 — 터치로 시작)
 
@@ -404,7 +488,15 @@ export default function Home() {
       if (user?.id) saveStreakToFirestore(user.id, 0, bestStreak);
       setTimedOut(true);
       setPhase("submitted");
+      // 타임아웃 시 응답 시간 = 그 스트릿의 timer 한계 (ms).
+      responseTimesRef.current[streetIndex] = STREET_TIMERS[streetIndex] * 1000;
       if (streetIndex === 2) {
+        const responseTimes = [...responseTimesRef.current];
+        const metrics = deriveMetrics({
+          streetResults: newStreetResults,
+          responseTimes,
+          finalStreak: prevStreak,
+        });
         setRunStats({
           streetsPlayed: 2,
           streetResults: newStreetResults,
@@ -413,6 +505,8 @@ export default function Home() {
           bestStreak,
           completedAll: true,
           timedOut: true,
+          responseTimes,
+          metrics,
         });
         setAppPhase("results");
       }
@@ -466,7 +560,7 @@ export default function Home() {
               <div style={{ flex: 1, height: 1, background: GOLD }} />
             </div>
 
-            {/* 타이틀 — Pretendard 고딕, 금/은/동 메달 컬러 분리 */}
+            {/* 타이틀 — Pretendard 고딕, 노란색 + 화이트 */}
             <h1 style={{
               margin: 0, marginTop: 6, lineHeight: 1,
               fontSize: 'clamp(56px, 17vw, 84px)', fontWeight: 800,
@@ -474,17 +568,17 @@ export default function Home() {
               letterSpacing: '-0.01em',
               display: 'inline-flex', alignItems: 'baseline', gap: '0.1em',
             }}>
-              {/* Nut — 금 (1st) */}
+              {/* Nut — 노란색 */}
               <span style={{ color: '#F0C840', fontWeight: 800 }}>Nut</span>
-              {/* to — 은 (2nd) */}
+              {/* to — 화이트 */}
               <span style={{
-                color: '#B8C0C8', fontSize: '0.56em',
+                color: '#FFFFFF', fontSize: '0.56em',
                 fontWeight: 600,
                 margin: '0 0.06em',
                 letterSpacing: '0',
               }}>to</span>
-              {/* 3 — 동 (3rd) */}
-              <span style={{ color: '#D58A4E', fontWeight: 800 }}>3</span>
+              {/* 3 — 노란색 */}
+              <span style={{ color: '#F0C840', fontWeight: 800 }}>3</span>
             </h1>
 
             <p style={{
@@ -550,6 +644,26 @@ export default function Home() {
             >
               <BookOpen size={16} strokeWidth={2} />
               <span>처음이라면 게임 방법 확인 →</span>
+            </button>
+
+            {/* 리더보드 확인 — Trophy 아이콘 + outline 박스 (룰 안내와 같은 톤) */}
+            <button
+              data-testid="button-leaderboard-intro"
+              type="button"
+              onClick={() => setShowLeaderboard(true)}
+              style={{
+                marginTop: 10, width: '100%', borderRadius: 14, padding: '13px 18px',
+                background: 'rgba(8,6,12,0.55)',
+                border: '1px solid rgba(212,175,55,0.3)',
+                color: 'rgba(212,175,55,0.92)', fontSize: 14, fontWeight: 600,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                cursor: 'pointer', letterSpacing: 0,
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+              }}
+            >
+              <Trophy size={16} strokeWidth={2} />
+              <span>리더보드 확인 →</span>
             </button>
 
             {/* 제한 시간 박스 — Timer 아이콘 + outline */}
@@ -646,6 +760,49 @@ export default function Home() {
             </div>
           )}
         </AnimatePresence>
+
+        {/* Leaderboard modal — intro 에서 "리더보드 확인" 클릭 시 표시. */}
+        <AnimatePresence>
+          {showLeaderboard && (
+            <div className="fixed inset-0 z-50 flex items-end justify-center">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                onClick={() => setShowLeaderboard(false)}
+              />
+              <motion.div
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                className="relative w-full max-w-[430px] rounded-t-2xl px-4 pt-4 pb-10 overflow-y-auto max-h-[85vh]"
+                style={{
+                  background: 'linear-gradient(180deg, #1a1410 0%, #0a0608 100%)',
+                  borderTop: '1px solid rgba(212,175,55,0.3)',
+                }}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-display font-bold text-base text-white">명예의 전당</h2>
+                  <button
+                    data-testid="button-close-leaderboard"
+                    onClick={() => setShowLeaderboard(false)}
+                    className="w-7 h-7 rounded-lg border border-white/15 flex items-center justify-center text-white/60 hover:text-white transition-all"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <LeaderboardPanel uid={user?.id ?? null} />
+                {!user?.id && (
+                  <p className="mt-3 text-center text-[11px] text-white/45">
+                    로그인하면 본인 기록이 랭킹에 반영됩니다
+                  </p>
+                )}
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
@@ -738,6 +895,19 @@ export default function Home() {
       setAppPhase("playing");
     }
 
+    // 결과 화면 "홈" 버튼 — 인트로로 이동하되 다음 "게임 시작" 시 새 보드로 시작하도록
+    // 게임 state 리셋 + 새 게임 요청. recentNutTypes 도 누적해 같은 너트 타입 반복 방지.
+    function handleGoHome() {
+      if (game) {
+        const riverNut = game.streets[2]?.tiers[0]?.koreanDescr;
+        const next = riverNut ? [...recentNutTypes, riverNut].slice(-2) : recentNutTypes;
+        if (riverNut) setRecentNutTypes(next);
+        resetGame();
+        requestNewGame(next);
+      }
+      setAppPhase("intro");
+    }
+
     return (
       <div className="min-h-screen px-4 pb-10 flex flex-col" style={{ maxWidth: '430px', margin: '0 auto', paddingTop: '52px' }}>
         <div className="flex flex-col gap-4 pt-8 pb-4">
@@ -769,7 +939,52 @@ export default function Home() {
                 )}
               </div>
             )}
+            {submitResult?.wasUpdated && (
+              <div
+                className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold"
+                style={{
+                  background: 'linear-gradient(135deg, #FCD34D, #F59E0B)',
+                  color: '#451A03',
+                  boxShadow: '0 4px 16px rgba(245,158,11,0.45)',
+                }}
+                data-testid="new-best-badge"
+              >
+                🎉 NEW BEST
+              </div>
+            )}
+            {myRank !== null && (
+              <div className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-amber-300">
+                🏅 내 순위{' '}
+                <span className="font-display font-bold text-amber-200">
+                  {myRank === 'overflow' ? '100위+' : `${myRank}위`}
+                </span>
+              </div>
+            )}
           </div>
+
+          {/* 4 metrics 표시 — accuracy / avgResponseMs / score 를 추가로 노출. */}
+          {runStats.metrics && (
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
+                <div className="text-[10px] text-white/50 font-semibold uppercase tracking-wider">정확도</div>
+                <div className="font-display font-bold text-lg text-white mt-1">
+                  {Math.round(runStats.metrics.accuracy * 100)}%
+                </div>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
+                <div className="text-[10px] text-white/50 font-semibold uppercase tracking-wider">평균 응답</div>
+                <div className="font-display font-bold text-lg text-white mt-1">
+                  {(runStats.metrics.avgResponseMs / 1000).toFixed(1)}s
+                </div>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
+                <div className="text-[10px] text-white/50 font-semibold uppercase tracking-wider">점수</div>
+                <div className="font-display font-bold text-lg text-emerald-300 mt-1 tabular-nums">
+                  {runStats.metrics.score.toLocaleString()}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* A안: 3×3 스코어카드 */}
           <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
@@ -834,6 +1049,13 @@ export default function Home() {
               )}
             </div>
           )}
+
+          {/* All-time leaderboard panel — Top 10 + my rank highlight */}
+          <LeaderboardPanel
+            uid={user?.id ?? null}
+            refreshKey={submitResult?.wasUpdated ? 1 : 0}
+            onRankResolved={setMyRank}
+          />
         </div>
 
         {/* Action buttons */}
@@ -868,7 +1090,7 @@ export default function Home() {
           </button>
           <div className="flex gap-2">
             <button
-              onClick={() => setAppPhase("intro")}
+              onClick={handleGoHome}
               className="flex-1 py-4 rounded-2xl border border-white/15 bg-white/5 text-white/70 font-display font-bold text-base hover:bg-white/10 hover:text-white transition-all active:scale-[0.98] flex items-center justify-center gap-2"
             >
               <X className="w-4 h-4" />
@@ -1037,6 +1259,13 @@ export default function Home() {
   function handleSubmit() {
     if (!allReady || phase === "submitted") return;
 
+    // 응답 시간 기록 — 그 스트릿 시작 시각이 0(미초기화)인 비정상 케이스엔 limit fallback.
+    const startedAt = streetStartTimesRef.current[streetIndex];
+    const elapsed = startedAt > 0
+      ? performance.now() - startedAt
+      : STREET_TIMERS[streetIndex] * 1000;
+    responseTimesRef.current[streetIndex] = elapsed;
+
     const tiers = currentStreet.tiers;
     const results = slotCards.map((cards, idx) =>
       checkSlotAnswer(cards, tiers[idx])
@@ -1081,6 +1310,12 @@ export default function Home() {
         if (user?.id) saveStreakToFirestore(user.id, newStreak, newBest);
         triggerConfetti();
       }
+      const responseTimes = [...responseTimesRef.current];
+      const metrics = deriveMetrics({
+        streetResults: newStreetResults,
+        responseTimes,
+        finalStreak: newStreak,
+      });
       setRunStats({
         streetsPlayed: 2,
         streetResults: newStreetResults,
@@ -1089,6 +1324,8 @@ export default function Home() {
         bestStreak: newBest,
         completedAll: true,
         timedOut: false,
+        responseTimes,
+        metrics,
       });
       setAppPhase("results");
     }
@@ -1171,7 +1408,7 @@ export default function Home() {
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          {/* NUT TO 3 로고 — 인트로와 동일한 금/은/동 메달 컬러 */}
+          {/* Nut to 3 로고 — "Nut"만 골드 강조, 나머지는 화이트 */}
           <span style={{
             display: 'inline-flex', alignItems: 'baseline', gap: '0.1em',
             fontSize: 22, fontWeight: 800, lineHeight: 1,
@@ -1180,10 +1417,10 @@ export default function Home() {
           }}>
             <span style={{ color: '#F0C840' }}>Nut</span>
             <span style={{
-              color: '#B8C0C8', fontSize: '0.56em', fontWeight: 600,
+              color: '#ffffff', fontSize: '0.56em', fontWeight: 600,
               margin: '0 0.04em',
             }}>to</span>
-            <span style={{ color: '#D58A4E' }}>3</span>
+            <span style={{ color: '#ffffff' }}>3</span>
           </span>
         </div>
 
@@ -1551,6 +1788,9 @@ export default function Home() {
                 <button
                   onClick={() => {
                     setShowExitConfirm(false);
+                    // 진행 중 게임 폐기 — 인트로 복귀 후 "게임 시작" 시 새 보드로 시작.
+                    resetGame();
+                    requestNewGame(recentNutTypes);
                     setAppPhase("intro");
                   }}
                   className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 active:scale-95 transition-all"
