@@ -22,7 +22,8 @@ interface PotAwardAnimationProps {
  *
  * - 골드 코인 스택이 팟 중앙에서 수상자 방향으로 날아감
  * - 승패 결과 pill이 테이블 중앙에 잠깐 등장 후 페이드
- * - 1.9초 후 onComplete 자동 호출 (→ startNextHand)
+ * - 1.2초 후 onComplete 자동 호출 (→ startNextHand)
+ *   매 핸드 NIT 폴드/체크가 누적되는 경우 4초 → 2.5초로 단축되어 진행감 회복.
  */
 export function PotAwardAnimation({
   iWon,
@@ -31,7 +32,7 @@ export function PotAwardAnimation({
   onComplete,
 }: PotAwardAnimationProps) {
   useEffect(() => {
-    const t = setTimeout(onComplete, 1900);
+    const t = setTimeout(onComplete, 1200);
     return () => clearTimeout(t);
   }, [onComplete]);
 

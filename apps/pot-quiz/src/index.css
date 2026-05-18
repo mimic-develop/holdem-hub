@@ -77,6 +77,71 @@
   --shadow-2xl: 0px 24px 60px 0px rgba(0, 0, 0, 0.14);
 }
 
+/* ── 인게임 다크 스코프 (Quiz.tsx 컨테이너) ─────────────────────
+ * 학습/게임 둘 다 인게임은 어두운 카지노 톤으로 집중도 강화.
+ * `.pot-quiz-ingame` 클래스가 적용된 영역만 다크 변수 override.
+ * Home / Summary 페이지는 라이트 유지.
+ */
+.app-pot-quiz .pot-quiz-ingame {
+  color-scheme: dark only;
+
+  /* elevate overlay — 미세 white overlay (인트로 'rgba 4~10%' 시스템과 일치) */
+  --button-outline: rgba(255, 255, 255, 0.10);
+  --badge-outline: rgba(255, 255, 255, 0.06);
+  --elevate-1: rgba(255, 255, 255, 0.04);
+  --elevate-2: rgba(255, 255, 255, 0.10);
+
+  /* Base — 인트로(Home.tsx) 와 동일. 단 pure #000 대신 살짝 푸른 톤으로 깊이감 추가. */
+  --background: 222 14% 5%;          /* #0A0C12 — deep navy black */
+  --foreground: 60 17% 95%;          /* #FAFAF8 (오프화이트) */
+  --border: 0 0% 18%;
+  --card: 222 12% 10%;               /* #181A20 — 미세 푸른빛 dark card (#1A1A1A 보다 살짝 채도) */
+  --card-foreground: 60 17% 95%;
+  --card-border: 0 0% 16%;
+
+  --popover: 222 12% 10%;
+  --popover-foreground: 60 17% 95%;
+  --popover-border: 0 0% 16%;
+
+  /* Primary — BLUE #3B82F6 (인트로 Primary CTA 키컬러와 일치) */
+  --primary: 217 91% 60%;
+  --primary-foreground: 60 17% 95%;
+
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 60 17% 95%;
+  --muted: 0 0% 12%;
+  --muted-foreground: 0 0% 65%;
+  --accent: 217 91% 30%;
+  --accent-foreground: 60 17% 95%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 60 17% 95%;
+  --input: 0 0% 18%;
+  --ring: 217 91% 60%;
+
+  /* Chart — BLUE 기준, 보조 톤 GOLD/PURPLE/GREEN/AMBER 유지 (칩 tone 도메인) */
+  --chart-1: 217 91% 60%;
+  --chart-2: 38 92% 50%;
+  --chart-3: 142 71% 45%;
+  --chart-4: 280 65% 60%;
+  --chart-5: 25 95% 55%;
+
+  /* 그림자는 약하게 (이미 배경이 어둠) */
+  --shadow-2xs: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.55), 0 1px 2px -1px rgba(0, 0, 0, 0.4);
+  --shadow: 0 3px 8px rgba(0, 0, 0, 0.6), 0 1px 3px -1px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6), 0 2px 4px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.65), 0 4px 8px -2px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 16px 40px rgba(0, 0, 0, 0.75), 0 8px 16px -4px rgba(0, 0, 0, 0.4);
+  --shadow-2xl: 0 24px 60px rgba(0, 0, 0, 0.8);
+
+  /* 인트로와 동일 톤. 단순 #0A0C12 대신 명확한 navy linear + BLUE/GOLD radial 다층. */
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(59,130,246,0.22) 0%, rgba(59,130,246,0) 55%),
+    radial-gradient(ellipse 60% 45% at 50% 100%, rgba(245,158,11,0.12) 0%, rgba(245,158,11,0) 60%),
+    linear-gradient(180deg, #1A2247 0%, #0F1428 45%, #0A0E1F 80%, #08091A 100%);
+}
+
 /* ── elevate 유틸리티 시스템 (원본 보존, 스코프만 .app-pot-quiz) ────── */
 
 .app-pot-quiz input[type="search"]::-webkit-search-cancel-button {

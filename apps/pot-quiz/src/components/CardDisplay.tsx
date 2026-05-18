@@ -45,8 +45,10 @@ export default function CardDisplay({ card, size = 'md', faceDown = false, highl
     ? 'border-2 border-yellow-400 shadow-yellow-400/30 shadow-lg'
     : 'border border-input';
 
-  const bgClass = dimmed ? 'bg-muted/50' : 'bg-zinc-100 dark:bg-card';
-  const textColor = red ? 'text-red-500' : 'text-foreground';
+  // 카드 배경은 항상 밝은 zinc 톤 (실제 포커 카드). 그 위 글씨는 contrast 보장:
+  //   red suit → text-red-600, black suit → text-zinc-900 (흰 바탕 위 검은 글씨)
+  const bgClass = dimmed ? 'bg-zinc-300' : 'bg-zinc-100';
+  const textColor = red ? 'text-red-600' : 'text-zinc-900';
   const dimClass = dimmed ? 'opacity-40' : '';
 
   return (

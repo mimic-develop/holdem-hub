@@ -29,6 +29,11 @@ import { applyPersonaModifiers } from './persona-modifiers';
 import { applyDifficultyModifiers, temperatureFor } from './difficulty-modifiers';
 import { chooseAction } from './action-chooser';
 import type { DecisionFeatures } from './decision-types';
+import { decide25bbPreflop } from './preflop-25bb/engine';
+import { resolveSpecPersona } from './preflop-25bb/personaResolver';
+import { initialStateFor, type PersonaState } from './preflop-25bb/personaState';
+import { applyEvents } from './preflop-25bb/bayesianPersonaUpdater';
+import type { PersonaStateEvent } from './preflop-25bb/personaStateEvents';
 
 /** @deprecated 마스터 스펙 v2 이후 `AiLevel`을 사용. 임시 별칭. */
 export type Difficulty = AiLevel;
@@ -144,6 +149,9 @@ export class HeuristicBot {
   private readonly temperature: number;
   private readonly equityCache = new EquityCache();
 
+  /** Bayesian-inspired persona state — mutates during match via `recordEvents`. */
+  private personaState: PersonaState;
+
   /**
    * 두 가지 호출 시그니처 지원:
    *  1. `new HeuristicBot('MEDIUM')`        — legacy: difficulty만 (STANDARD persona)
@@ -173,15 +181,40 @@ export class HeuristicBot {
     this.thinkingMinMs = this.mods.delayRangeMs[0];
     this.thinkingMaxMs = this.mods.delayRangeMs[1];
     this.temperature = temperatureFor(level);
+    this.personaState = initialStateFor(resolveSpecPersona(this.personaId));
+  }
+
+  /** Feed match events into the persona-state vector. Callers (game-store
+   *  finalizeHand etc.) emit events; this method mutates internal state. */
+  recordEvents(events: PersonaStateEvent[]): void {
+    const specPersona = resolveSpecPersona(this.personaId);
+    this.personaState = applyEvents(this.personaState, events, specPersona);
+  }
+
+  /** Read-only snapshot for tests / telemetry. */
+  getPersonaState(): PersonaState {
+    return { ...this.personaState };
   }
 
   decide(state: GameState, botId: string): BotDecision {
     const me = getPlayer(state, botId);
     const hole = ensureHoleCards(me);
 
-    const thinkingTimeMs = Math.round(
+    const rawThinkingMs = Math.round(
       this.thinkingMinMs + this.rng() * (this.thinkingMaxMs - this.thinkingMinMs),
     );
+
+    // ── 25bb HU preflop persona engine (beta) ─────────────────────────
+    // 사양 12개 노드 중 매칭되면 새 엔진의 액션을 그대로 사용. 매칭 실패
+    // (4bet 이후, 25bb 미세 이탈 등)는 legacy 파이프라인으로 fallback.
+    const preflop25 = decide25bbPreflop(state, botId, this.personaId, this.rng, this.personaState);
+    if (preflop25) {
+      const isFast = preflop25.action === 'fold' || preflop25.action === 'check';
+      const thinkingTimeMs = isFast
+        ? Math.max(250, Math.round(rawThinkingMs * 0.45))
+        : rawThinkingMs;
+      return { action: preflop25.action, amount: preflop25.amount, thinkingTimeMs };
+    }
 
     // 1. Features 추출
     const features = evaluateDecisionFeatures({
@@ -216,6 +249,13 @@ export class HeuristicBot {
       this.rng,
       this.mods.sizingAccuracy,
     );
+
+    // 빠른 결정(fold / check)에는 thinking time 단축 — NIT 페르소나처럼 매 핸드
+    // 폴드/체크만 반복하는 케이스에서 사용자가 스택 누적으로 stuck 처럼 느끼는 것을 회피.
+    const isFastAction = chosen.playerAction === 'fold' || chosen.playerAction === 'check';
+    const thinkingTimeMs = isFastAction
+      ? Math.max(250, Math.round(rawThinkingMs * 0.45))
+      : rawThinkingMs;
 
     return { action: chosen.playerAction, amount, thinkingTimeMs };
   }

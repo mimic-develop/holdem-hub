@@ -23,6 +23,11 @@ export interface SubAppHeaderProps {
   left?: ReactNode;
   /** Hub Navbar 아래에 붙이려면 true (기본). false면 top:0 */
   belowHubNavbar?: boolean;
+  /**
+   * 데스크톱에서 헤더 내부 콘텐츠(좌/타이틀/우)가 정렬될 모바일 컬럼 최대 너비.
+   * 기본 430 — Hub Navbar의 `max-w-[430px]` 와 동일. 페이지 본문 너비에 맞게 override 가능.
+   */
+  contentMaxWidth?: number | string;
   className?: string;
 }
 
@@ -31,25 +36,31 @@ export function SubAppHeader({
   right,
   left,
   belowHubNavbar = true,
+  contentMaxWidth = 430,
   className,
 }: SubAppHeaderProps) {
   const top = belowHubNavbar ? 52 : 0;
   return (
     <header
       className={cn(
-        "sticky z-20 flex h-[52px] items-center justify-between border-b border-border bg-background/85 px-4 backdrop-blur-md",
+        "sticky z-20 flex h-[52px] items-center border-b border-border bg-background/85 px-4 backdrop-blur-md",
         className,
       )}
       style={{ top }}
     >
-      <div className="flex min-w-0 flex-1 items-center">
-        {left ?? <BackToHub className="text-foreground/60 hover:text-foreground" />}
-      </div>
-      <h1 className="absolute left-1/2 -translate-x-1/2 text-[14px] font-bold tracking-[0.15em] uppercase text-foreground">
-        {title}
-      </h1>
-      <div className="flex min-w-0 flex-1 items-center justify-end">
-        {right}
+      <div
+        className="relative mx-auto flex h-full w-full items-center justify-between"
+        style={{ maxWidth: contentMaxWidth }}
+      >
+        <div className="flex min-w-0 flex-1 items-center">
+          {left ?? <BackToHub className="text-foreground/60 hover:text-foreground" />}
+        </div>
+        <h1 className="absolute left-1/2 -translate-x-1/2 text-[14px] font-bold tracking-[0.15em] uppercase text-foreground">
+          {title}
+        </h1>
+        <div className="flex min-w-0 flex-1 items-center justify-end">
+          {right}
+        </div>
       </div>
     </header>
   );

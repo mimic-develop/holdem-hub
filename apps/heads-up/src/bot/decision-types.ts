@@ -53,6 +53,25 @@ export type AggressorRef = 'hero' | 'villain' | 'none';
 
 export type Position = 'IP' | 'OOP';
 
+/**
+ * Why "check" is a legal/sensible action this turn — lets persona modifiers
+ * treat a c-bet's OOP "first check" differently from an IP "check back".
+ *
+ * Mapped at feature extraction time; engine still has just one `check` action.
+ *
+ *  - oop_first_check         : OOP, no one bet yet this street, hero has option to lead
+ *  - oop_check_to_aggressor  : OOP, previous aggressor is opponent (waiting on c-bet)
+ *  - ip_check_back           : IP, opponent already checked → hero may check back
+ *  - bb_check_option_preflop : preflop BB, SB limped, free check option
+ *  - not_check_spot          : facing a bet — check is illegal
+ */
+export type CheckContext =
+  | 'oop_first_check'
+  | 'oop_check_to_aggressor'
+  | 'ip_check_back'
+  | 'bb_check_option_preflop'
+  | 'not_check_spot';
+
 export interface DecisionFeatures {
   street: Street;
 
@@ -79,6 +98,9 @@ export interface DecisionFeatures {
   canCheck: boolean;
   canCall: boolean;
   canRaise: boolean;
+
+  /** check 의도/맥락. canCheck=false 면 'not_check_spot'. */
+  checkContext: CheckContext;
 }
 
 /**

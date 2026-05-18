@@ -15,7 +15,7 @@ const NAV_ITEMS = [
 // `/` (Hub 홈)은 비디오 + 다크 배경이므로 dark
 const APP_THEME: { prefix: string; theme: "light" | "dark" }[] = [
   { prefix: "/concept-quiz", theme: "light" },
-  { prefix: "/pot-quiz", theme: "light" },
+  { prefix: "/pot-quiz", theme: "dark" },
   { prefix: "/heads-up", theme: "dark" },
   { prefix: "/nut-to-3", theme: "dark" },
 ];
@@ -85,7 +85,7 @@ export function Navbar() {
     <header
       className="fixed top-0 left-0 right-0 z-30 backdrop-blur-md"
       style={{
-        backgroundColor: isLight ? "rgba(255,255,255,0.97)" : "rgba(10,10,10,0.92)",
+        backgroundColor: isLight ? "rgba(255,255,255,0.97)" : "rgba(10,10,10,0.96)",
         borderBottom: isLight ? "1px solid rgba(0,0,0,0.08)" : "1px solid rgba(168,0,20,0.2)",
       }}
     >
