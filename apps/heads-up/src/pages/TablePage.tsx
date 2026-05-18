@@ -326,38 +326,40 @@ export default function TablePage() {
       )}
 
       {/* Top bar */}
-      <div className="flex items-center justify-between px-3 py-1.5 text-sm" style={{ flexShrink: 0 }}>
-        <button
-          type="button"
-          onClick={handleExit}
-          className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80 backdrop-blur hover:bg-white/10"
-        >
-          나가기
-        </button>
-        <div
-          className="rounded-full px-3 py-1 text-xs"
-          style={{
-            background: 'rgba(0,0,0,0.55)',
-            border: '1px solid rgba(255,255,255,0.08)',
-          }}
-        >
-          <span className="text-white/60">Hand </span>
-          {matchTotalHands > 0 ? (
-            <span className="font-bold text-white">
-              {currentHandInMatch}/{matchTotalHands}
-            </span>
-          ) : (
-            <span className="font-bold text-white">#{handNumber}</span>
-          )}
+      <div className="px-3 py-1.5 text-sm" style={{ flexShrink: 0 }}>
+        <div className="mx-auto flex w-full items-center justify-between" style={{ maxWidth: 480 }}>
+          <button
+            type="button"
+            onClick={handleExit}
+            className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80 backdrop-blur hover:bg-white/10"
+          >
+            나가기
+          </button>
+          <div
+            className="rounded-full px-3 py-1 text-xs"
+            style={{
+              background: 'rgba(0,0,0,0.55)',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}
+          >
+            <span className="text-white/60">Hand </span>
+            {matchTotalHands > 0 ? (
+              <span className="font-bold text-white">
+                {currentHandInMatch}/{matchTotalHands}
+              </span>
+            ) : (
+              <span className="font-bold text-white">#{handNumber}</span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            aria-label="인게임 설정"
+            className="flex h-7 w-[60px] items-center justify-center rounded-md border border-white/10 bg-white/5 text-xs text-white/80 backdrop-blur hover:bg-white/10"
+          >
+            ⚙ 설정
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => setSettingsOpen(true)}
-          aria-label="인게임 설정"
-          className="flex h-7 w-[60px] items-center justify-center rounded-md border border-white/10 bg-white/5 text-xs text-white/80 backdrop-blur hover:bg-white/10"
-        >
-          ⚙ 설정
-        </button>
       </div>
 
       {/* Game area — 3-section flex column */}

@@ -1,269 +1,99 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useParams, useLocation } from 'wouter';
-import { ArrowLeft, CheckCircle, ChevronRight, Home } from 'lucide-react';
-import CardDisplay from '../components/CardDisplay';
+import { ArrowLeft, Volume2, VolumeX } from 'lucide-react';
+import { SubAppHeader } from '@hh/ui';
+import { AnimatePresence, motion } from 'framer-motion';
+import { calcStreakBonus, STEP1_PTS, STEP2_PTS, STEP3_PTS } from '@hh/poker-engine';
+import { POT_QUIZ_PASS_SECONDS as PASS_SECONDS, calcTimeScore } from '../lib/timing';
 import TimerBar from '../components/TimerBar';
-import type { PotResult } from "@hh/poker-engine";
-import type { Puzzle, Difficulty } from "../types/poker";
+import PokerTable from '../components/PokerTable';
+import RankingPhase from '../components/RankingPhase';
+import FormingPhase from '../components/FormingPhase';
+import AwardingPhase from '../components/AwardingPhase';
+import PotArea from '../components/PotArea';
+import NarrationToast from '../components/NarrationToast';
+import ResultPanel from '../components/ResultPanel';
+import FlyingChipsLayer, { type Flight } from '../components/FlyingChipsLayer';
+import DropAmountModal from '../components/DropAmountModal';
+import { bbaAdjusted, computeAnswer, rankingsMatch, type LastResult, type Phase } from '../lib/game-logic';
+import { usePotFlow } from '../hooks/usePotFlow';
+import { playChipMove, playDeadMerge, playError, playWin, isMuted, toggleMuted } from '../lib/sound';
+import type { FlowStep } from '../lib/derive-flow';
+import type { Puzzle, Difficulty } from '../types/poker';
 import { getPuzzlesByDifficulty, shufflePuzzles, randomizeStacksForPuzzle, randomizeCardsForPuzzle } from '../data/puzzles';
-import { evaluateHand } from '@hh/poker-engine';
-import { buildPots } from '@hh/poker-engine';
-import { resolvePots } from '@hh/poker-engine';
-import { PASS_SECONDS, calcTimeScore, calcStreakBonus, STEP1_PTS, STEP2_PTS, STEP3_PTS } from '@hh/poker-engine';
 
-// ── types ─────────────────────────────────────────────────────────────
-interface AnswerData {
-  potResults: PotResult[];
-  playerPayouts: Record<string, number>;
-  correctRanks: Record<string, number>;
-  handMap: Record<string, { descriptionKo: string; rankValue: number; tiebreakers: number[] }>;
+function rectCenter(el: Element | null): { x: number; y: number } | null {
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
 
-// ── game logic helpers ─────────────────────────────────────────────────
-function bbaAdjusted(puzzle: Puzzle) {
-  const contributions = puzzle.players.map(p => ({ id: p.id, invested: p.invested }));
-  const deadMoney = puzzle.blindInfo?.deadMoney ?? 0;
-  return { contributions, deadMoney };
-}
-
-function computeAnswer(puzzle: Puzzle): AnswerData {
-  const rawHandMap: Record<string, ReturnType<typeof evaluateHand>> = {};
-  for (const p of puzzle.players) rawHandMap[p.id] = evaluateHand(p.cards, puzzle.board);
-
-  const { contributions, deadMoney } = bbaAdjusted(puzzle);
-  const pots = buildPots(contributions, deadMoney);
-  const { potResults } = resolvePots(pots, rawHandMap);
-
-  const playerPayouts: Record<string, number> = {};
-  for (const pr of potResults) {
-    if (pr.pot.eligible.length < 2) continue;
-    const total = pr.pot.amount;
-    const n = pr.winners.length;
-    const per = Math.floor(total / n);
-    const rem = total - per * n;
-    for (let i = 0; i < n; i++) {
-      const amt = per + (i === 0 ? rem : 0);
-      playerPayouts[pr.winners[i]] = (playerPayouts[pr.winners[i]] ?? 0) + amt;
-    }
+function buildFlightsForStep(
+  step: FlowStep,
+  awardedPots: Record<number, { winners: string[]; amount: number }>,
+  nextId: () => number,
+): Flight[] {
+  const out: Flight[] = [];
+  if (step.kind === 'shortStack') {
+    const to = rectCenter(document.querySelector(`[data-flying-id="pot-${step.potIndex}"]`));
+    if (!to) return out;
+    step.eligible.forEach((seatId, i) => {
+      const from = rectCenter(document.querySelector(`[data-flying-id="seat-${seatId}"]`));
+      if (!from) return;
+      out.push({
+        id: nextId(),
+        fromX: from.x, fromY: from.y, toX: to.x, toY: to.y,
+        amount: step.perSeatAmount,
+        tone: 'seat-to-pot',
+        delay: i * 55,
+      });
+    });
+  } else if (step.kind === 'deadMoney') {
+    const from = rectCenter(document.querySelector('[data-flying-id="dead-money"]'));
+    const to = rectCenter(document.querySelector('[data-flying-id="pot-0"]'));
+    if (!from || !to) return out;
+    out.push({
+      id: nextId(),
+      fromX: from.x, fromY: from.y, toX: to.x, toY: to.y,
+      amount: step.amount,
+      tone: 'dead-to-pot',
+    });
+  } else if (step.kind === 'awarding') {
+    const from = rectCenter(document.querySelector(`[data-flying-id="pot-${step.potIndex}"]`));
+    if (!from) return out;
+    const award = awardedPots[step.potIndex];
+    const winners = award?.winners ?? step.correctWinners;
+    const total = award?.amount ?? step.pot.amount;
+    const per = Math.floor(total / winners.length);
+    winners.forEach((winnerId, i) => {
+      const to = rectCenter(document.querySelector(`[data-flying-id="seat-${winnerId}"]`));
+      if (!to) return;
+      out.push({
+        id: nextId(),
+        fromX: from.x, fromY: from.y, toX: to.x, toY: to.y,
+        amount: per,
+        tone: 'pot-to-seat',
+        delay: i * 80,
+      });
+    });
   }
-
-  const sortedIds = [...puzzle.players.map(p => p.id)].sort((a, b) => {
-    const ha = rawHandMap[a], hb = rawHandMap[b];
-    if (hb.rankValue !== ha.rankValue) return hb.rankValue - ha.rankValue;
-    for (let i = 0; i < Math.max(ha.tiebreakers.length, hb.tiebreakers.length); i++) {
-      const d = (hb.tiebreakers[i] ?? 0) - (ha.tiebreakers[i] ?? 0);
-      if (d !== 0) return d;
-    }
-    return 0;
-  });
-
-  const correctRanks: Record<string, number> = {};
-  let rank = 1;
-  for (let i = 0; i < sortedIds.length; i++) {
-    if (i === 0) { correctRanks[sortedIds[i]] = 1; }
-    else {
-      const prev = rawHandMap[sortedIds[i - 1]], curr = rawHandMap[sortedIds[i]];
-      const tied = prev.rankValue === curr.rankValue && prev.tiebreakers.every((t, j) => t === curr.tiebreakers[j]);
-      if (!tied) rank = i + 1;
-      correctRanks[sortedIds[i]] = rank;
-    }
-  }
-
-  const handMap: Record<string, { descriptionKo: string; rankValue: number; tiebreakers: number[] }> = {};
-  for (const [id, ev] of Object.entries(rawHandMap))
-    handMap[id] = { descriptionKo: ev.descriptionKo, rankValue: ev.rankValue, tiebreakers: ev.tiebreakers };
-
-  return { potResults, playerPayouts, correctRanks, handMap };
+  // autoReturn은 비행 없음 — 잉여 칩은 receiver 좌석에 처음부터 남아 있던 베팅 분량이라
+  // 어디서도 옮겨오지 않는다. (좌석 강조는 NarrationToast / PracticeGuide 설명으로 처리)
+  return out;
 }
 
-function normalizeRanks(rankMap: Record<string, number>): Record<string, number> {
-  const unique = Array.from(new Set(Object.values(rankMap))).sort((a, b) => a - b);
-  const mapping: Record<number, number> = {};
-  unique.forEach((v, i) => { mapping[v] = i + 1; });
-  const result: Record<string, number> = {};
-  for (const [id, r] of Object.entries(rankMap)) result[id] = mapping[r];
-  return result;
+export interface QuizProps {
+  /**
+   * 'game' (기본) — 점수/타이머/저장 모두 활성, 챌린지 모드.
+   * 'practice' — 점수/타이머/저장 비활성, 자유 연습 (PR7c에서 'why' 카드 + 힌트 노출).
+   */
+  mode?: 'game' | 'practice';
 }
 
-function rankingsMatch(user: Record<string, number>, correct: Record<string, number>) {
-  const nu = normalizeRanks(user), nc = normalizeRanks(correct);
-  return Object.keys(nc).every(id => nu[id] === nc[id]);
-}
-
-// ── visual helpers ─────────────────────────────────────────────────────
-const RANK_COLORS: Record<number, string> = {
-  1: 'bg-yellow-50 border-yellow-400 text-yellow-700',
-  2: 'bg-zinc-100 border-zinc-300 text-zinc-600',
-  3: 'bg-orange-50 border-orange-400 text-orange-700',
-};
-function rankColor(r: number) { return RANK_COLORS[r] ?? 'bg-secondary border-input text-muted-foreground'; }
-const RANK_EMOJI: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
-function rankLabel(r: number) { return RANK_EMOJI[r] ?? `${r}위`; }
-
-// ── 9-max seat layout ──────────────────────────────────────────────────
-// Clockwise order starting from BTN (bottom-center)
-const NINE_MAX_ORDER = ['BTN', 'SB', 'BB', 'UTG', 'UTG+1', 'MP', 'LJ', 'HJ', 'CO'] as const;
-
-// [left, top, transform] – positioned relative to the table container
-const NINE_MAX_POS: Record<string, { left: string; top: string; tx: string }> = {
-  BTN:     { left: '50%',  top: '100%', tx: 'translate(-50%, -100%)' }, // 6 o'clock
-  SB:      { left: '19%',  top: '97%',  tx: 'translate(-50%, -100%)' }, // 7 o'clock
-  BB:      { left: '0%',   top: '67%',  tx: 'translate(0%, -50%)' },    // 8 o'clock
-  UTG:     { left: '0%',   top: '27%',  tx: 'translate(0%, -50%)' },    // 10 o'clock
-  'UTG+1': { left: '18%',  top: '1%',   tx: 'translate(-50%, 0%)' },    // 11 o'clock
-  MP:      { left: '50%',  top: '0%',   tx: 'translate(-50%, 0%)' },    // 12 o'clock
-  LJ:      { left: '82%',  top: '1%',   tx: 'translate(-50%, 0%)' },    // 1 o'clock
-  HJ:      { left: '100%', top: '27%',  tx: 'translate(-100%, -50%)' }, // 2 o'clock
-  CO:      { left: '100%', top: '67%',  tx: 'translate(-100%, -50%)' }, // 4 o'clock
-};
-
-// ── Folded seat chip ───────────────────────────────────────────────────
-function FoldedSeat({ name, posStyle }: { name: string; posStyle: { left: string; top: string; tx: string } }) {
-  return (
-    <div
-      style={{ position: 'absolute', left: posStyle.left, top: posStyle.top, transform: posStyle.tx, zIndex: 5 }}
-      className="flex flex-col items-center gap-px"
-    >
-      <div className="flex gap-px">
-        <div className="w-[18px] h-[26px] rounded-[3px] bg-card border border-border" />
-        <div className="w-[18px] h-[26px] rounded-[3px] bg-card border border-border" />
-      </div>
-      <span className="text-[7px] text-foreground font-medium tracking-tight">{name}</span>
-    </div>
-  );
-}
-
-// ── Ranking summary display (read-only, click assignment is on table seats) ──
-interface RankingDisplayProps {
-  players: Puzzle['players'];
-  rankings: Record<string, number>;
-}
-
-function RankingDisplay({ players, rankings }: RankingDisplayProps) {
-  const n = players.length;
-
-  const maxSlot = useMemo(
-    () => Math.max(0, ...Object.values(rankings)),
-    [rankings]
-  );
-  const numSlots = Math.min(Math.max(maxSlot + 1, n), n);
-
-  const slotGroups: string[][] = useMemo(() => {
-    return Array.from({ length: numSlots }, (_, i) =>
-      players.filter(p => rankings[p.id] === i + 1).map(p => p.id)
-    );
-  }, [numSlots, players, rankings]);
-
-  function effectiveRank(slotIdx: number): number {
-    let r = 1;
-    for (let i = 0; i < slotIdx; i++) r += slotGroups[i].length;
-    return r;
-  }
-
-  return (
-    <div className="mb-2 flex gap-1.5">
-      {slotGroups.map((group, slotIdx) => {
-        const eff = effectiveRank(slotIdx);
-        const hasPlayers = group.length > 0;
-        return (
-          <div
-            key={slotIdx}
-            className={[
-              'flex-1 flex flex-col items-center gap-0.5 rounded-xl border py-1.5 px-1 min-h-[58px] transition-colors',
-              hasPlayers ? rankColor(eff) : 'border-border bg-card/30',
-            ].join(' ')}
-          >
-            <span className="text-sm leading-none select-none">{rankLabel(eff)}</span>
-            <div className="flex flex-col items-center gap-0.5 w-full">
-              {group.map(id => {
-                const player = players.find(p => p.id === id)!;
-                return (
-                  <div key={id} className="flex flex-col items-center">
-                    <div className="flex gap-px">
-                      {player.cards.map(c => <CardDisplay key={c} card={c} size="xs" />)}
-                    </div>
-                    <span className="text-[8px] text-muted-foreground font-medium leading-tight">{player.name}</span>
-                  </div>
-                );
-              })}
-              {!hasPlayers && (
-                <span className="text-[9px] text-foreground italic mt-0.5">클릭</span>
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-
-// ── PlayerSeat component ───────────────────────────────────────────────
-interface SeatProps {
-  player: Puzzle['players'][number];
-  correctRank?: number;
-  handDesc?: string;
-  payout?: number;
-  phase: 'ranking' | 'pot' | 'payout' | 'result' | 'wrong';
-  assignedRank?: number;
-  /** called when user clicks the seat during ranking phase */
-  onSeatClick?: (id: string) => void;
-}
-
-function PlayerSeat({ player, correctRank: _correctRank, handDesc: _handDesc, payout: _payout, phase, assignedRank, onSeatClick }: SeatProps) {
-  const isAssigned = assignedRank !== undefined;
-  const clickable = phase === 'ranking';
-  // In result/wrong phases the board stays frozen as it looked during the quiz (ranking phase style)
-  const isFrozen = phase === 'result' || phase === 'wrong';
-  const isLocked = phase === 'pot' || phase === 'payout' || phase === 'wrong';
-
-  return (
-    <div
-      data-testid={`seat-${player.id}`}
-      onClick={clickable ? () => onSeatClick?.(player.id) : undefined}
-      className={[
-        'flex flex-col items-center rounded-xl border transition-all select-none',
-        phase === 'ranking'
-          ? isAssigned
-            ? `cursor-pointer active:scale-95 bg-muted border-input shadow-md ${rankColor(assignedRank)}`
-            : 'cursor-pointer active:scale-95 bg-card/95 border-border hover:border-input'
-          : isFrozen
-            ? 'bg-card/90 border-border'
-            : isLocked
-              ? isAssigned
-                ? `bg-muted/60 border-input ${rankColor(assignedRank)}`
-                : 'bg-card/90 border-border'
-              : 'bg-card/90 border-border',
-      ].join(' ')}
-      style={{ width: 60, padding: '3px 2px', gap: 1 }}
-    >
-      {/* Rank badge — only during active quiz phases */}
-      {(phase === 'ranking' || phase === 'pot' || phase === 'payout') && isAssigned && (
-        <span className="text-[11px] leading-none">{rankLabel(assignedRank)}</span>
-      )}
-
-      {/* Hole cards */}
-      <div className="flex gap-px">
-        {player.cards.map(c => <CardDisplay key={c} card={c} size="xs" />)}
-      </div>
-
-      {/* Player name */}
-      <span className="text-[9px] font-semibold text-foreground leading-tight">{player.name}</span>
-
-      {/* Always show invested amount (frozen in result/wrong too) */}
-      <span className="text-[10px] font-bold text-orange-600 leading-tight tracking-tight">
-        {player.invested.toLocaleString()}
-      </span>
-    </div>
-  );
-}
-
-// ── main Quiz component ────────────────────────────────────────────────
-type Phase = 'ranking' | 'pot' | 'payout' | 'result' | 'wrong';
-
-export default function Quiz() {
+export default function Quiz({ mode = 'game' }: QuizProps = {}) {
   const { difficulty } = useParams<{ difficulty: Difficulty }>();
   const [, setLocation] = useLocation();
+  const isPractice = mode === 'practice';
 
   const makeBatch = () =>
     shufflePuzzles(getPuzzlesByDifficulty(difficulty))
@@ -287,170 +117,156 @@ export default function Quiz() {
   const elapsedRef = useRef<number>(0);
   const isSubmittingRef = useRef(false);
 
-  // rankAssignments: playerId → slot number (1-based), editable only in 'ranking' phase
   const [rankAssignments, setRankAssignments] = useState<Record<string, number>>({});
-  // lockedRankings: saved when ranking phase passes, used in payout phase display + result
   const [lockedRankings, setLockedRankings] = useState<Record<string, number>>({});
 
-  // potInputs: pot index → amount string (step 2)
-  const [potInputs, setPotInputs] = useState<Record<number, string>>({});
+  const [lastResult, setLastResult] = useState<LastResult | null>(null);
+  const [hintActive, setHintActive] = useState(false);
 
-  // Payout inputs: playerId → string (step 3)
-  const [payoutInputs, setPayoutInputs] = useState<Record<string, string>>({});
+  // 게임 모드 도파민 — sub-step 빠른 정답 보너스 + 콤보
+  const [combo, setCombo] = useState(0);
+  const [floatingBonus, setFloatingBonus] = useState<{ amount: number; combo: number; ts: number } | null>(null);
+  const subStepStartTimeRef = useRef<number>(performance.now());
 
-  const [lastResult, setLastResult] = useState<{
-    correct: boolean;
-    rankingCorrect: boolean;
-    payoutScore: number;
-    points: number;
-    answer: AnswerData;
-    userPayouts: Record<string, number>;
-    userRankings: Record<string, number>;
-    userPotInputs?: Record<string, number>;
-    elapsed: number;
-    passed: boolean;
-    wrongStep?: 'ranking' | 'pot' | 'payout';
-    brokenStreak?: number;
-    timeScore?: number;
+  // Narration 토스트 — 정답 직후 1.8초간 명시적 설명 표시 (학습 보조)
+  const [narrationVisible, setNarrationVisible] = useState(false);
+
+  // Flying chips — 좌석/팟/데드머니 간 칩 이동 시각화
+  const [flights, setFlights] = useState<Flight[]>([]);
+  const flightIdRef = useRef(0);
+  const [muted, setMutedState] = useState(isMuted());
+
+  // 클릭→클릭 워크플로우 state
+  //  - forming.shortStack: 좌석 선택 → 팟 선택 → 액수 입력 모달
+  //  - awarding: 팟 선택 → 좌석 선택 (다중은 토글 + 확정)
+  const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
+  const [selectedPot, setSelectedPot] = useState<number | null>(null);
+  const [dropModal, setDropModal] = useState<{
+    seatId: string;
+    potDropId: string;
+    seatName: string;
+    potLabel: string;
   } | null>(null);
+
+  const lastClickedSeatRef = useRef<string | null>(null);
 
   const puzzle = puzzles[index];
 
-  // Reset state when puzzle changes
+  const flow = usePotFlow(puzzle);
+
   useEffect(() => {
     setPhase('ranking');
     setRankAssignments({});
     setLockedRankings({});
-    setPotInputs({});
-    setPayoutInputs({});
     setTimerRunning(true);
     setTimerKey(k => k + 1);
     elapsedRef.current = 0;
     isSubmittingRef.current = false;
     setLastResult(null);
-  }, [index]);
+    setHintActive(false);
+    setCombo(0);
+    setFloatingBonus(null);
+    setNarrationVisible(false);
+    flow.reset();
+    lastClickedSeatRef.current = null;
+    subStepStartTimeRef.current = performance.now();
+    setSelectedSeat(null);
+    setSelectedPot(null);
+  }, [index]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleTimerTick = useCallback((elapsed: number) => {
-    elapsedRef.current = elapsed;
-  }, []);
+  // stepIndex가 변할 때마다 selectedPot 자동 reset.
+  // (이전: kind !== 'awarding' 일 때만 reset 했는데, awarding → awarding 전환 시 잔존해서 사이드팟 진행 막힘)
+  useEffect(() => {
+    setSelectedPot(null);
+  }, [flow.state.stepIndex]);
+
+  // autoReturn step 도달 시 0.8초 후 자동 진행
+  useEffect(() => {
+    if (phase !== 'pot') return;
+    if (flow.step?.kind !== 'autoReturn') return;
+    const id = setTimeout(() => flow.advanceAutoReturn(), 800);
+    return () => clearTimeout(id);
+  }, [phase, flow.step, flow.advanceAutoReturn]);
 
   /**
-   * Click-based ranking:
-   *   • Unranked player  → assign next slot (maxSlot + 1)
-   *   • Ranked, slot > 1 → move up one slot (tie with group above)
-   *   • Ranked, slot = 1 → unassign (remove from ranking)
+   * 게임 모드 sub-step 도파민:
+   * 사용자 액션으로 stepIndex가 증가했을 때 (lastSuccessAt 변화) 진입 시간 대비 elapsed 계산 →
+   * 빠르면 보너스 점수 + 콤보 증가. 화면에 floating "+XX"으로 표시.
+   * Practice 모드에서는 floating 효과만 표시(점수 0).
    */
-  const handleSeatClick = useCallback((id: string) => {
-    if (phase !== 'ranking') return;
-    setRankAssignments(prev => {
-      const currentSlot = prev[id];
-      const maxSlot = Math.max(0, ...Object.values(prev));
-
-      if (currentSlot === undefined) {
-        // Never ranked → assign after last group
-        return { ...prev, [id]: maxSlot + 1 };
-      }
-
-      if (currentSlot > 1) {
-        // Move up: tie with the group one slot above
-        return { ...prev, [id]: currentSlot - 1 };
-      }
-
-      // Already in slot 1 → unassign and compact if slot 1 becomes empty
-      const next = { ...prev };
-      delete next[id];
-      const slot1Empty = !Object.values(next).some(s => s === 1);
-      if (slot1Empty) {
-        // Shift everyone down so there's no gap at the top
-        return Object.fromEntries(Object.entries(next).map(([k, v]) => [k, v - 1]));
-      }
-      return next;
-    });
-  }, [phase]);
-
-  /** Step 1: validate hand ranking. Correct → advance to payout. Wrong → reset + show error. */
-  const handleRankingSubmit = useCallback(() => {
-    if (phase !== 'ranking') return;
-
-    const answer = computeAnswer(puzzle);
-
-    // Fill any unranked players (put them last)
-    const filledRankings: Record<string, number> = { ...rankAssignments };
-    let maxR = Math.max(0, ...Object.values(filledRankings));
-    for (const p of puzzle.players) {
-      if (filledRankings[p.id] === undefined) { filledRankings[p.id] = maxR + 1; maxR++; }
-    }
-
-    const rankingCorrect = rankingsMatch(filledRankings, answer.correctRanks);
-
-    if (rankingCorrect) {
-      setLockedRankings(filledRankings);
-      setPhase('pot');
-    } else {
-      setTimerRunning(false);
-      const broken = streak;
-      setStreak(0);
-      setLastResult({
-        correct: false,
-        rankingCorrect: false,
-        payoutScore: 0,
-        points: 0,
-        answer,
-        userPayouts: {},
-        userRankings: filledRankings,
-        elapsed: elapsedRef.current,
-        passed: false,
-        wrongStep: 'ranking',
-        brokenStreak: broken,
-      });
-      setPhase('wrong');
-    }
-  }, [phase, puzzle, rankAssignments]);
-
-  /** Step 2: validate pot amounts (메인팟, 사이드팟). Correct → advance to 'payout'. Wrong → retry. */
-  const handlePotSubmit = useCallback(() => {
+  useEffect(() => {
     if (phase !== 'pot') return;
+    if (flow.state.lastSuccessAt === 0) return;
+    const now = performance.now();
+    const elapsed = (now - subStepStartTimeRef.current) / 1000;
+    subStepStartTimeRef.current = now;
 
-    const answer = computeAnswer(puzzle);
-    // Only contested pots (2+ eligible) need user input; 1-eligible pots auto-return to player
-    const contestedPots = answer.potResults.map(pr => pr.pot).filter(p => p.eligible.length >= 2);
-
-    const allCorrect = contestedPots.every((pot, i) => {
-      const userAmt = parseInt(String(potInputs[i] ?? '0'), 10) || 0;
-      return Math.abs(userAmt - pot.amount) <= 1;
-    });
-
-    if (allCorrect) {
-      setPhase('payout');
-    } else {
-      setTimerRunning(false);
-      const broken = streak;
-      setStreak(0);
-      const userPotInputs: Record<string, number> = {};
-      contestedPots.forEach((pot, i) => {
-        userPotInputs[pot.label] = parseInt(String(potInputs[i] ?? '0'), 10) || 0;
-      });
-      setLastResult({
-        correct: false,
-        rankingCorrect: true,
-        payoutScore: 0,
-        points: 0,
-        answer,
-        userPayouts: {},
-        userRankings: lockedRankings,
-        userPotInputs,
-        elapsed: elapsedRef.current,
-        passed: false,
-        wrongStep: 'pot',
-        brokenStreak: broken,
-      });
-      setPhase('wrong');
+    if (isPractice) {
+      setCombo(c => c + 1);
+      return;
     }
-  }, [phase, puzzle, potInputs, lockedRankings]);
 
-  /** Step 3: validate per-player payouts. Always advances to result. */
-  const handlePayoutSubmit = useCallback(() => {
-    if (phase !== 'payout') return;
+    const base = Math.max(0, Math.round(20 - elapsed * 2));
+    const newCombo = combo + 1;
+    const mult = newCombo >= 5 ? 2 : newCombo >= 3 ? 1.5 : 1;
+    const bonus = Math.round(base * mult);
+    if (bonus > 0) {
+      setScore(s => s + bonus);
+      setFloatingBonus({ amount: bonus, combo: newCombo, ts: now });
+    }
+    setCombo(newCombo);
+  }, [flow.state.lastSuccessAt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 오답 시 콤보 리셋 + 오답 사운드
+  useEffect(() => {
+    if (flow.state.errorTick === 0) return;
+    setCombo(0);
+    playError();
+  }, [flow.state.errorTick]);
+
+  // floating 토스트 1.5초 후 자동 제거
+  useEffect(() => {
+    if (!floatingBonus) return;
+    const id = setTimeout(() => setFloatingBonus(null), 1500);
+    return () => clearTimeout(id);
+  }, [floatingBonus]);
+
+  // Narration: stepIndex 증가(=정답으로 step 넘어감)마다 1.8초 표시
+  useEffect(() => {
+    if (phase !== 'pot') return;
+    if (flow.state.stepIndex === 0) return;
+    setNarrationVisible(true);
+    const id = setTimeout(() => setNarrationVisible(false), 1800);
+    return () => clearTimeout(id);
+  }, [phase, flow.state.stepIndex]);
+
+  // stepIndex 증가 → 직전 정답 step에 맞춰 칩 비행 + 사운드 발사
+  useEffect(() => {
+    if (phase !== 'pot') return;
+    const step = flow.state.lastSuccessStep as FlowStep | null;
+    if (!step) return;
+    // DOM rect 측정은 다음 paint 후가 안전 (좌석/팟 위치 안정화)
+    const raf = requestAnimationFrame(() => {
+      const newFlights = buildFlightsForStep(step, flow.state.awardedPots, () => ++flightIdRef.current);
+      if (newFlights.length > 0) setFlights(prev => [...prev, ...newFlights]);
+      if (step.kind === 'deadMoney') playDeadMerge();
+      else playChipMove();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [phase, flow.state.stepIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleFlightComplete = useCallback((id: number) => {
+    setFlights(prev => prev.filter(f => f.id !== id));
+  }, []);
+
+  const handleMuteToggle = useCallback(() => {
+    const m = toggleMuted();
+    setMutedState(m);
+  }, []);
+
+  // 모든 forming + awarding 완료 시 자동으로 결과 산출
+  const finalizeResult = useCallback(() => {
+    if (!puzzle) return;
     if (isSubmittingRef.current) return;
     isSubmittingRef.current = true;
     setTimerRunning(false);
@@ -458,34 +274,54 @@ export default function Quiz() {
     const answer = computeAnswer(puzzle);
     const elapsed = elapsedRef.current;
     const passed = elapsed <= PASS_SECONDS;
+    const hadError = flow.state.hadAnyError;
 
-    // Payout scoring
+    // chipsAtSeat 에는 awarding 으로 인해 받은 칩이 적립되어 있음. 그러나 베팅 칩 환불 분량도 있음.
+    // 정답으로 끝났으면 awardedPots[i] 의 winners[]에 분배된 액수가 곧 userPayouts.
     const userPayouts: Record<string, number> = {};
-    for (const p of puzzle.players) userPayouts[p.id] = parseInt(payoutInputs[p.id] ?? '0', 10) || 0;
-    let correctPayouts = 0;
-    for (const p of puzzle.players) {
-      if (Math.abs((userPayouts[p.id] ?? 0) - (answer.playerPayouts[p.id] ?? 0)) <= 1) correctPayouts++;
+    for (const p of puzzle.players) userPayouts[p.id] = 0;
+    for (const award of Object.values(flow.state.awardedPots)) {
+      const per = Math.floor(award.amount / award.winners.length);
+      const rem = award.amount - per * award.winners.length;
+      award.winners.forEach((id, i) => {
+        userPayouts[id] = (userPayouts[id] ?? 0) + per + (i === 0 ? rem : 0);
+      });
     }
-    const payoutRatio = puzzle.players.length > 0 ? correctPayouts / puzzle.players.length : 0;
-    const payoutFullyCorrect = payoutRatio === 1;
 
-    if (!payoutFullyCorrect) {
+    if (hadError) {
       const broken = streak;
-      setStreak(0);
+      if (!isPractice) setStreak(0);
       setLastResult({
         correct: false,
         rankingCorrect: true,
-        payoutScore: Math.round(100 * payoutRatio),
+        payoutScore: 0,
         points: 0,
         answer,
         userPayouts,
         userRankings: lockedRankings,
         elapsed,
         passed,
-        wrongStep: 'payout',
+        wrongStep: flow.state.firstErrorKind ?? 'awarding',
         brokenStreak: broken,
       });
       setPhase('wrong');
+      return;
+    }
+
+    if (isPractice) {
+      // Practice 모드: 점수/스트릭/저장 없음. 정답 결과만 표시.
+      setLastResult({
+        correct: true,
+        rankingCorrect: true,
+        payoutScore: 100,
+        points: 0,
+        answer,
+        userPayouts,
+        userRankings: lockedRankings,
+        elapsed,
+        passed: true,
+      });
+      setPhase('result');
       return;
     }
 
@@ -513,9 +349,159 @@ export default function Quiz() {
     if (newMaxStreak > parseInt(localStorage.getItem(bestStreakKey) ?? '0', 10))
       localStorage.setItem(bestStreakKey, String(newMaxStreak));
 
-    setLastResult({ correct: true, rankingCorrect: true, payoutScore: 100, points, answer, userPayouts, userRankings: lockedRankings, elapsed, passed, timeScore });
+    setLastResult({
+      correct: true,
+      rankingCorrect: true,
+      payoutScore: 100,
+      points,
+      answer,
+      userPayouts,
+      userRankings: lockedRankings,
+      elapsed,
+      passed,
+      timeScore,
+    });
     setPhase('result');
-  }, [phase, puzzle, payoutInputs, streak, maxStreak, score, lockedRankings]);
+    playWin();
+  }, [puzzle, flow.state.hadAnyError, flow.state.awardedPots, flow.state.firstErrorKind, streak, maxStreak, score, lockedRankings, difficulty, isPractice]);
+
+  // 시퀀스 완료 시 결과 산출
+  useEffect(() => {
+    if (phase !== 'pot') return;
+    if (flow.isComplete) finalizeResult();
+  }, [phase, flow.isComplete, finalizeResult]);
+
+  const handleTimerTick = useCallback((elapsed: number) => {
+    elapsedRef.current = elapsed;
+  }, []);
+
+  // 팟 클릭 핸들러 — forming.shortStack 과 awarding 둘 다 사용
+  const handlePotClick = useCallback((potDropId: string) => {
+    if (phase !== 'pot') return;
+    const potIdx = Number(potDropId.slice(4));
+
+    // forming.shortStack: 좌석 먼저 선택 후 팟 클릭 → 액수 입력 모달
+    if (flow.step?.kind === 'shortStack') {
+      if (!selectedSeat) return;
+      const seatName = puzzle?.players.find(p => p.id === selectedSeat)?.name ?? selectedSeat;
+      const pot = flow.flow?.pots[potIdx];
+      setDropModal({
+        seatId: selectedSeat,
+        potDropId,
+        seatName,
+        potLabel: pot?.label ?? potDropId,
+      });
+      return;
+    }
+
+    // awarding: 활성 팟(step.potIndex)만 클릭 효력 — 다른 팟은 무시
+    if (flow.step?.kind === 'awarding') {
+      if (potIdx === flow.step.potIndex) setSelectedPot(potIdx);
+      return;
+    }
+  }, [phase, flow.step, flow.flow, selectedSeat, puzzle]);
+
+  // 모달 액수 확정
+  const handleDropConfirm = useCallback((amount: number) => {
+    if (!dropModal) return;
+    flow.submitDragShortStack(dropModal.seatId, dropModal.potDropId, amount);
+    setDropModal(null);
+    setSelectedSeat(null);
+  }, [dropModal, flow]);
+
+  const handleDropCancel = useCallback(() => {
+    setDropModal(null);
+  }, []);
+
+  const handleSeatClick = useCallback((id: string) => {
+    if (phase === 'ranking') {
+      setRankAssignments(prev => {
+        const currentSlot = prev[id];
+        const maxSlot = Math.max(0, ...Object.values(prev));
+
+        if (currentSlot === undefined) {
+          return { ...prev, [id]: maxSlot + 1 };
+        }
+
+        if (currentSlot > 1) {
+          return { ...prev, [id]: currentSlot - 1 };
+        }
+
+        const next = { ...prev };
+        delete next[id];
+        const slot1Empty = !Object.values(next).some(s => s === 1);
+        if (slot1Empty) {
+          return Object.fromEntries(Object.entries(next).map(([k, v]) => [k, v - 1]));
+        }
+        return next;
+      });
+      return;
+    }
+
+    if (phase === 'pot') {
+      lastClickedSeatRef.current = id;
+      // forming.shortStack: 좌석 클릭으로 선택 (다음에 팟 클릭으로 액수 모달 오픈)
+      if (flow.step?.kind === 'shortStack') {
+        setSelectedSeat(prev => (prev === id ? null : id));
+        return;
+      }
+      // awarding: selectedPot이 step.potIndex와 일치해야 좌석 클릭이 효력 (팟 먼저 클릭 후 좌석)
+      if (flow.step?.kind === 'awarding') {
+        if (selectedPot === flow.step.potIndex) {
+          flow.clickSeat(id);
+        }
+        return;
+      }
+      flow.clickSeat(id);
+    }
+  }, [phase, flow, selectedPot]);
+
+  const handleDeadMoneyClick = useCallback(() => {
+    if (phase !== 'pot') return;
+    flow.clickDeadMoney();
+  }, [phase, flow]);
+
+  const handleConfirmAwarding = useCallback(() => {
+    if (phase !== 'pot') return;
+    flow.confirmAwarding();
+  }, [phase, flow]);
+
+  const handleRankingSubmit = useCallback(() => {
+    if (phase !== 'ranking') return;
+
+    const answer = computeAnswer(puzzle);
+
+    const filledRankings: Record<string, number> = { ...rankAssignments };
+    let maxR = Math.max(0, ...Object.values(filledRankings));
+    for (const p of puzzle.players) {
+      if (filledRankings[p.id] === undefined) { filledRankings[p.id] = maxR + 1; maxR++; }
+    }
+
+    const rankingCorrect = rankingsMatch(filledRankings, answer.correctRanks);
+
+    if (rankingCorrect) {
+      setLockedRankings(filledRankings);
+      setPhase('pot');
+    } else {
+      setTimerRunning(false);
+      const broken = streak;
+      if (!isPractice) setStreak(0);
+      setLastResult({
+        correct: false,
+        rankingCorrect: false,
+        payoutScore: 0,
+        points: 0,
+        answer,
+        userPayouts: {},
+        userRankings: filledRankings,
+        elapsed: elapsedRef.current,
+        passed: false,
+        wrongStep: 'ranking',
+        brokenStreak: broken,
+      });
+      setPhase('wrong');
+    }
+  }, [phase, puzzle, rankAssignments, streak]);
 
   const handleNext = () => {
     const nextIndex = index + 1;
@@ -526,6 +512,10 @@ export default function Quiz() {
   };
 
   const handleQuit = () => {
+    if (isPractice) {
+      setLocation('/');
+      return;
+    }
     setLocation(`/summary/${difficulty}`, {
       state: {
         score: scoreRef.current,
@@ -536,616 +526,243 @@ export default function Quiz() {
     });
   };
 
+  // PokerTable highlight / 활성 영역 계산
+  // 게임 모드: 정답 미리 노출 X (학습 부담은 SeatChipTower 시각 비교로 해결).
+  // 학습 모드: 'hintActive' 토글 시에만 정답 좌석 강조.
+  const activeStep = phase === 'pot' ? flow.step : null;
+  const highlightSeatIds = useMemo(() => {
+    if (!activeStep || !isPractice || !hintActive) return [];
+    if (activeStep.kind === 'shortStack') return activeStep.correctSeatIds;
+    if (activeStep.kind === 'awarding') return activeStep.correctWinners;
+    return [];
+  }, [activeStep, isPractice, hintActive]);
+
+  const activePotIndex = activeStep
+    ? activeStep.kind === 'shortStack' || activeStep.kind === 'awarding' || activeStep.kind === 'autoReturn'
+      ? activeStep.potIndex
+      : -1
+    : -1;
+  const deadMoneyActive = activeStep?.kind === 'deadMoney';
+
   if (!puzzle) {
     return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">문제가 없습니다.</div>;
   }
 
-  const { contributions: adjContribs, deadMoney: adjDeadMoney } = bbaAdjusted(puzzle);
-  const allPotsList = buildPots(adjContribs, adjDeadMoney);
-  const contestedPotsTotal = allPotsList.filter(p => p.eligible.length >= 2).reduce((s, p) => s + p.amount, 0);
-  const inputSum = Object.values(payoutInputs).reduce((s, v) => s + (parseInt(v, 10) || 0), 0);
-  const sumMismatch = inputSum !== contestedPotsTotal && Object.values(payoutInputs).some(v => v !== '');
-  // Build a lookup of player by position name
-  const playerByPos = Object.fromEntries(puzzle.players.map(p => [p.name, p]));
+  const { deadMoney: adjDeadMoney } = bbaAdjusted(puzzle);
 
+  // forming/awarding 단계에서 좌석에 표시할 chipsAtSeat
+  const chipsAtSeatForTable = phase === 'pot' ? flow.state.chipsAtSeat : undefined;
+  const chipsAtDeadMoneyForTable = phase === 'pot' ? flow.state.chipsAtDeadMoney : undefined;
+  const selectedSeatIds = activeStep?.kind === 'awarding'
+    ? flow.state.awardingSelection
+    : activeStep?.kind === 'shortStack' && selectedSeat
+      ? [selectedSeat]
+      : [];
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col max-w-lg mx-auto px-4 pb-8">
-      {/* ── Top bar ── */}
-      <div className="py-4 flex items-center justify-between">
-        <button
-          onClick={handleQuit}
-          data-testid="btn-back"
-          className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center hover:border-input transition-all"
-        >
-          <ArrowLeft className="w-4 h-4 text-muted-foreground" />
-        </button>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-muted-foreground">점수</span>
-          <span className="font-bold text-white" data-testid="score-display">{score}</span>
-          <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${
-            streak >= 1
-              ? 'bg-orange-500/20 border-orange-500/40 text-orange-400'
-              : 'bg-muted border-border text-muted-foreground'
-          }`} data-testid="streak-display">
-            {streak >= 1 ? '🔥' : ''}{streak}연속
-          </span>
-        </div>
-        <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${
-          difficulty === 'easy' ? 'bg-green-500/10 border-green-500/30 text-green-400' :
-          difficulty === 'medium' ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400' :
-          'bg-red-500/10 border-red-500/30 text-red-400'
-        }`}>
-          {difficulty === 'easy' ? '초급' : difficulty === 'medium' ? '중급' : difficulty === 'hard' ? '고급' : '전체'}
-        </span>
-      </div>
+    <div
+      className="pot-quiz-ingame overflow-hidden bg-background text-foreground flex flex-col"
+      style={{
+        height: 'calc(100dvh - 52px)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}
+    >
+      <SubAppHeader
+        title="Pot Split"
+        belowHubNavbar={false}
+        className="!bg-[rgba(10,10,10,0.96)] !border-b-[rgba(168,0,20,0.2)] [&_h1]:!text-[#FAFAF8]"
+        left={
+          <button
+            onClick={handleQuit}
+            data-testid="btn-back"
+            aria-label="뒤로"
+            className="flex items-center justify-center w-8 h-8 rounded-lg transition-all hover:bg-white/10"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)' }}
+          >
+            <ArrowLeft className="w-4 h-4" style={{ color: '#FAFAF8' }} />
+          </button>
+        }
+        right={
+          <div className="flex items-center gap-2">
+            {!isPractice && (
+              <span
+                className="text-[11px] font-bold tabular-nums"
+                style={{ color: '#FAFAF8' }}
+                data-testid="score-display"
+              >
+                {score}
+              </span>
+            )}
+            {isPractice && (
+              <span className="text-[10px] font-semibold text-blue-300">📘</span>
+            )}
+            <button
+              onClick={handleMuteToggle}
+              data-testid="btn-mute"
+              aria-label={muted ? '음소거 해제' : '음소거'}
+              className="flex items-center justify-center w-8 h-8 rounded-lg transition-all hover:bg-white/10"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)' }}
+            >
+              {muted
+                ? <VolumeX className="w-4 h-4" style={{ color: '#FAFAF8' }} />
+                : <Volume2 className="w-4 h-4" style={{ color: '#FAFAF8' }} />}
+            </button>
+          </div>
+        }
+      />
 
-      {/* ── Timer (runs through ranking + pot + payout phases) ── */}
-      {(phase === 'ranking' || phase === 'pot' || phase === 'payout') && (
-        <div className="mb-2">
+      <div
+        className="flex flex-col mx-auto px-4 max-w-[430px] flex-1 min-h-0 w-full"
+        style={{ gap: 'clamp(8px, 1.5vh, 16px)', paddingTop: 'clamp(8px, 1.5vh, 16px)' }}
+      >
+      {/* ── STATUS row: TimerBar만 (게임 모드 + ranking/pot phase일 때) ── flex-none, 얇은 한 줄 */}
+      {!isPractice && (phase === 'ranking' || phase === 'pot') && (
+        <div className="flex-none relative">
           <TimerBar
             key={timerKey}
             passSeconds={PASS_SECONDS}
             onTick={handleTimerTick}
             running={timerRunning}
           />
+          {/* Floating bonus toast — sub-step 빠른 정답 보너스 (게임 모드) */}
+          <AnimatePresence>
+            {floatingBonus && (
+              <motion.div
+                key={floatingBonus.ts}
+                initial={{ opacity: 0, y: 6, scale: 0.8 }}
+                animate={{ opacity: 1, y: -14, scale: 1 }}
+                exit={{ opacity: 0, y: -22 }}
+                transition={{ duration: 0.5, ease: 'easeOut' }}
+                className="absolute -top-1 right-0 text-xs font-extrabold text-yellow-300 pointer-events-none drop-shadow"
+                data-testid="floating-bonus"
+              >
+                +{floatingBonus.amount}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 
+      {/* ── BOARD: 테이블 + 팟 + 나레이션 ── flex-1 가변, 단 하단이 viewport 70% 를 넘지 않도록 cap.
+          124px = Hub Navbar(52) + SubAppHeader(52) + status row(~20).
+          paddingTop 32px → 좌석 ellipse 가 PokerTable 위로 ~5% 튀어나가는 분량 흡수, 헤더 침범 방지. */}
+      <div
+        className="flex-1 min-h-0 flex flex-col relative"
+        style={{ maxHeight: 'calc(70dvh - 124px)', paddingTop: 32 }}
+      >
+      <PokerTable
+        puzzle={puzzle}
+        phase={phase}
+        rankAssignments={rankAssignments}
+        lockedRankings={lockedRankings}
+        lastResult={lastResult}
+        adjDeadMoney={adjDeadMoney}
+        onSeatClick={handleSeatClick}
+        chipsAtSeat={chipsAtSeatForTable}
+        chipsAtDeadMoney={chipsAtDeadMoneyForTable}
+        deadMoneyActive={deadMoneyActive}
+        onDeadMoneyClick={handleDeadMoneyClick}
+        highlightSeatIds={highlightSeatIds}
+        selectedSeatIds={selectedSeatIds}
+        shakeTick={flow.state.errorTick}
+        shakeSeatId={lastClickedSeatRef.current}
+      />
 
-      {/* ── Puzzle title ── */}
-      <p className="text-xs text-muted-foreground font-semibold text-center mb-2 uppercase tracking-wider">
-        {puzzle.titleKo}
-      </p>
-
-      {/* ══════════════════════════════════════════════
-          POKER TABLE – 9-max top view
-          Container 300px: felt left/right 22%, top 23%, bottom 16%
-          Clockwise from BTN (6 o'clock): SB→BB→UTG→UTG+1→MP→LJ→HJ→CO
-          ══════════════════════════════════════════════ */}
-      <div className="relative w-full mb-2" style={{ height: 300 }}>
-
-        {/* Wood rim */}
-        <div
-          className="absolute rounded-[50%]"
-          style={{
-            left: '18%', right: '18%', top: '19%', bottom: '13%',
-            background: 'linear-gradient(145deg, #8B5E3C 0%, #5C3A1E 50%, #4A2E15 100%)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)',
-          }}
+      {phase === 'pot' && flow.flow && narrationVisible && (
+        <NarrationToast
+          step={flow.state.lastSuccessStep}
+          tick={flow.state.stepIndex}
+          puzzle={puzzle}
         />
-
-        {/* Green felt oval */}
-        <div
-          className="absolute rounded-[50%]"
-          style={{
-            left: '22%', right: '22%', top: '23%', bottom: '17%',
-            background: 'radial-gradient(ellipse at 40% 35%, #1f7a35 0%, #145c28 55%, #0e4020 100%)',
-            boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.5)',
-          }}
-        >
-          {/* Subtle felt texture lines */}
-          <div className="absolute inset-0 rounded-[50%] opacity-[0.06]" style={{
-            backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 10px, rgba(255,255,255,0.8) 10px, rgba(255,255,255,0.8) 11px)',
-          }} />
-
-          {/* Board cards + blind info */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-            <div className="flex gap-0.5 justify-center">
-              {puzzle.board.map(c => <CardDisplay key={c} card={c} size="sm" />)}
-            </div>
-            {puzzle.blindInfo && (
-              <div className="flex items-center gap-1 mt-0.5">
-                <span className="text-[8px] text-white">SB {puzzle.blindInfo.sb}</span>
-                <span className="text-[8px] text-white">/</span>
-                <span className="text-[8px] text-white">BB {puzzle.blindInfo.bb}</span>
-                <span className="text-[8px] text-white">/</span>
-                <span className="text-[8px] text-white">앤티 {puzzle.blindInfo.ante}</span>
-                {adjDeadMoney > 0 && (
-                  <span className="text-[8px] text-orange-400/90 font-semibold ml-1">
-                    데드 {adjDeadMoney}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* ── Dealer button ── on felt, near BTN seat */}
-          <div
-            className="absolute flex items-center justify-center rounded-full bg-white text-foreground font-black text-[9px] shadow-lg select-none"
-            style={{ width: 18, height: 18, bottom: '8%', left: '50%', transform: 'translateX(-50%)' }}
-          >
-            D
-          </div>
-
-          {/* ── SB blind chip ── between SB seat direction and felt center */}
-          {puzzle.blindInfo && !playerByPos['SB'] && (
-            <div
-              className="absolute flex flex-col items-center"
-              style={{ bottom: '10%', left: '30%', transform: 'translateX(-50%)' }}
-            >
-              <div className="w-[22px] h-[22px] rounded-full bg-zinc-100 border-[2.5px] border-input shadow-md flex items-center justify-center">
-                <span className="text-[7px] font-black text-foreground leading-none">SB</span>
-              </div>
-              <span className="text-[6px] text-muted-foreground leading-none mt-px">{puzzle.blindInfo.sb}</span>
-            </div>
-          )}
-
-          {/* ── BB blind chip ── between BB seat direction and felt center */}
-          {puzzle.blindInfo && !playerByPos['BB'] && (
-            <div
-              className="absolute flex flex-col items-center"
-              style={{ top: '60%', left: '10%', transform: 'translateY(-50%)' }}
-            >
-              <div className="w-[22px] h-[22px] rounded-full bg-primary border-[2.5px] border-blue-300 shadow-md flex items-center justify-center">
-                <span className="text-[7px] font-black text-white leading-none">BB</span>
-              </div>
-              <span className="text-[6px] text-primary leading-none mt-px">{puzzle.blindInfo.bb}</span>
-            </div>
-          )}
-        </div>
-
-        {/* ── 9-max seats (fixed positions) ── */}
-        {NINE_MAX_ORDER.map(posName => {
-          const posStyle = NINE_MAX_POS[posName];
-          const player = playerByPos[posName];
-
-          if (!player) {
-            return <FoldedSeat key={posName} name={posName} posStyle={posStyle} />;
-          }
-
-          const correctRank = lastResult?.answer.correctRanks[player.id];
-          return (
-            <div
-              key={player.id}
-              style={{
-                position: 'absolute',
-                left: posStyle.left,
-                top: posStyle.top,
-                transform: posStyle.tx,
-                zIndex: 10,
-              }}
-            >
-              <PlayerSeat
-                player={player}
-                assignedRank={
-                  phase === 'ranking' ? rankAssignments[player.id] :
-                  (phase === 'pot' || phase === 'payout') ? lockedRankings[player.id] :
-                  undefined
-                }
-                correctRank={(phase === 'result' || phase === 'wrong') ? correctRank : undefined}
-                handDesc={lastResult?.answer.handMap[player.id]?.descriptionKo}
-                payout={lastResult?.answer.playerPayouts[player.id] ?? 0}
-                phase={phase}
-                onSeatClick={handleSeatClick}
-              />
-            </div>
-          );
-        })}
+      )}
       </div>
+      {/* ── /BOARD ── */}
 
-      {/* ══════════════════════════════════════════════
-          QUIZ INPUT SECTION
-          ══════════════════════════════════════════════ */}
-      {/* ── STEP 1: Ranking input ── */}
-      {phase === 'ranking' && (
-        <>
-          <div className="flex items-center justify-between mb-1.5">
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide leading-tight">1단계 · 핸드 순위</p>
-              <p className="text-[10px] text-muted-foreground leading-tight">탭: 순위 지정 · 재탭: 동점 · 1위 재탭: 초기화</p>
-            </div>
-            <button
-              onClick={() => setRankAssignments({})}
-              data-testid="btn-reset-ranks"
-              disabled={Object.keys(rankAssignments).length === 0}
-              className="text-[11px] px-2.5 py-1 rounded-lg border border-border text-muted-foreground hover:border-input disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-            >
-              초기화
-            </button>
-          </div>
-          <RankingDisplay
-            players={puzzle.players}
-            rankings={rankAssignments}
+      {/* ── CONTROLS: PotArea 는 외부 wrapper (overflow visible) 에서 marginTop:-10 으로 위로 띄움.
+          phase panel 만 내부 wrapper 에서 max-h + scroll 적용. mt-auto 로 inner 하단 고정. */}
+      <div className="flex-none mt-auto pb-5">
+      {phase === 'pot' && flow.flow && (
+        <div style={{ marginTop: -10, marginBottom: 15 }}>
+          <PotArea
+            pots={flow.flow.pots}
+            formedAmounts={flow.state.formedPots}
+            activePotIndex={activePotIndex}
+            selectedPotIndex={selectedPot}
+            onPotClick={
+              (flow.step?.kind === 'shortStack' && selectedSeat) ||
+              (flow.step?.kind === 'awarding' && selectedPot === null)
+                ? handlePotClick
+                : undefined
+            }
           />
+        </div>
+      )}
+      <div className="max-h-[40dvh] overflow-y-auto">
 
-          <button
-            onClick={handleRankingSubmit}
-            data-testid="btn-submit-ranking"
-            className="w-full py-3.5 rounded-xl font-bold text-base bg-primary hover:bg-primary text-primary-foreground transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95"
-          >
-            <CheckCircle className="w-4 h-4" />
-            순위 확인
-          </button>
-        </>
+      {phase === 'ranking' && (
+        <RankingPhase
+          puzzle={puzzle}
+          rankAssignments={rankAssignments}
+          onReset={() => setRankAssignments({})}
+          onSubmit={handleRankingSubmit}
+        />
       )}
 
-      {/* ── STEP 2: Pot amount input ── */}
-      {phase === 'pot' && (() => {
-        const answer = computeAnswer(puzzle);
-        const allPots = answer.potResults.map(pr => pr.pot);
-        // Only contested pots (2+ eligible) require user input
-        const contestedPots = allPots.filter(p => p.eligible.length >= 2);
-        const autoPots = allPots.filter(p => p.eligible.length < 2);
-        return (
-          <>
-            {/* Locked ranking bar */}
-            <div className="flex items-center gap-2 mb-2 px-1">
-              <span className="text-[10px] font-bold text-green-400 uppercase tracking-wide shrink-0">순위 ✓</span>
-              <div className="flex gap-1 flex-wrap">
-                {[...puzzle.players]
-                  .sort((a, b) => (lockedRankings[a.id] ?? 99) - (lockedRankings[b.id] ?? 99))
-                  .map(p => (
-                    <span key={p.id} className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold ${rankColor(lockedRankings[p.id] ?? 0)}`}>
-                      {rankLabel(lockedRankings[p.id] ?? 0)} {p.name}
-                    </span>
-                  ))}
-              </div>
-            </div>
-
-            {/* Pot inputs — contested pots only */}
-            <div className="bg-card/70 border border-border rounded-xl px-3 py-2 mb-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">2단계 · 팟 금액</p>
-              <div className="space-y-1.5">
-                {contestedPots.map((pot, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded shrink-0 ${pot.type === 'main' ? 'bg-primary/20 text-primary' : 'bg-accent/20 text-purple-300'}`}>
-                      {pot.label}
-                    </span>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min="0"
-                      value={potInputs[i] ?? ''}
-                      onChange={e => setPotInputs(prev => ({ ...prev, [i]: e.target.value }))}
-                      placeholder="0"
-                      data-testid={`input-pot-${i}`}
-                      className="flex-1 bg-muted border border-border rounded-lg px-2 py-1.5 text-sm text-foreground focus:outline-none focus:border-blue-500 transition-colors"
-                    />
-                  </div>
-                ))}
-                {autoPots.map((pot, i) => {
-                  const winnerId = pot.eligible[0];
-                  const winnerName = puzzle.players.find(p => p.id === winnerId)?.name ?? winnerId;
-                  return (
-                    <div key={`auto-${i}`} className="flex items-center gap-2 opacity-60">
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded shrink-0 bg-secondary/50 text-muted-foreground">
-                        {pot.label}
-                      </span>
-                      <span className="flex-1 text-[11px] text-muted-foreground italic">
-                        {winnerName} 자동 반환 ({pot.amount.toLocaleString()}칩)
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <button
-              onClick={handlePotSubmit}
-              data-testid="btn-submit-pot"
-              className="w-full py-3.5 rounded-xl font-bold text-base bg-primary hover:bg-primary text-primary-foreground transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95"
-            >
-              <CheckCircle className="w-4 h-4" />
-              팟 금액 확인
-            </button>
-          </>
-        );
-      })()}
-
-      {/* ── STEP 3: Per-player payout input ── */}
-      {phase === 'payout' && (
-        <>
-          {/* Locked ranking + pot summary */}
-          <div className="flex items-center gap-2 mb-2 px-1 flex-wrap">
-            <span className="text-[10px] font-bold text-green-400 uppercase tracking-wide shrink-0">순위 ✓ 팟 ✓</span>
-            <div className="flex gap-1 flex-wrap">
-              {[...puzzle.players]
-                .sort((a, b) => (lockedRankings[a.id] ?? 99) - (lockedRankings[b.id] ?? 99))
-                .map(p => (
-                  <span key={p.id} className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold ${rankColor(lockedRankings[p.id] ?? 0)}`}>
-                    {rankLabel(lockedRankings[p.id] ?? 0)} {p.name}
-                  </span>
-                ))}
-            </div>
-          </div>
-
-          {/* Per-player chip inputs — sorted by hand rank */}
-          <div className="bg-card/70 border border-border rounded-xl px-3 py-2 mb-3">
-            <div className="flex items-center justify-between mb-1.5">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">3단계 · 플레이어 수령</p>
-              <span className="text-[11px] text-muted-foreground">
-                총 <span className="font-bold text-foreground">{contestedPotsTotal.toLocaleString()}</span>
-              </span>
-            </div>
-            <p className="text-[10px] text-muted-foreground mb-2">수령 없는 플레이어는 미입력(0) 가능</p>
-            <div className="space-y-1">
-              {[...puzzle.players]
-                .sort((a, b) => (lockedRankings[a.id] ?? 99) - (lockedRankings[b.id] ?? 99))
-                .map(p => (
-                <div key={p.id} className="flex items-center gap-1.5">
-                  <span className={`w-7 text-[11px] font-bold flex-shrink-0 text-center ${rankColor(lockedRankings[p.id] ?? 0).split(' ').find(c => c.startsWith('text-')) ?? 'text-muted-foreground'}`}>
-                    {lockedRankings[p.id] !== undefined ? rankLabel(lockedRankings[p.id]) : '—'}
-                  </span>
-                  <span className="w-6 text-[10px] text-muted-foreground flex-shrink-0 font-semibold">{p.name}</span>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min="0"
-                    value={payoutInputs[p.id] ?? ''}
-                    onChange={e => setPayoutInputs(prev => ({ ...prev, [p.id]: e.target.value }))}
-                    placeholder="0"
-                    data-testid={`input-payout-${p.id}`}
-                    className="flex-1 bg-muted border border-border rounded-lg px-2 py-1 text-sm text-foreground focus:outline-none focus:border-blue-500 transition-colors"
-                  />
-                </div>
-              ))}
-            </div>
-            {sumMismatch && (
-              <p className="mt-1.5 text-[11px] text-yellow-400 text-center" data-testid="sum-mismatch-warning">
-                ⚠️ 합계 {inputSum.toLocaleString()} ≠ 팟 {contestedPotsTotal.toLocaleString()}
-              </p>
-            )}
-            {!sumMismatch && inputSum === contestedPotsTotal && inputSum > 0 && (
-              <p className="mt-1.5 text-[11px] text-green-400 text-center">✓ 합계 일치</p>
-            )}
-          </div>
-
-          <button
-            onClick={handlePayoutSubmit}
-            data-testid="btn-submit"
-            className="w-full py-3.5 rounded-xl font-bold text-base bg-green-600 hover:bg-green-500 text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-green-600/20 active:scale-95"
-          >
-            <CheckCircle className="w-4 h-4" />
-            최종 제출
-          </button>
-        </>
+      {phase === 'pot' && activeStep?.kind !== 'awarding' && (
+        <FormingPhase
+          puzzle={puzzle}
+          lockedRankings={lockedRankings}
+          step={flow.step}
+          errorTick={flow.state.errorTick}
+          errorReason={flow.state.errorReason}
+          isPractice={isPractice}
+          hintActive={hintActive}
+          onToggleHint={() => setHintActive(v => !v)}
+        />
       )}
 
-      {/* ══════════════════════════════════════════════
-          RESULT / WRONG EXPLANATION
-          ══════════════════════════════════════════════ */}
+      {phase === 'pot' && activeStep?.kind === 'awarding' && (
+        <AwardingPhase
+          puzzle={puzzle}
+          lockedRankings={lockedRankings}
+          step={flow.step}
+          awardingSelection={flow.state.awardingSelection}
+          onConfirm={handleConfirmAwarding}
+          errorTick={flow.state.errorTick}
+          errorReason={flow.state.errorReason}
+          isPractice={isPractice}
+          hintActive={hintActive}
+          onToggleHint={() => setHintActive(v => !v)}
+          potSelected={selectedPot !== null && activeStep.kind === 'awarding' && selectedPot === activeStep.potIndex}
+        />
+      )}
+
       {(phase === 'result' || phase === 'wrong') && lastResult && (
-        <>
-          {/* ── Wrong banner ── */}
-          {phase === 'wrong' && (
-            <div className="mb-3 rounded-xl px-4 py-3 flex items-center gap-3 border bg-red-500/10 border-red-500/30">
-              <div className="w-9 h-9 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center flex-shrink-0">
-                <span className="text-red-400 font-black text-xl">✗</span>
-              </div>
-              <div className="flex-1">
-                <p className="font-bold text-sm text-red-400">오답</p>
-                <p className="text-xs text-red-300/70 mt-0.5">
-                  {lastResult.wrongStep === 'ranking' && '1단계 핸드 순위가 틀렸습니다'}
-                  {lastResult.wrongStep === 'pot' && '2단계 팟 금액이 틀렸습니다'}
-                  {lastResult.wrongStep === 'payout' && '3단계 수령 칩이 틀렸습니다'}
-                </p>
-                {(lastResult.brokenStreak ?? 0) >= 2 && (
-                  <p className="text-xs text-orange-400 mt-1">🔥 {lastResult.brokenStreak}연속 스트릭이 끊겼습니다</p>
-                )}
-              </div>
-              <span className="text-xs text-muted-foreground">+0점</span>
-            </div>
-          )}
-
-          {/* ── Result banner ── */}
-          {phase === 'result' && (
-            <div className={`mb-3 rounded-xl px-4 py-3 flex items-center gap-3 border ${
-              lastResult.correct ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'
-            }`}>
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
-                lastResult.correct ? 'bg-green-500/20 border border-green-500/40' : 'bg-red-500/20 border border-red-500/40'
-              }`}>
-                {lastResult.correct
-                  ? <CheckCircle className="w-5 h-5 text-green-400" />
-                  : <span className="text-red-400 font-bold text-lg">✗</span>}
-              </div>
-              <div className="flex-1">
-                <p className={`font-bold text-sm ${lastResult.correct ? 'text-green-400' : 'text-red-400'}`}>
-                  {lastResult.correct ? '완벽 정답!' : lastResult.rankingCorrect ? '순위만 정답' : '오답'}
-                </p>
-                <div className="flex gap-2 mt-0.5 flex-wrap">
-                  <span className={`text-xs px-1.5 py-0.5 rounded ${lastResult.rankingCorrect ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
-                    순위 {lastResult.rankingCorrect ? '✓' : '✗'}
-                  </span>
-                  <span className={`text-xs px-1.5 py-0.5 rounded ${lastResult.payoutScore === 100 ? 'bg-green-500/10 text-green-400' : lastResult.payoutScore > 0 ? 'bg-yellow-500/10 text-yellow-400' : 'bg-red-500/10 text-red-400'}`}>
-                    팟 분배 {lastResult.payoutScore}%
-                  </span>
-                  <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${lastResult.passed ? 'bg-green-500/15 text-green-300' : 'bg-red-500/10 text-red-400'}`}>
-                    ⏱ {Math.floor(lastResult.elapsed)}초{lastResult.passed ? ' 합격' : ' 초과'}
-                    {lastResult.timeScore != null && (
-                      <span className="ml-1">({lastResult.timeScore >= 0 ? '+' : ''}{lastResult.timeScore}pt)</span>
-                    )}
-                  </span>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-muted-foreground">+{lastResult.points}점</p>
-                <p className="text-lg font-bold text-white">{score}</p>
-              </div>
-            </div>
-          )}
-
-          <div className="bg-card border border-border rounded-xl p-4 mb-4 max-h-[240px] overflow-y-auto">
-            <h3 className="text-sm font-bold text-foreground mb-3">해설</h3>
-
-            {/* Correct ranking list */}
-            <div className="mb-3">
-              <p className="text-xs text-muted-foreground mb-2">정답 순위</p>
-              <div className="space-y-1.5">
-                {[...puzzle.players]
-                  .sort((a, b) => lastResult.answer.correctRanks[a.id] - lastResult.answer.correctRanks[b.id])
-                  .map(p => {
-                    const cr = lastResult.answer.correctRanks[p.id];
-                    const nu = normalizeRanks(lastResult.userRankings);
-                    const nc = normalizeRanks(lastResult.answer.correctRanks);
-                    const rankOk = nu[p.id] === nc[p.id];
-                    return (
-                      <div key={p.id} className={`flex items-center gap-2 rounded-lg px-3 py-1.5 border ${rankColor(cr)}`}>
-                        <span className="text-base flex-shrink-0">{RANK_EMOJI[cr] ?? `${cr}위`}</span>
-                        <div className="flex-1 min-w-0">
-                          <span className="text-xs font-bold">{p.name}</span>
-                          <span className="text-xs opacity-70 ml-2">{lastResult.answer.handMap[p.id]?.descriptionKo}</span>
-                        </div>
-                        <span className={`text-xs font-bold ${rankOk ? 'text-green-400' : 'text-red-400'}`}>
-                          {rankOk ? '✓' : '✗'}
-                        </span>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-
-            {/* Pot breakdown — with calculation formula */}
-            <div className="mb-3">
-              <p className="text-xs text-muted-foreground mb-2">팟 계산</p>
-              <div className="space-y-2">
-                {lastResult.answer.potResults.map((pr, i) => {
-                  const isMain = pr.pot.type === 'main';
-                  const isAutoReturn = pr.pot.eligible.length < 2;
-                  const deadMoney = isMain ? bbaAdjusted(puzzle).deadMoney : 0;
-                  // Net player contributions (excluding dead money) for formula display
-                  const playerAmount = pr.pot.amount - deadMoney;
-                  const perContrib = pr.pot.eligible.length > 0 && playerAmount > 0
-                    ? Math.round(playerAmount / pr.pot.eligible.length)
-                    : 0;
-                  const eligibleNames = pr.pot.eligible.map(id => puzzle.players.find(pp => pp.id === id)?.name ?? id);
-
-                  // 1-eligible side pot: show as auto-return (no formula needed)
-                  if (isAutoReturn) {
-                    const returnName = eligibleNames[0] ?? '?';
-                    return (
-                      <div key={i} className="rounded-xl border border-border/40 overflow-hidden opacity-70">
-                        <div className="flex items-center justify-between px-3 py-1.5 bg-muted/40">
-                          <span className="text-xs font-bold text-muted-foreground">{pr.pot.label}</span>
-                          <span className="text-sm font-bold text-muted-foreground">{pr.pot.amount.toLocaleString()}칩</span>
-                        </div>
-                        <div className="px-3 py-1.5 bg-card/40 text-xs text-muted-foreground italic">
-                          {returnName}에게 자동 반환 (유효 스택 초과분)
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  // For step-2 wrong: look up user's input for this pot
-                  const userPotAmt = lastResult.userPotInputs?.[pr.pot.label];
-                  const potWrong = lastResult.wrongStep === 'pot' && userPotAmt !== undefined;
-                  const potInputCorrect = potWrong && Math.abs(userPotAmt! - pr.pot.amount) <= 1;
-
-                  return (
-                    <div key={i} className={`rounded-xl border overflow-hidden ${isMain ? 'border-blue-500/30' : 'border-purple-500/30'}`}>
-                      {/* Header */}
-                      <div className={`flex items-center justify-between px-3 py-1.5 ${isMain ? 'bg-primary/10' : 'bg-accent/10'}`}>
-                        <span className={`text-xs font-bold ${isMain ? 'text-primary' : 'text-purple-400'}`}>
-                          {pr.pot.label}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          {potWrong && !potInputCorrect && (
-                            <span className="text-xs font-bold text-red-400 line-through opacity-80">
-                              {(userPotAmt ?? 0).toLocaleString()}
-                            </span>
-                          )}
-                          {potWrong && potInputCorrect && (
-                            <span className="text-xs font-bold text-green-400">
-                              {(userPotAmt ?? 0).toLocaleString()}
-                            </span>
-                          )}
-                          <span className={`text-sm font-bold ${potWrong && !potInputCorrect ? 'text-green-400' : 'text-foreground'}`}>
-                            {pr.pot.amount.toLocaleString()}칩{potWrong && !potInputCorrect ? ' ✓' : ''}
-                          </span>
-                        </div>
-                      </div>
-                      {/* Calculation formula */}
-                      <div className="px-3 py-2 bg-card/60 border-b border-border/40">
-                        <div className="flex items-center gap-1 flex-wrap text-xs">
-                          <span className="text-muted-foreground">참여자:</span>
-                          {eligibleNames.map((n, j) => (
-                            <span key={j} className="text-foreground font-semibold">{n}</span>
-                          ))}
-                        </div>
-                        <div className="flex items-center gap-1 mt-1 text-xs font-mono flex-wrap">
-                          <span className="text-muted-foreground">{pr.pot.eligible.length}명</span>
-                          <span className="text-muted-foreground">×</span>
-                          <span className="text-yellow-300 font-bold">{perContrib.toLocaleString()}칩</span>
-                          {deadMoney > 0 && (
-                            <>
-                              <span className="text-muted-foreground">+</span>
-                              <span className="text-orange-400 font-bold">{deadMoney.toLocaleString()}칩</span>
-                              <span className="text-orange-400/60 text-[10px]">(데드머니)</span>
-                            </>
-                          )}
-                          <span className="text-muted-foreground">=</span>
-                          <span className="text-white font-bold">{pr.pot.amount.toLocaleString()}칩</span>
-                        </div>
-                      </div>
-                      {/* Winner */}
-                      <div className="px-3 py-2 bg-muted/30 flex items-center gap-2 flex-wrap">
-                        <span className="text-muted-foreground text-xs">→ 승리:</span>
-                        {pr.winners.map(id => {
-                          const p = puzzle.players.find(pp => pp.id === id);
-                          return (
-                            <span key={id} className="flex items-center gap-1 text-xs">
-                              <span className="text-yellow-400 font-bold">{p?.name ?? id}</span>
-                              <span className="text-muted-foreground">({lastResult.answer.handMap[id]?.descriptionKo})</span>
-                            </span>
-                          );
-                        })}
-                        {pr.winners.length > 1 && <span className="text-muted-foreground text-xs">· 공동 분배</span>}
-                        <span className="ml-auto text-green-400 font-bold text-xs">+{pr.perWinner.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Payout comparison */}
-            <div className="pt-2 border-t border-border">
-              <p className="text-xs text-muted-foreground mb-2">최종 수령 칩 비교</p>
-              <div className="grid grid-cols-2 gap-1.5">
-                {puzzle.players.map(p => {
-                  const correct = Math.abs((lastResult.userPayouts[p.id] ?? 0) - (lastResult.answer.playerPayouts[p.id] ?? 0)) <= 1;
-                  const correctAmt = lastResult.answer.playerPayouts[p.id] ?? 0;
-                  const userAmt = lastResult.userPayouts[p.id] ?? 0;
-                  return (
-                    <div key={p.id} className="flex items-center justify-between bg-muted/40 rounded px-2 py-1.5">
-                      <span className="text-xs text-muted-foreground">{p.name}</span>
-                      <div className="flex items-center gap-1">
-                        {!correct && <span className="text-xs text-red-400">{userAmt.toLocaleString()}→</span>}
-                        <span className={`text-xs font-bold ${correctAmt > 0 ? 'text-green-400' : 'text-muted-foreground'}`}>
-                          {correctAmt.toLocaleString()}
-                        </span>
-                        <span className={`text-xs ${correct ? 'text-green-400' : 'text-red-400'}`}>
-                          {correct ? '✓' : '✗'}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={handleQuit}
-              data-testid="btn-home"
-              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border text-muted-foreground hover:border-input hover:text-foreground font-semibold transition-all"
-            >
-              <Home className="w-4 h-4" />
-            </button>
-            <button
-              onClick={handleNext}
-              data-testid="btn-next"
-              className="flex-1 py-3 rounded-xl bg-primary hover:bg-primary text-primary-foreground font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95"
-            >
-              다음 문제
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </>
+        <ResultPanel
+          phase={phase}
+          lastResult={lastResult}
+          puzzle={puzzle}
+          score={score}
+          onQuit={handleQuit}
+          onNext={handleNext}
+        />
       )}
+      </div>
+      </div>
+      {/* ── /CONTROLS ── */}
 
+      {/* 좌석/팟/데드머니 사이 칩 비행 시각화 — viewport 전체 절대 레이어 */}
+      <FlyingChipsLayer flights={flights} onComplete={handleFlightComplete} />
+
+      {/* 좌석→팟 클릭 후 액수 입력 모달 */}
+      <DropAmountModal
+        open={!!dropModal}
+        fromSeatName={dropModal?.seatName ?? ''}
+        toPotLabel={dropModal?.potLabel ?? ''}
+        onConfirm={handleDropConfirm}
+        onCancel={handleDropCancel}
+      />
+      </div>
     </div>
   );
 }

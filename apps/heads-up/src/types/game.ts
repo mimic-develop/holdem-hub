@@ -110,6 +110,11 @@ export type GtoAnalysis = PostHandInsight;
  */
 export interface CompletedHand {
   handId: string;
+  /** Stable id for the game/session that produced this hand. Hands sharing
+   *  the same sessionId belong to the same continuous game (startAi → quit or
+   *  match over). Optional for legacy records saved before this field existed —
+   *  group-hands util falls back to handNumber + time-gap inference. */
+  sessionId?: string;
   playedAt: number;
   /** 1-indexed within the session that produced it — useful for sort tie-breaking. */
   handNumber: number;

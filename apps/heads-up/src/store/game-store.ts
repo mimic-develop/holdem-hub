@@ -18,6 +18,7 @@ import type { AiLevel, AiPersonaId } from '../types/ai';
 import { evaluateHand } from '../insight/hand-evaluator-main';
 import { getSettings, DEFAULT_STACK_BB } from '../storage/settings';
 import { getHand, saveHand } from '../storage/history';
+import { inferEventsFromHand, inferStreakEvents } from '../bot/preflop-25bb/eventInference';
 import { detectMilestones } from '../storage/stats';
 import { useToastStore } from './toast-store';
 import type { PeerConnection, ConnectionStatus } from '../rtc/peer-connection';
@@ -50,6 +51,12 @@ function randomHandId(): string {
   const c = (globalThis as unknown as { crypto?: { randomUUID?: () => string } }).crypto;
   if (c?.randomUUID) return c.randomUUID();
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function randomSessionId(): string {
+  const c = (globalThis as unknown as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (c?.randomUUID) return `s_${c.randomUUID()}`;
+  return `s_${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function randomSeed(): number {
@@ -85,6 +92,10 @@ interface GameStoreState {
   lastResolution: HandResolution | null;
   handHistory: CompletedHand[];
   handNumber: number;
+  /** Stable id for the current continuous game/session. Issued on startAiGame /
+   *  attachRemoteConnection. Stamped onto every CompletedHand saved during this
+   *  session so HistoryPage can group hands by game. null when no game active. */
+  sessionId: string | null;
   showOpponentCards: boolean;
   stacks: Record<string, number>;
   sbPlayerId: string;
@@ -286,6 +297,7 @@ function buildCompletedHand(
 
   return {
     handId: randomHandId(),
+    sessionId: s.sessionId ?? undefined,
     playedAt: Date.now(),
     handNumber: s.handNumber,
     mode: s.mode ?? 'AI',
@@ -333,6 +345,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   lastResolution: null,
   handHistory: [],
   handNumber: 0,
+  sessionId: null,
   showOpponentCards: false,
   stacks: { [MY_ID_AI]: DEFAULT_STARTING_STACK, [BOT_ID]: DEFAULT_STARTING_STACK },
   sbPlayerId: MY_ID_AI,
@@ -410,6 +423,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       lastResolution: null,
       handHistory: [],
       handNumber: 1,
+      sessionId: randomSessionId(),
       showOpponentCards: false,
       stacks,
       sbPlayerId: sbId,
@@ -715,6 +729,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       lastResolution: null,
       handHistory: [],
       handNumber: 0,
+      sessionId: null,
       showOpponentCards: false,
       stacks: { [MY_ID_AI]: DEFAULT_STARTING_STACK, [BOT_ID]: DEFAULT_STARTING_STACK },
       sbPlayerId: MY_ID_AI,
@@ -756,6 +771,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       connectionStatus: peer.getStatus(),
       handHistory: [],
       handNumber: 0,
+      sessionId: randomSessionId(),
       chatMessages: [],
       pingMs: null,
       deckVerificationFailed: false,
@@ -1124,6 +1140,19 @@ function finalizeHand(
     console.error('[game-store] saveHand failed', err);
   });
   void analyzeAndPersist(set, get, completed);
+
+  // Feed the persona-state layer with single-hand + streak-window events.
+  // AI mode only — REMOTE has no local bot instance.
+  if (s.mode === 'AI' && s._bot) {
+    try {
+      const single = inferEventsFromHand(completed, s.opponentPlayerId);
+      const streak = inferStreakEvents([...s.handHistory, completed], s.opponentPlayerId);
+      const all = [...single, ...streak];
+      if (all.length > 0) s._bot.recordEvents(all);
+    } catch (err) {
+      console.error('[game-store] persona-state event update failed', err);
+    }
+  }
 }
 
 /** Tracks handIds whose analysis is in-flight, so callers can dedupe re-entry

@@ -13,6 +13,7 @@ import { classifyBoardTexture } from './board-texture';
 import { classifyHand, type HandStrength } from './postflop-rules';
 import { EquityCache } from './equity-cache';
 import type {
+  CheckContext,
   DecisionFeatures,
   DrawStrength,
   FacingBetSize,
@@ -66,6 +67,14 @@ export function evaluateDecisionFeatures(ctx: ExtractContext): DecisionFeatures 
   const potOdds = toCall === 0 ? 0 : toCall / (state.pot + toCall);
   const spr = state.pot > 0 ? me.stack / state.pot : 100;
   const facingBetSize = classifyFacingBetSize(toCall, state.pot);
+  const checkContext = deriveCheckContext({
+    canCheck,
+    street: state.street,
+    position,
+    previousAggressor,
+    historyThisStreet: state.history.filter((h) => h.street === state.street),
+    me,
+  });
 
   return {
     street: state.street,
@@ -83,7 +92,45 @@ export function evaluateDecisionFeatures(ctx: ExtractContext): DecisionFeatures 
     canCheck,
     canCall,
     canRaise,
+    checkContext,
   };
+}
+
+/**
+ * Decide *why* a check is currently a sensible option (or that it's illegal).
+ * The engine only has one `check` action; persona modifiers use this context
+ * to decide whether to bias toward checking (e.g. NIT trap), c-betting,
+ * or check-back.
+ */
+function deriveCheckContext(args: {
+  canCheck: boolean;
+  street: GameState['street'];
+  position: Position;
+  previousAggressor: 'hero' | 'villain' | 'none';
+  historyThisStreet: GameState['history'];
+  me: Player;
+}): CheckContext {
+  if (!args.canCheck) return 'not_check_spot';
+
+  // Preflop BB option after SB limp — BB closes the action with a free check.
+  if (args.street === 'preflop' && args.me.position === 'BB') {
+    return 'bb_check_option_preflop';
+  }
+
+  // Has opponent acted (check) this street? If yes and we're IP → check_back.
+  const oppChecked = args.historyThisStreet.some(
+    (h) => h.playerId !== args.me.id && h.action === 'check',
+  );
+  if (args.position === 'IP' && oppChecked) return 'ip_check_back';
+
+  // OOP and waiting on the aggressor (previous street's pre-flop raiser) to
+  // c-bet. Heuristic: previousAggressor === 'villain' and no bet this street.
+  if (args.position === 'OOP' && args.previousAggressor === 'villain') {
+    return 'oop_check_to_aggressor';
+  }
+
+  // Default OOP first-action — hero has the option to lead.
+  return 'oop_first_check';
 }
 
 /**

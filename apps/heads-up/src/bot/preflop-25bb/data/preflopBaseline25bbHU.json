@@ -1,0 +1,171 @@
+{
+  "metadata": {
+    "name": "MIMIC 25bb HU Preflop Baseline",
+    "version": "0.1-beta",
+    "gameType": "HU_SnG",
+    "stackDepth": "25bb",
+    "source": "GTO Wizard screenshots manually extracted",
+    "accuracyLevel": "aggregate_node_frequency",
+    "description": "This baseline stores aggregate preflop action frequencies for 25bb heads-up play. It is intended for persona-based AI behavior, not exact solver replication."
+  },
+  "actionTypes": {
+    "fold": "Fold",
+    "call": "Call",
+    "check": "Check",
+    "limp": "Limp / complete from SB",
+    "raise_2": "Raise to 2bb",
+    "raise_3": "Raise to 3bb",
+    "raise_5": "Raise to 5bb",
+    "raise_7": "Raise to 7bb",
+    "raise_7_5": "Raise to 7.5bb",
+    "raise_8": "Raise to 8bb",
+    "all_in_25": "All-in 25bb"
+  },
+  "nodes": {
+    "SB_FIRST_IN_25BB": {
+      "description": "SB acts first at 25bb effective stack.",
+      "positionToAct": "SB",
+      "previousAction": "none",
+      "pot": "1.5bb",
+      "actions": {
+        "all_in_25": 0.0,
+        "raise_2": 42.1,
+        "limp": 52.1,
+        "fold": 5.7
+      },
+      "summary": "SB mostly enters the pot. Limp is slightly more common than raise. Fold exists only for the weakest offsuit hands."
+    },
+    "BB_VS_SB_LIMP_25BB": {
+      "description": "SB limps, BB responds.",
+      "positionToAct": "BB",
+      "previousAction": "SB_LIMP",
+      "pot": "2bb",
+      "actions": {
+        "all_in_25": 7.6,
+        "raise_7": 10.4,
+        "raise_3": 20.1,
+        "check": 61.9
+      },
+      "summary": "BB checks most often versus limp, but still isolates or jams at meaningful frequency."
+    },
+    "BB_VS_SB_OPEN_2BB_25BB": {
+      "description": "SB raises to 2bb, BB responds.",
+      "positionToAct": "BB",
+      "previousAction": "SB_RAISE_2",
+      "pot": "3bb",
+      "actions": {
+        "all_in_25": 9.0,
+        "raise_8": 7.9,
+        "raise_5": 8.5,
+        "call": 55.7,
+        "fold": 18.9
+      },
+      "summary": "BB defends very wide versus 2bb open. Call is the main response; fold remains below 20%."
+    },
+    "SB_VS_BB_JAM_AFTER_OPEN_2BB": {
+      "description": "SB opens to 2bb, BB jams 25bb, SB responds.",
+      "positionToAct": "SB",
+      "previousAction": "SB_RAISE_2_BB_ALL_IN_25",
+      "pot": "27bb",
+      "actions": {
+        "call": 24.7,
+        "fold": 75.3
+      },
+      "summary": "SB calls roughly one quarter of the time versus BB jam after opening."
+    },
+    "SB_VS_BB_3BET_5_AFTER_OPEN_2BB": {
+      "description": "SB opens to 2bb, BB 3bets to 5bb, SB responds.",
+      "positionToAct": "SB",
+      "previousAction": "SB_RAISE_2_BB_RAISE_5",
+      "pot": "7bb",
+      "actions": {
+        "all_in_25": 11.6,
+        "call": 49.3,
+        "fold": 39.1
+      },
+      "summary": "SB continues fairly wide versus small 3bet. Call is the main continue option."
+    },
+    "SB_VS_BB_3BET_7_AFTER_OPEN_2BB": {
+      "description": "SB opens to 2bb, BB 3bets to 7bb, SB responds.",
+      "positionToAct": "SB",
+      "previousAction": "SB_RAISE_2_BB_RAISE_7",
+      "pot": "8bb",
+      "actions": {
+        "all_in_25": 9.2,
+        "call": 15.7,
+        "fold": 75.1
+      },
+      "summary": "SB folds heavily versus large 7bb 3bet, with only strong hands continuing."
+    },
+    "SB_VS_BB_3BET_8_AFTER_OPEN_2BB": {
+      "description": "SB opens to 2bb, BB 3bets to 8bb, SB responds.",
+      "positionToAct": "SB",
+      "previousAction": "SB_RAISE_2_BB_RAISE_8",
+      "pot": "10bb",
+      "actions": {
+        "all_in_25": 16.4,
+        "call": 22.3,
+        "fold": 61.3
+      },
+      "summary": "SB still folds most often versus 8bb 3bet, but all-in and call remain meaningful."
+    },
+    "SB_VS_BB_ISO_3_AFTER_LIMP": {
+      "description": "SB limps, BB raises to 3bb, SB responds.",
+      "positionToAct": "SB",
+      "previousAction": "SB_LIMP_BB_RAISE_3",
+      "pot": "4bb",
+      "actions": {
+        "all_in_25": 7.0,
+        "raise_7_5": 1.1,
+        "call": 46.7,
+        "fold": 45.1
+      },
+      "summary": "SB versus small iso is almost split between call and fold, with small limp-jam frequency."
+    },
+    "SB_VS_BB_ISO_7_5_AFTER_LIMP": {
+      "description": "SB limps, BB raises to 7.5bb, SB responds.",
+      "positionToAct": "SB",
+      "previousAction": "SB_LIMP_BB_RAISE_7_5",
+      "pot": "10.5bb",
+      "actions": {
+        "all_in_25": 17.2,
+        "call": 43.6,
+        "fold": 39.2
+      },
+      "summary": "SB continues surprisingly often versus large iso because limp range contains traps and strong continues."
+    },
+    "SB_VS_BB_JAM_AFTER_LIMP": {
+      "description": "SB limps, BB jams 25bb, SB responds.",
+      "positionToAct": "SB",
+      "previousAction": "SB_LIMP_BB_ALL_IN_25",
+      "pot": "26bb",
+      "actions": {
+        "call": 13.9,
+        "fold": 86.1
+      },
+      "summary": "SB folds most of limp range versus BB jam but retains trap calls."
+    },
+    "BB_VS_SB_LIMP_JAM_AFTER_ISO_3": {
+      "description": "SB limps, BB raises to 3bb, SB jams 25bb, BB responds.",
+      "positionToAct": "BB",
+      "previousAction": "SB_LIMP_BB_RAISE_3_SB_ALL_IN_25",
+      "pot": "28bb",
+      "actions": {
+        "call": 29.0,
+        "fold": 71.0
+      },
+      "summary": "BB calls only a minority after small iso and facing limp-jam."
+    },
+    "BB_VS_SB_LIMP_JAM_AFTER_ISO_7": {
+      "description": "SB limps, BB raises to 7bb, SB jams 25bb, BB responds.",
+      "positionToAct": "BB",
+      "previousAction": "SB_LIMP_BB_RAISE_7_SB_ALL_IN_25",
+      "pot": "32bb",
+      "actions": {
+        "call": 75.6,
+        "fold": 24.4
+      },
+      "summary": "BB calls very often after large iso and facing limp-jam due to pot commitment and stronger iso range."
+    }
+  }
+}

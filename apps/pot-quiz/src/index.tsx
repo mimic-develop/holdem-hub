@@ -27,7 +27,12 @@ export default function PotQuizApp() {
           <Toaster />
           <Switch>
             <Route path="/" component={Home} />
-            <Route path="/quiz/:difficulty" component={Quiz} />
+            <Route path="/quiz/:difficulty">
+              <Quiz mode="game" />
+            </Route>
+            <Route path="/practice/:difficulty">
+              <Quiz mode="practice" />
+            </Route>
             <Route path="/summary/:difficulty" component={Summary} />
             <Route component={NotFound} />
           </Switch>

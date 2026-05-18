@@ -65,6 +65,45 @@ function applyStandard(s: ActionScore, f: DecisionFeatures): void {
 }
 
 // ─────────────────────────────────────────────────────
+// check-context 별 모디파이어 — 각 페르소나가 공유하는 헬퍼
+// ─────────────────────────────────────────────────────
+type CheckIntent = 'cbet_pressure' | 'trap' | 'passive' | 'neutral';
+
+function checkBiasForContext(
+  ctx: DecisionFeatures['checkContext'],
+  intent: CheckIntent,
+): number {
+  if (ctx === 'not_check_spot') return 0;
+  switch (intent) {
+    case 'cbet_pressure':
+      // OOP first action with initiative → suppress check hard (we want a c-bet).
+      if (ctx === 'oop_first_check') return -MOD.MEDIUM;
+      // Facing the aggressor → still likely to check-and-fold, no extra penalty.
+      if (ctx === 'oop_check_to_aggressor') return -MOD.SMALL;
+      // IP after opponent checked → free realize, no penalty.
+      if (ctx === 'ip_check_back') return 0;
+      // BB option preflop is free → no penalty.
+      if (ctx === 'bb_check_option_preflop') return 0;
+      return 0;
+    case 'trap':
+      // Slow play makes sense OOP — strong hands can induce.
+      if (ctx === 'oop_first_check' || ctx === 'oop_check_to_aggressor') return +MOD.SMALL;
+      // IP check-back is also slow-play but weaker incentive.
+      if (ctx === 'ip_check_back') return +MOD.TINY;
+      return 0;
+    case 'passive':
+      // CALLING-style: passive personas prefer check anywhere it's legal.
+      if (ctx === 'bb_check_option_preflop' || ctx === 'ip_check_back') return +MOD.SMALL;
+      if (ctx === 'oop_check_to_aggressor') return +MOD.SMALL;
+      if (ctx === 'oop_first_check') return +MOD.TINY;
+      return 0;
+    case 'neutral':
+    default:
+      return 0;
+  }
+}
+
+// ─────────────────────────────────────────────────────
 // NIT — 거의 안 들어오지만, 들어오면 진짜 강해 보임
 // ─────────────────────────────────────────────────────
 function applyNit(s: ActionScore, f: DecisionFeatures): void {
@@ -98,9 +137,11 @@ function applyNit(s: ActionScore, f: DecisionFeatures): void {
     s.raise     += MOD.SMALL;
   }
 
-  // 5. OOP에서 monster일 때 가끔 trap (체크/콜)
+  // 5. OOP에서 monster일 때 가끔 trap — checkContext에 따라 분기:
+  //    oop_first_check / oop_check_to_aggressor 에서는 trap 의도 강하게,
+  //    ip_check_back 시점은 약하게 (NIT는 IP에서 거의 트랩 안 함).
   if (f.handStrengthBucket === 'monster' && f.position === 'OOP') {
-    s.check += MOD.SMALL;
+    s.check += checkBiasForContext(f.checkContext, 'trap');
     s.call  += MOD.SMALL;
   }
 
@@ -124,11 +165,12 @@ function applyNit(s: ActionScore, f: DecisionFeatures): void {
 // LAG — 압박하지만 랜덤은 아님
 // ─────────────────────────────────────────────────────
 function applyLag(s: ActionScore, f: DecisionFeatures): void {
-  // 1. 주도권 있으면 자주 압박
+  // 1. 주도권 있으면 자주 압박 — c-bet 의도. checkContext가 ip_check_back 이거나
+  //    bb_check_option_preflop이면 페널티를 적용하지 않음(이미 합리적 체크).
   if (f.initiative && f.facingBetSize === 'none') {
     s.betSmall  += MOD.LARGE;
     s.betMedium += MOD.MEDIUM;
-    s.check     -= MOD.MEDIUM;
+    s.check     += checkBiasForContext(f.checkContext, 'cbet_pressure');
   }
 
   // 2. IP에서 더 적극적
@@ -138,10 +180,11 @@ function applyLag(s: ActionScore, f: DecisionFeatures): void {
     s.raise     += MOD.TINY;
   }
 
-  // 3. 드라이 보드 + initiative → 작은 c-bet 강하게 선호
+  // 3. 드라이 보드 + initiative → 작은 c-bet 강하게 선호. ip_check_back/BB option
+  //    같은 자유 체크 자리는 페널티 미적용.
   if (f.boardTexture === 'dry' && f.initiative && f.facingBetSize === 'none') {
     s.betSmall  += MOD.LARGE;
-    s.check     -= MOD.MEDIUM;
+    s.check     += checkBiasForContext(f.checkContext, 'cbet_pressure');
   }
 
   // 4. 드로우를 공격 자원으로 — comboDraw/flushDraw/oesd에서 어그레션
@@ -149,7 +192,8 @@ function applyLag(s: ActionScore, f: DecisionFeatures): void {
     s.betMedium += MOD.LARGE;
     s.raise     += MOD.SMALL;
     s.call      += MOD.SMALL;
-    s.check     -= MOD.SMALL;
+    // c-bet pressure 자리에서 체크 페널티, ip_check_back은 free realize 허용.
+    s.check     += checkBiasForContext(f.checkContext, 'cbet_pressure') / 2;
   }
   if (f.drawStrength === 'gutshot' && f.initiative) {
     s.betSmall += MOD.SMALL;
@@ -176,11 +220,11 @@ function applyLag(s: ActionScore, f: DecisionFeatures): void {
     s.call  += MOD.SMALL;
   }
 
-  // 8. 강한 핸드 빠른 밸류 (slowplay 회피)
+  // 8. 강한 핸드 빠른 밸류 (slowplay 회피) — c-bet 자리에서만 체크 페널티.
   if (f.handStrengthBucket === 'twoPairPlus' || f.handStrengthBucket === 'monster') {
     s.betMedium += MOD.MEDIUM;
     s.raise     += MOD.SMALL;
-    s.check     -= MOD.MEDIUM;
+    s.check     += checkBiasForContext(f.checkContext, 'cbet_pressure');
   }
 }
 
@@ -188,6 +232,9 @@ function applyLag(s: ActionScore, f: DecisionFeatures): void {
 // CALLING — 안 죽지만 무조건 콜은 아님
 // ─────────────────────────────────────────────────────
 function applyCalling(s: ActionScore, f: DecisionFeatures): void {
+  // 0. 패시브 정체성 — checkContext 가 합리적인 자리에서 check 강화.
+  s.check += checkBiasForContext(f.checkContext, 'passive');
+
   // 1. 쇼다운 밸류 있으면 콜 선호
   if (f.showdownValue !== 'none') {
     s.call += MOD.LARGE;
@@ -244,18 +291,19 @@ function applyCalling(s: ActionScore, f: DecisionFeatures): void {
 // MANIAC — 콜이 아니라 베팅·레이즈로 판 키움
 // ─────────────────────────────────────────────────────
 function applyManiac(s: ActionScore, f: DecisionFeatures): void {
-  // 1. 기본 공격 액션 선호
+  // 1. 기본 공격 액션 선호 — checkContext가 c-bet 자리이면 페널티 강하게,
+  //    ip_check_back / bb_check_option_preflop에선 자연스러운 체크 허용.
   s.betMedium += MOD.MEDIUM;
   s.betLarge  += MOD.LARGE;
   s.raise     += MOD.LARGE;
-  s.check     -= MOD.MEDIUM;
+  s.check     += checkBiasForContext(f.checkContext, 'cbet_pressure');
   s.call      -= MOD.TINY;
 
   // 2. 드로우는 강하게 공격
   if (f.drawStrength !== 'none' && f.drawStrength !== 'backdoor') {
     s.betLarge  += MOD.MEDIUM;
     s.raise     += MOD.MEDIUM;
-    s.check     -= MOD.SMALL;
+    s.check     += checkBiasForContext(f.checkContext, 'cbet_pressure') / 2;
   }
 
   // 3. air 핸드도 공격 자원으로 사용 — 단 all-in은 제한
@@ -268,11 +316,11 @@ function applyManiac(s: ActionScore, f: DecisionFeatures): void {
     }
   }
 
-  // 4. 강한 핸드 빠르게 공격 (slowplay 거의 없음)
+  // 4. 강한 핸드 빠르게 공격 (slowplay 거의 없음) — c-bet 자리에서만 강한 체크 페널티.
   if (f.handStrengthBucket === 'twoPairPlus' || f.handStrengthBucket === 'monster') {
     s.betLarge += MOD.LARGE;
     s.raise    += MOD.MEDIUM;
-    s.check    -= MOD.LARGE;
+    s.check    += Math.min(0, checkBiasForContext(f.checkContext, 'cbet_pressure') * 1.5);
   }
 
   // 5. 주도권 있으면 사이즈 ↑ (배럴)

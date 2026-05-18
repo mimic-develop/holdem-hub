@@ -233,13 +233,6 @@ export default function HomePage() {
           }} />
           {/* ── VS ROW ── */}
           <div style={{ ...s.vsRow, position: 'relative' }}>
-            {/* VS row 한정 짧은 중앙 라인 */}
-            <div style={{
-              position: 'absolute', top: 8, bottom: 8, left: '50%', width: '1px',
-              transform: 'translateX(-0.5px)',
-              background: 'linear-gradient(180deg, transparent 0%, rgba(229,57,53,0.45) 50%, transparent 100%)',
-              pointerEvents: 'none', zIndex: 0,
-            }} />
             {/* 플레이어 */}
             <div style={s.vsSide}>
               <div style={{
@@ -294,9 +287,7 @@ export default function HomePage() {
 
             {/* 중앙 VS */}
             <div style={s.vsCenter}>
-              <div style={s.vsDot} />
               <div style={s.vsLabel}>VS</div>
-              <div style={s.vsDot} />
             </div>
 
             {/* 상대 */}
@@ -426,29 +417,39 @@ export default function HomePage() {
                   <div style={s.charDesc}>{persona.description}</div>
                 </div>
                 <div style={s.diffPills}>
+                  {/* 베타: Normal(MEDIUM) 만 활성. EASY/HARD 는 '곧 업데이트' 안내. */}
                   {ALL_LEVELS.map((lv) => {
                     const active = pickedLevel === lv;
+                    const enabled = lv === 'MEDIUM';
                     return (
                       <button
                         key={lv}
                         type="button"
-                        onClick={() => setPickedLevel(lv)}
+                        onClick={() => enabled && setPickedLevel(lv)}
+                        disabled={!enabled}
+                        title={enabled ? undefined : '곧 업데이트'}
+                        aria-disabled={!enabled}
                         style={{
-                          background: active ? COLORS.red : 'transparent',
-                          border: 'none',
+                          background: active && enabled ? COLORS.red : 'transparent',
+                          border: enabled ? 'none' : `1px dashed ${COLORS.textSecondary}`,
                           padding: '5px 10px',
                           fontSize: 10,
                           fontWeight: 700,
-                          color: active ? COLORS.textPrimary : COLORS.textSecondary,
-                          cursor: 'pointer', fontFamily: 'inherit',
+                          color: enabled
+                            ? (active ? COLORS.textPrimary : COLORS.textSecondary)
+                            : 'rgba(255,255,255,0.25)',
+                          cursor: enabled ? 'pointer' : 'not-allowed',
+                          fontFamily: 'inherit',
                           letterSpacing: 0,
                           whiteSpace: 'nowrap',
                           borderRadius: 6,
-                          boxShadow: active ? `0 2px 8px ${COLORS.redGlow}` : 'none',
+                          boxShadow: active && enabled ? `0 2px 8px ${COLORS.redGlow}` : 'none',
                           transition: 'all 0.15s',
+                          opacity: enabled ? 1 : 0.55,
                         }}
                       >
                         {LEVEL_LABEL[lv]}
+                        {!enabled && <span style={{ marginLeft: 4, fontSize: 8, opacity: 0.7 }}>• 곧</span>}
                       </button>
                     );
                   })}

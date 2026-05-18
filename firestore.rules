@@ -1,0 +1,41 @@
+rules_version = '2';
+
+// Firestore security rules — Hub 전체 (deploy 시 전부 함께 publish 됨).
+//
+//   * /users/{uid}              : sub-app 공용 user profile / streak 등 sync
+//   * /nutTo3Leaderboard_all_time/{uid} : NUT TO 3 all-time best record
+//
+// 배포: `firebase deploy --only firestore:rules` (이 파일이 콘솔 rules 를 통째로
+// 덮어쓰므로, 새 컬렉션 추가 시 반드시 여기에 함께 정의할 것.)
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── user profile / per-sub-app sync 컬렉션 ──
+    // sub-app 들이 streak, settings 등을 본인 uid 문서에 저장.
+    // 본인만 read/write, 필드 형태 검증은 client 위임 (가벼운 sync 용).
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // ── NUT TO 3 all-time leaderboard ──
+    match /nutTo3Leaderboard_all_time/{uid} {
+      // 누구나 leaderboard 를 읽을 수 있음 (랭킹은 공개).
+      allow read: if true;
+
+      // 본인 문서만 write 가능 + 필수 필드 / 타입 / 범위 가벼운 검증.
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.periodKey == 'all_time'
+        && request.resource.data.streak is int
+        && request.resource.data.streak >= 0
+        && request.resource.data.accuracy is number
+        && request.resource.data.accuracy >= 0
+        && request.resource.data.accuracy <= 1
+        && request.resource.data.avgResponseMs is number
+        && request.resource.data.avgResponseMs >= 0
+        && request.resource.data.score is int
+        && request.resource.data.displayName is string;
+    }
+  }
+}
