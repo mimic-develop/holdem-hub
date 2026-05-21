@@ -33,7 +33,7 @@ export function Navbar() {
   const [location, navigate] = useLocation();
   const isLight = resolveTheme(location) === "light";
   const isHome = location === "/";
-  const { user, busy, signOut, providerName } = useAuthState();
+  const { user, busy, signOut } = useAuthState();
 
   // Hub 홈에서는 hero의 MIMIC PLAYLAB 타이틀이 화면에 있을 때 navbar 로고만 숨김 →
   // 히어로 타이틀이 스크롤로 가려지면 navbar 로고가 슬라이드인. 다른 라우트는 항상 노출.
@@ -56,20 +56,15 @@ export function Navbar() {
     return location.startsWith(path);
   };
 
-  const handleAuthClick = async () => {
+  const handleSignOut = async () => {
     if (busy) return;
-    if (user) {
-      await signOut();
-    } else {
-      navigate("/login");
-    }
+    await signOut();
   };
 
-  const authLabel = user
-    ? user.displayName || user.email || "로그아웃"
-    : busy
-      ? "로그인 중…"
-      : "로그인";
+  const handleSignIn = () => {
+    if (busy) return;
+    navigate("/login");
+  };
 
   return (
     <header
@@ -120,28 +115,47 @@ export function Navbar() {
 
         {/* Right: auth + hamburger */}
         <div className="relative flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleAuthClick}
-            disabled={busy}
-            className={cn(
-              "rounded px-3 py-[5px] text-[10px] font-medium tracking-[0.12em] uppercase transition-colors",
-              busy && "cursor-wait opacity-50",
-            )}
-            style={{
-              color: isLight ? "rgba(0,0,0,0.55)" : "rgba(255,252,243,0.7)",
-              border: isLight ? "1px solid rgba(0,0,0,0.15)" : "1px solid rgba(255,252,243,0.15)",
-            }}
-            title={
-              user
-                ? `${providerName} provider`
-                : providerName === "none"
-                  ? "VITE_AUTH_PROVIDER 미설정 — 인증 비활성"
-                  : `${providerName} provider로 로그인`
-            }
-          >
-            {authLabel}
-          </button>
+          {user ? (
+            <>
+              <span
+                className="text-[10px] font-medium tracking-[0.08em] max-w-[120px] truncate"
+                style={{ color: isLight ? "rgba(0,0,0,0.65)" : "rgba(255,252,243,0.75)" }}
+              >
+                {user.displayName || user.email || "사용자"}
+              </span>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                disabled={busy}
+                className={cn(
+                  "cursor-pointer rounded px-3 py-[5px] text-[10px] font-medium tracking-[0.12em] uppercase transition-colors",
+                  busy && "cursor-wait opacity-50",
+                )}
+                style={{
+                  color: isLight ? "rgba(0,0,0,0.55)" : "rgba(255,252,243,0.7)",
+                  border: isLight ? "1px solid rgba(0,0,0,0.15)" : "1px solid rgba(255,252,243,0.15)",
+                }}
+              >
+                {busy ? "처리 중…" : "로그아웃"}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSignIn}
+              disabled={busy}
+              className={cn(
+                "cursor-pointer rounded px-3 py-[5px] text-[10px] font-medium tracking-[0.12em] uppercase transition-colors",
+                busy && "cursor-wait opacity-50",
+              )}
+              style={{
+                color: isLight ? "rgba(0,0,0,0.55)" : "rgba(255,252,243,0.7)",
+                border: isLight ? "1px solid rgba(0,0,0,0.15)" : "1px solid rgba(255,252,243,0.15)",
+              }}
+            >
+              {busy ? "로그인 중…" : "로그인"}
+            </button>
+          )}
           {/* 모바일·데스크톱 공통 햄버거 메뉴 */}
           <button
             type="button"

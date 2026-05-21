@@ -57,6 +57,8 @@ export function SnsCallback({ snsType }: SnsCallbackProps) {
         if (refreshToken) {
           localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
         }
+        // auth provider의 onAuthChange 리스너에 토큰 저장을 알려 Navbar 상태 갱신
+        window.dispatchEvent(new CustomEvent("mimic:token-set"));
         navigate("/");
       })
       .catch((err: unknown) => {

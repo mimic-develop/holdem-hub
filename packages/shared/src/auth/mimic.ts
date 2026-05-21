@@ -100,8 +100,15 @@ export function createMimicAuthStub(): AuthProvider {
     onAuthChange(cb) {
       listeners.add(cb);
       cb(readUser());
+
+      // SnsCallback 등 외부에서 토큰을 직접 localStorage에 저장한 뒤
+      // 'mimic:token-set' 이벤트를 dispatch하면 여기서 감지해 상태를 갱신한다.
+      const handleTokenSet = () => notify(readUser());
+      window.addEventListener("mimic:token-set", handleTokenSet);
+
       return () => {
         listeners.delete(cb);
+        window.removeEventListener("mimic:token-set", handleTokenSet);
       };
     },
 
