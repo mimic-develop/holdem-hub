@@ -34,14 +34,17 @@ export function SnsCallback({ snsType }: SnsCallbackProps) {
     const clientId = String(env?.VITE_MIMIC_CLIENT_ID ?? "");
     const clientSecret = String(env?.VITE_MIMIC_CLIENT_SECRET ?? "");
 
-    fetch(`${apiUrl}/v1/auth/oauth/code`, {
+    const redirectUri = window.location.origin + '/oauth/redirect' + snsType
+    fetch(`${apiUrl}/v1/auth/sns/code-login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         code,
         snsType,
-        client_id: clientId,
-        client_secret: clientSecret,
+        clientType: 'WEB',
+        clientId,
+        clientSecret,
+        redirectUri
       }),
       signal: controller.signal,
     })
