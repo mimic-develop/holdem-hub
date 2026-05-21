@@ -7,6 +7,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   "40103": "이메일 또는 비밀번호가 올바르지 않습니다.",
   "400025": "정지된 계정입니다. 관리자에게 문의해주세요.",
   "400026": "차단된 계정입니다. 관리자에게 문의해주세요.",
+  "400000": "가입된 계정이 없습니다."
 };
 
 function resolveError(err: unknown): string {
@@ -26,8 +27,25 @@ export function Login() {
     const params = new URLSearchParams(window.location.search);
     const raw = params.get("error");
     if (!raw) return null;
+    
     const decoded = decodeURIComponent(raw);
-    return decoded === "oauth_failed" ? "소셜 로그인에 실패했습니다." : decoded;
+    
+    if (ERROR_MESSAGES[decoded]) {
+      return ERROR_MESSAGES[decoded];
+    }
+    if (decoded === "oauth_failed") return "소셜 로그인에 실패했습니다.";
+    
+    try {
+      if (decoded.includes("{")) {
+        const parsed = JSON.parse(decoded);
+        const code = parsed.code || parsed.message;
+        if (ERROR_MESSAGES[code]) return ERROR_MESSAGES[code];
+      }
+    } catch (e) {
+
+    }
+    
+    return decoded;
   });
 
   const provider = getActiveAuthProvider();
@@ -103,7 +121,7 @@ export function Login() {
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-md bg-[#E53935] py-2.5 text-sm font-semibold tracking-wide text-white transition-opacity hover:opacity-90 disabled:cursor-wait disabled:opacity-50"
+            className="w-full rounded-md bg-[#E53935] py-2.5 text-sm font-semibold tracking-wide text-white transition-opacity hover:opacity-90 disabled:cursor-wait disabled:opacity-50 cursor-pointer"
           >
             {busy ? "로그인 중…" : "로그인"}
           </button>
@@ -122,7 +140,7 @@ export function Login() {
             type="button"
             disabled={busy}
             onClick={() => handleSns("signInWithGoogle")}
-            className="flex w-full items-center justify-center gap-2 rounded-md border border-[rgba(255,252,243,0.12)] py-2.5 text-sm font-medium text-[rgba(255,252,243,0.7)] transition-colors hover:bg-[rgba(255,252,243,0.05)] disabled:opacity-40"
+            className="flex w-full items-center justify-center gap-2 rounded-md border border-[rgba(255,252,243,0.12)] py-2.5 text-sm font-medium text-[rgba(255,252,243,0.7)] transition-colors hover:bg-[rgba(255,252,243,0.05)] disabled:opacity-40 cursor-pointer"
           >
             <GoogleIcon />
             Google로 계속하기
@@ -131,7 +149,7 @@ export function Login() {
             type="button"
             disabled={busy}
             onClick={() => handleSns("signInWithNaver")}
-            className="flex w-full items-center justify-center gap-2 rounded-md border border-[rgba(255,252,243,0.12)] py-2.5 text-sm font-medium text-[rgba(255,252,243,0.7)] transition-colors hover:bg-[rgba(255,252,243,0.05)] disabled:opacity-40"
+            className="flex w-full items-center justify-center gap-2 rounded-md border border-[rgba(255,252,243,0.12)] py-2.5 text-sm font-medium text-[rgba(255,252,243,0.7)] transition-colors hover:bg-[rgba(255,252,243,0.05)] disabled:opacity-40 cursor-pointer"
           >
             <NaverIcon />
             네이버로 계속하기
@@ -140,7 +158,7 @@ export function Login() {
             type="button"
             disabled={busy}
             onClick={() => handleSns("signInWithApple")}
-            className="flex w-full items-center justify-center gap-2 rounded-md border border-[rgba(255,252,243,0.12)] py-2.5 text-sm font-medium text-[rgba(255,252,243,0.7)] transition-colors hover:bg-[rgba(255,252,243,0.05)] disabled:opacity-40"
+            className="flex w-full items-center justify-center gap-2 rounded-md border border-[rgba(255,252,243,0.12)] py-2.5 text-sm font-medium text-[rgba(255,252,243,0.7)] transition-colors hover:bg-[rgba(255,252,243,0.05)] disabled:opacity-40 cursor-pointer"
           >
             <AppleIcon />
             Apple로 계속하기
