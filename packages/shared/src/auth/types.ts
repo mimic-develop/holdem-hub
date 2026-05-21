@@ -19,6 +19,18 @@ export interface AuthProvider {
   getCurrentUser(): AuthUser | null;
   /** 구독 해제 함수 반환 */
   onAuthChange(cb: (user: AuthUser | null) => void): () => void;
+  signInWithEmail?(email: string, password: string): Promise<AuthUser>;
+  signInWithGoogle?(): Promise<AuthUser>;
+  signInWithNaver?(): Promise<AuthUser>;
+  signInWithApple?(): Promise<AuthUser>;
+}
+
+/** 인증 API 에러 코드를 담는 에러 클래스 */
+export class AuthError extends Error {
+  constructor(public readonly code: string) {
+    super(code);
+    this.name = "AuthError";
+  }
 }
 
 export type AuthProviderName = "firebase" | "mimic" | "none";

@@ -1,35 +1,13 @@
 import { lazy, Suspense } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Route, Switch } from "wouter";
-import { createQueryClient, createFirebaseAuthProvider, registerAuthProvider } from "@hh/shared";
-import { getApps, initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { createQueryClient } from "@hh/shared";
 import { Navbar } from "./components/Navbar";
 import { Home } from "./pages/Home";
+import { Login } from "./pages/Login";
+import { OAuthCallback } from "./pages/OAuthCallback";
 import { NotFound } from "./pages/NotFound";
 import { DevCards } from "./pages/DevCards";
-
-// ── Firebase 초기화 (VITE_AUTH_PROVIDER=firebase 일 때 Hub 전역 로그인) ──
-// 환경변수 접근: Vite static 감지를 위해 옵셔널 체이닝 금지, 직접 접근 사용.
-// static import 채택 — nut-to-3 등 sub-app 의 firebase.ts top-level 평가 시점에
-// "hub" 앱이 항상 등록돼 있어야 같은 Auth state 를 공유한다 (Firestore rules 의
-// request.auth.uid 검증을 위해 필수). 이전 dynamic import 는 lazy chunk timing 에
-// 의해 race condition 이 발생해 sub-app 이 자체 별도 앱을 만들어 unauthenticated 로
-// 요청하는 문제가 있었음.
-const _hubEnv = (import.meta as unknown as { env: Record<string, unknown> }).env;
-if (_hubEnv.VITE_AUTH_PROVIDER === "firebase" && _hubEnv.VITE_FIREBASE_API_KEY) {
-  const firebaseApp = getApps().find((a) => a.name === "hub") ?? initializeApp({
-    apiKey:            String(_hubEnv.VITE_FIREBASE_API_KEY),
-    authDomain:        String(_hubEnv.VITE_FIREBASE_AUTH_DOMAIN ?? ""),
-    projectId:         String(_hubEnv.VITE_FIREBASE_PROJECT_ID ?? ""),
-    storageBucket:     String(_hubEnv.VITE_FIREBASE_STORAGE_BUCKET ?? ""),
-    messagingSenderId: String(_hubEnv.VITE_FIREBASE_MESSAGING_SENDER_ID ?? ""),
-    appId:             String(_hubEnv.VITE_FIREBASE_APP_ID ?? ""),
-    measurementId:     String(_hubEnv.VITE_FIREBASE_MEASUREMENT_ID ?? ""),
-  }, "hub"); // "hub" name 으로 concept-quiz Firebase 앱과 충돌 방지
-  const firebaseAuth = getAuth(firebaseApp);
-  registerAuthProvider(createFirebaseAuthProvider(firebaseAuth));
-}
 
 const isDev = import.meta.env.DEV;
 
@@ -57,6 +35,12 @@ export function App() {
         <main className="pt-[52px]">
           <Suspense fallback={<PageFallback />}>
             <Switch>
+              <Route path="/login">
+                <Login />
+              </Route>
+              <Route path="/oauth/redirect">
+                <OAuthCallback />
+              </Route>
               {/* Home 페이지는 자체 풀폭 레이아웃을 가짐 */}
               <Route path="/">
                 <Home />

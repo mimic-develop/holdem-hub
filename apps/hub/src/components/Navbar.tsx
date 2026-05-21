@@ -30,11 +30,10 @@ function resolveTheme(loc: string): "light" | "dark" {
 export function Navbar() {
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const isLight = resolveTheme(location) === "light";
   const isHome = location === "/";
-  const { user, busy, error, signIn, signOut, providerName } = useAuthState();
-  const [errorBubble, setErrorBubble] = useState<string | null>(null);
+  const { user, busy, signOut, providerName } = useAuthState();
 
   // Hub 홈에서는 hero의 MIMIC PLAYLAB 타이틀이 화면에 있을 때 navbar 로고만 숨김 →
   // 히어로 타이틀이 스크롤로 가려지면 navbar 로고가 슬라이드인. 다른 라우트는 항상 노출.
@@ -45,21 +44,12 @@ export function Navbar() {
       return;
     }
     const handler = () => {
-      // 히어로 영역(약 200px)을 지나면 로고 노출
       setLogoHidden(window.scrollY < 200);
     };
     handler();
     window.addEventListener("scroll", handler, { passive: true });
     return () => window.removeEventListener("scroll", handler);
   }, [isHome]);
-
-  // signIn 에러는 4초간 작은 토스트(브라우저 alert 대체)로만 표시 — UI 폭주 방지.
-  useEffect(() => {
-    if (!error) return;
-    setErrorBubble(error.message);
-    const t = setTimeout(() => setErrorBubble(null), 4000);
-    return () => clearTimeout(t);
-  }, [error]);
 
   const isActive = (path: string) => {
     if (path === "/") return location === "/";
@@ -71,7 +61,7 @@ export function Navbar() {
     if (user) {
       await signOut();
     } else {
-      await signIn();
+      navigate("/login");
     }
   };
 
@@ -130,14 +120,6 @@ export function Navbar() {
 
         {/* Right: auth + hamburger */}
         <div className="relative flex items-center gap-2">
-          {errorBubble && (
-            <span
-              role="alert"
-              className="absolute right-0 top-full mt-2 max-w-xs rounded-md border border-rose-900/40 bg-[#1a0008] px-3 py-1.5 text-xs text-rose-300 shadow-lg"
-            >
-              {errorBubble}
-            </span>
-          )}
           <button
             type="button"
             onClick={handleAuthClick}
