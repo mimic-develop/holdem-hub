@@ -6,6 +6,7 @@ import { Navbar } from "./components/Navbar";
 import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
 import { OAuthCallback } from "./pages/OAuthCallback";
+import { SnsCallback } from "./pages/SnsCallback";
 import { NotFound } from "./pages/NotFound";
 import { DevCards } from "./pages/DevCards";
 
@@ -40,6 +41,15 @@ export function App() {
               </Route>
               <Route path="/oauth/redirect">
                 <OAuthCallback />
+              </Route>
+              <Route path="/oauth/redirect/naver">
+                <SnsCallback snsType="NAVER" />
+              </Route>
+              <Route path="/oauth/redirect/google">
+                <SnsCallback snsType="GOOGLE" />
+              </Route>
+              <Route path="/oauth/redirect/apple">
+                <SnsCallback snsType="APPLE" />
               </Route>
               {/* Home 페이지는 자체 풀폭 레이아웃을 가짐 */}
               <Route path="/">

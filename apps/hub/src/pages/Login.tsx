@@ -63,8 +63,8 @@ export function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 bg-background text-foreground">
-      <div className="w-full max-w-sm space-y-6">
+    <div className="flex min-h-screen items-center justify-center px-4" style={{ backgroundColor: "#000", color: "#fff" }}>
+      <div className="w-full max-w-sm space-y-6 rounded-xl p-8" style={{ background: "rgb(0, 0, 0)", border: "1px solid rgba(255,255,255,0.08)" }}>
         {/* Header */}
         <div className="text-center space-y-1">
           <p className="text-[11px] font-extrabold tracking-[0.22em] uppercase text-[rgba(255,252,243,0.4)]">
