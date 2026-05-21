@@ -19,6 +19,8 @@ export function SnsCallback({ snsType }: SnsCallbackProps) {
   const [, navigate] = useLocation();
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
 
@@ -41,6 +43,7 @@ export function SnsCallback({ snsType }: SnsCallbackProps) {
         client_id: clientId,
         client_secret: clientSecret,
       }),
+      signal: controller.signal,
     })
       .then(async (res) => {
         if (!res.ok) {
@@ -57,9 +60,12 @@ export function SnsCallback({ snsType }: SnsCallbackProps) {
         navigate("/");
       })
       .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         const msg = err instanceof Error ? encodeURIComponent(err.message) : "oauth_failed";
         navigate(`/login?error=${msg}`);
       });
+
+    return () => controller.abort();
   }, [snsType, navigate]);
 
   return (
