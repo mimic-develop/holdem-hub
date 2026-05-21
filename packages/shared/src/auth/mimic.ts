@@ -123,17 +123,20 @@ export function createMimicAuthStub(): AuthProvider {
     },
 
     async signInWithGoogle(): Promise<AuthUser> {
-      window.location.href = `${apiUrl}/oauth2/authorization/google-web`;
+      const redirectUri = encodeURIComponent(window.location.origin + "/oauth/redirect");
+      window.location.href = `${apiUrl}/oauth2/authorization/google-web?redirect_uri=${redirectUri}`;
       return new Promise(() => {});
     },
 
     async signInWithNaver(): Promise<AuthUser> {
-      window.location.href = `${apiUrl}/oauth2/authorization/naver`;
+      const redirectUri = encodeURIComponent(window.location.origin + "/oauth/redirect");
+      window.location.href = `${apiUrl}/oauth2/authorization/naver?redirect_uri=${redirectUri}`;
       return new Promise(() => {});
     },
 
     async signInWithApple(): Promise<AuthUser> {
-      window.location.href = `${apiUrl}/oauth2/authorization/apple`;
+      const redirectUri = encodeURIComponent(window.location.origin + "/oauth/redirect");
+      window.location.href = `${apiUrl}/oauth2/authorization/apple?redirect_uri=${redirectUri}`;
       return new Promise(() => {});
     },
   };

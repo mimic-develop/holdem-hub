@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 
 const ACCESS_TOKEN_KEY = "mimic:accessToken";
@@ -11,10 +11,14 @@ const REFRESH_TOKEN_KEY = "mimic:refreshToken";
  */
 export function OAuthCallback() {
   const [, navigate] = useLocation();
+  const done = useRef(false);
 
   useEffect(() => {
+    if (done.current) return;
+    done.current = true;
+
     const params = new URLSearchParams(window.location.search);
-    const accessToken = params.get("accessToken");
+    const accessToken = params.get("token");
     const refreshToken = params.get("refreshToken");
     const error = params.get("error");
 
@@ -25,10 +29,8 @@ export function OAuthCallback() {
     }
 
     localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-    if (refreshToken) {
-      localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-    }
 
+    window.dispatchEvent(new CustomEvent("mimic:token-set"));
     navigate("/");
   }, [navigate]);
 
