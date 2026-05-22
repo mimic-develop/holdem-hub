@@ -135,8 +135,10 @@ export function createMimicAuthStub(): AuthProvider {
     },
 
     async signInWithApple(): Promise<AuthUser> {
+      // Apple은 HTTPS 필수라 ngrok URL을 사용 (VITE_APPLE_API_BASE로 override 가능)
+      const appleBase = String(env?.VITE_APPLE_API_BASE ?? apiUrl);
       const redirectUri = encodeURIComponent(window.location.origin + "/oauth/redirect");
-      window.location.href = `${apiUrl}/oauth2/authorization/apple?redirect_uri=${redirectUri}`;
+      window.location.href = `${appleBase}/oauth2/authorization/apple?redirect_uri=${redirectUri}`;
       return new Promise(() => {});
     },
   };
