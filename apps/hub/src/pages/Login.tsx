@@ -7,7 +7,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   "40103": "이메일 또는 비밀번호가 올바르지 않습니다.",
   "400025": "정지된 계정입니다. 관리자에게 문의해주세요.",
   "400026": "차단된 계정입니다. 관리자에게 문의해주세요.",
-  "400000": "가입된 계정이 없습니다."
+  "400000": "가입된 계정이 없습니다.",
+  "None registered account": "가입된 계정이 없습니다." 
 };
 
 function resolveError(err: unknown): string {
