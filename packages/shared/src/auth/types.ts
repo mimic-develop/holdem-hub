@@ -10,6 +10,8 @@ export interface AuthUser {
   displayName?: string | null;
   email?: string | null;
   photoURL?: string | null;
+  /** Mimic JWT payload.nick — 게임 내 닉네임 */
+  nickname?: string | null;
 }
 
 export interface AuthProvider {

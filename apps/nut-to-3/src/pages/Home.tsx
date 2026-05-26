@@ -13,11 +13,17 @@ import { cn } from "../lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import type { NutTier } from "../lib/api-schema";
-import { useAuthState } from "@hh/shared";
-import { loadStreakFromFirestore, saveStreakToFirestore } from "../lib/firestore-streak";
+import { useAuthState, apiFetch } from "@hh/shared";
 import { deriveMetrics, type DerivedMetrics } from "../lib/score";
-import { submitIfBetter, type SubmitResult } from "../lib/firestore-leaderboard";
 import { LeaderboardPanel } from "../components/LeaderboardPanel";
+
+const MIMIC_TOKEN_KEY = "mimic:accessToken";
+
+interface SubmitResult {
+  wasUpdated: boolean;
+  previousBest: { streak: number; accuracy: number; avgResponseMs: number; score: number } | null;
+  newBest: { streak: number; accuracy: number; avgResponseMs: number; score: number; rank: number } | null;
+}
 
 interface RunStats {
   streetsPlayed: number;
@@ -312,7 +318,7 @@ export default function Home() {
   const requestNewGame = useNewGame();
   const { toast } = useToast();
   const { user } = useAuthState();
-  const prevFirebaseUidRef = React.useRef<string | null>(null);
+
   const [showInfo, setShowInfo] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -335,6 +341,8 @@ export default function Home() {
   const newRecordNotifiedRef = React.useRef(false);
   /** results 헤더에서 표시할 내 순위 — LeaderboardPanel onRankResolved 콜백이 채움. */
   const [myRank, setMyRank] = useState<number | "overflow" | null>(null);
+  /** 최고기록 달성 모달 — wasUpdated=true 응답 시 채워짐. 닫기 버튼으로 null. */
+  const [bestRecordModal, setBestRecordModal] = useState<SubmitResult | null>(null);
 
   // Per-game
   const [streetIndex, setStreetIndex] = useState(0);
@@ -352,25 +360,6 @@ export default function Home() {
     if (game) resetGame();
   }, [game]);
 
-  // Sync streak with Firestore on login
-  useEffect(() => {
-    const uid = user?.id ?? null;
-    if (uid === prevFirebaseUidRef.current) return;
-    prevFirebaseUidRef.current = uid;
-    if (!uid) return;
-
-    loadStreakFromFirestore(uid).then(remote => {
-      if (!remote) return;
-      // merge: prefer higher values between Firestore and localStorage
-      const mergedStreak = remote.streak;
-      const mergedBest = Math.max(remote.bestStreak, bestStreak);
-      setStreak(mergedStreak);
-      setBestStreak(mergedBest);
-      try { localStorage.setItem(STORAGE_KEY_STREAK, String(mergedStreak)); } catch {}
-      try { localStorage.setItem(STORAGE_KEY_BEST, String(mergedBest)); } catch {}
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
 
   function resetGame() {
     setStreetIndex(0);
@@ -390,6 +379,7 @@ export default function Home() {
     setSubmitResult(null);
     newRecordNotifiedRef.current = false;
     setMyRank(null);
+    setBestRecordModal(null);
   }
 
   function resetStreet(newStreetIdx?: number) {
@@ -409,28 +399,15 @@ export default function Home() {
     }
   }, [appPhase, phase, streetIndex]);
 
-  // new-record toast/confetti 알림 — submitResult.wasUpdated 가 true 가 된 직후 한 번.
+  // 최고기록 달성 모달 — submitResult.wasUpdated 가 true 가 된 직후 한 번.
   useEffect(() => {
     if (!submitResult?.wasUpdated) return;
     if (newRecordNotifiedRef.current) return;
     newRecordNotifiedRef.current = true;
-    try { triggerConfetti(); } catch {}
-    const prev = submitResult.previousBest;
-    const next = submitResult.newBest;
-    const diffParts: string[] = [];
-    if (next && prev) {
-      if (next.streak > prev.streak) diffParts.push(`스트릭 ${prev.streak}→${next.streak}`);
-      if (next.score > prev.score)   diffParts.push(`점수 ${prev.score}→${next.score}`);
-    }
-    toast({
-      title: "🎉 새 기록 갱신!",
-      description: diffParts.length > 0
-        ? diffParts.join(' · ')
-        : "전체 best record 를 새로 썼습니다.",
-    });
+    setBestRecordModal(submitResult);
   }, [submitResult]);
 
-  // results phase 진입 시 한 번 leaderboard upsert. metrics 가 채워졌고 로그인된 경우만.
+  // results phase 진입 시 한 번 leaderboard upsert. metrics 가 채워졌고 로그인 + 토큰이 있는 경우만.
   // submitRequestedRef 가드로 동일 게임 결과를 두 번 submit 하지 않음.
   useEffect(() => {
     if (appPhase !== "results") return;
@@ -439,21 +416,25 @@ export default function Home() {
     if (!user?.id) return;
     if (submitRequestedRef.current === user.id) return;
     submitRequestedRef.current = user.id;
-    const displayName = user.displayName?.trim() || `익명-${user.id.slice(0, 6)}`;
+    const token = localStorage.getItem(MIMIC_TOKEN_KEY);
+    if (!token) return;
     const payload = {
-      uid: user.id,
-      displayName,
       streak: runStats?.finalStreak ?? 0,
+      totalCorrect: metrics.totalCorrect,
       accuracy: metrics.accuracy,
       avgResponseMs: metrics.avgResponseMs,
-      score: metrics.score,
+      recordedAt: Date.now(),
     };
     console.log("[nut-to-3] leaderboard submit start →", payload);
-    void submitIfBetter(payload).then((res) => {
+    void apiFetch<SubmitResult>("/api/nut-to/leaderboard/submit", {
+      method: "POST",
+      authToken: token,
+      body: JSON.stringify(payload),
+    }).then((res) => {
       console.log("[nut-to-3] leaderboard submit result →", res);
       setSubmitResult(res);
-    });
-  }, [appPhase, runStats?.metrics, runStats?.finalStreak, user?.id, user?.displayName]);
+    }).catch(console.error);
+  }, [appPhase, runStats?.metrics, runStats?.finalStreak, user?.id]);
 
   // (카운트다운 제거 — 터치로 시작)
 
@@ -485,7 +466,6 @@ export default function Home() {
       setStreak(0);
       setSessionAllCorrect(false);
       try { localStorage.setItem(STORAGE_KEY_STREAK, "0"); } catch {}
-      if (user?.id) saveStreakToFirestore(user.id, 0, bestStreak);
       setTimedOut(true);
       setPhase("submitted");
       // 타임아웃 시 응답 시간 = 그 스트릿의 timer 한계 (ms).
@@ -1107,6 +1087,36 @@ export default function Home() {
           </div>
         </div>
 
+        {/* 최고기록 달성 모달 */}
+        {bestRecordModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setBestRecordModal(null)} />
+            <div className="relative bg-[#0d0a12] border border-amber-400/30 rounded-2xl p-6 max-w-sm w-full mx-4 text-center shadow-2xl shadow-amber-400/10">
+              <div className="text-4xl mb-2">🏆</div>
+              <p className="font-display font-bold text-xl text-amber-300 mb-1">최고기록 달성!</p>
+              {bestRecordModal.previousBest && (
+                <p className="text-sm text-white/50 mb-1">
+                  이전 기록: {bestRecordModal.previousBest.streak}연속
+                </p>
+              )}
+              {bestRecordModal.newBest && (
+                <p className="font-display font-bold text-lg text-primary mb-1">
+                  새 기록: {bestRecordModal.newBest.streak}연속
+                  {bestRecordModal.newBest.rank && (
+                    <span className="ml-2 text-sm text-amber-400">#{bestRecordModal.newBest.rank}위</span>
+                  )}
+                </p>
+              )}
+              <button
+                className="mt-4 w-full py-3 rounded-xl bg-primary text-primary-foreground font-display font-bold text-sm hover:bg-primary/90 transition-colors"
+                onClick={() => setBestRecordModal(null)}
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* 게임 리뷰 Modal (C안) */}
         <AnimatePresence>
           {showReview && game && (
@@ -1293,7 +1303,6 @@ export default function Home() {
         newStreak = 0;
         setStreak(0);
         try { localStorage.setItem(STORAGE_KEY_STREAK, "0"); } catch {}
-        if (user?.id) saveStreakToFirestore(user.id, 0, newBest);
       }
       setSessionAllCorrect(false);
     }
@@ -1307,7 +1316,6 @@ export default function Home() {
         setBestStreak(newBest);
         try { localStorage.setItem(STORAGE_KEY_STREAK, String(newStreak)); } catch {}
         try { localStorage.setItem(STORAGE_KEY_BEST, String(newBest)); } catch {}
-        if (user?.id) saveStreakToFirestore(user.id, newStreak, newBest);
         triggerConfetti();
       }
       const responseTimes = [...responseTimesRef.current];
