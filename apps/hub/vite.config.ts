@@ -81,7 +81,7 @@ export default defineConfig(({ mode }) => {
       dedupe: ["react", "react-dom"],
     },
     server: {
-      port: Number(env.HUB_PORT) || 5175,
+      port: Number(env.HUB_PORT) || 3000,
       proxy: {
         "/api": {
           target: apiTarget,
