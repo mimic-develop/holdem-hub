@@ -166,6 +166,26 @@ headsUpRouter.patch("/hands/:handId/insight", (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
+// ── 통계 라우트 ─────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/play-lab/heads-up/stats
+ * 응답: HandStats — 전체 통계 집계
+ */
+headsUpRouter.get("/stats", (req: Request, res: Response) => {
+  const uid = decodeJwtPayload(req.headers.authorization);
+  if (!uid) {
+    return void res.json({ total: 0, wins: 0, losses: 0, splits: 0, netChips: 0, winRate: 0 });
+  }
+  const all = [...getHandsMap(uid).values()];
+  const total = all.length;
+  const wins = all.filter((h) => h.result === "WIN").length;
+  const losses = all.filter((h) => h.result === "LOSS").length;
+  const splits = all.filter((h) => h.result === "SPLIT").length;
+  const netChips = all.reduce((s, h) => s + h.myWinLoss, 0);
+  res.json({ total, wins, losses, splits, netChips, winRate: total > 0 ? wins / total : 0 });
+});
+
 // ── 설정 라우트 ─────────────────────────────────────────────────────────────
 
 /**

@@ -14,7 +14,7 @@ export function createApp(): Express {
   app.use("/api/health", healthRouter);
   app.use("/api/nut-to-3", nutTo3Router);
   app.use("/api/nut-to", nutToRouter);
-  app.use("/api/heads-up", headsUpRouter);
+  app.use("/api/play-lab/heads-up", headsUpRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: "Not Found" });

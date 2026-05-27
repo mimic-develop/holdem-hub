@@ -16,6 +16,7 @@ import { apiFetch } from "@hh/shared";
 interface LeaderboardEntry {
   rank: number;
   accountId: string;
+  nickname: string;
   streak: number;
   accuracy: number;
   avgResponseMs: number;
@@ -114,7 +115,7 @@ export function LeaderboardPanel({ uid, refreshKey, onRankResolved }: Props) {
                       isMe ? "text-amber-300" : "text-white/85",
                     )}
                   >
-                    {`익명-${r.accountId.slice(0, 6)}`}
+                    {r.nickname}
                     {isMe && <span className="ml-1 text-[9px] text-amber-400">(나)</span>}
                   </div>
                   <div className="text-[10px] text-white/40 tabular-nums">

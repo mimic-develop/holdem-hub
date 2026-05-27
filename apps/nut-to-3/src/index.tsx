@@ -26,6 +26,13 @@ interface NutTo3AppProps {
 }
 
 export default function NutTo3App({ initialStreak = 0, initialBestStreak = 0 }: NutTo3AppProps) {
+  // mount마다 게임 캐시 제거: render phase에서 실행돼 children 보다 먼저 처리됨 (Bug 3 fix)
+  const didClearRef = useRef(false);
+  if (!didClearRef.current) {
+    didClearRef.current = true;
+    queryClient.removeQueries({ queryKey: ["/api/nut-to-3/game/new"], exact: false });
+  }
+
   return (
     <LoginGate appName="NUT TO 3" subtitle="너트 핸드 맞추기" logoSrc={mimicLogo}>
       <div className="app-nut-to-3 bg-background text-foreground" data-theme="dark">

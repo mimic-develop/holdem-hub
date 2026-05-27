@@ -22,23 +22,23 @@ vi.mock('@hh/shared', async (importOriginal) => {
     apiFetch: vi.fn(async (path: string, options?: { method?: string; body?: string }) => {
       const method = (options?.method ?? 'GET').toUpperCase();
 
-      // POST /heads-up/hands
-      if (method === 'POST' && path === '/heads-up/hands') {
+      // POST /play-lab/heads-up/hands
+      if (method === 'POST' && path === '/play-lab/heads-up/hands') {
         const hand: CompletedHand = JSON.parse(options?.body ?? '{}');
         _hands.push(hand);
         return { handId: hand.handId };
       }
 
-      // GET /heads-up/hands/:id
-      if (method === 'GET' && /^\/heads-up\/hands\/[^/]+$/.test(path)) {
+      // GET /play-lab/heads-up/hands/:id
+      if (method === 'GET' && /^\/play-lab\/heads-up\/hands\/[^/]+$/.test(path)) {
         const id = path.split('/').at(-1)!;
         const found = _hands.find((h) => h.handId === id);
         if (!found) throw Object.assign(new Error('Not Found'), { status: 404 });
         return found;
       }
 
-      // GET /heads-up/hands (list)
-      if (method === 'GET' && path.startsWith('/heads-up/hands')) {
+      // GET /play-lab/heads-up/hands (list)
+      if (method === 'GET' && path.startsWith('/play-lab/heads-up/hands')) {
         const qs = path.includes('?') ? new URLSearchParams(path.split('?')[1]) : new URLSearchParams();
         let result = [..._hands].sort((a, b) => b.playedAt - a.playedAt);
         const mode = qs.get('mode');
@@ -48,7 +48,7 @@ vi.mock('@hh/shared', async (importOriginal) => {
         return { hands: result.slice(offset, offset + limit), total: _hands.length };
       }
 
-      // GET /heads-up/stats
+      // GET /play-lab/heads-up/stats
       if (method === 'GET' && path === '/play-lab/heads-up/stats') {
         const total = _hands.length;
         const wins = _hands.filter((h) => h.result === 'WIN').length;
