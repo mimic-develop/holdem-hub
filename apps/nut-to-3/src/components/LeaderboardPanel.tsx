@@ -1,22 +1,27 @@
 /**
  * LeaderboardPanel — NUT TO 3 all-time top N + 내 순위.
  *
- * 진입 시 Top 100 을 한 번에 fetch → 그 안에서 Top 10 slice + 본인 rank·record 도출.
+ * GET /api/nut-to/leaderboard 한 번 호출 → Top 10 slice + 본인 rank·record 도출.
  *  - 로그인 사용자
  *      • 본인이 Top 10 안: 해당 row highlight
- *      • 본인이 11~100위: Top 10 아래에 본인 row 별도 표시 (정확 rank)
- *      • 본인이 100위 밖 OR 아직 기록 없음: fetchMyBest 로 본인 best 가져와 표시
+ *      • 본인이 11위+: Top 10 아래에 본인 row 별도 표시
  *  - 비로그인: Top 10 + "로그인하면 기록이 영구 저장됩니다" 안내
  */
 
 import { useEffect, useState } from "react";
 import { Trophy, Crown } from "lucide-react";
 import { cn } from "../lib/utils";
-import {
-  fetchMyBest,
-  fetchTopRecords,
-  type LeaderboardRecord,
-} from "../lib/firestore-leaderboard";
+import { apiFetch } from "@hh/shared";
+
+interface LeaderboardEntry {
+  rank: number;
+  accountId: string;
+  streak: number;
+  accuracy: number;
+  avgResponseMs: number;
+  score: number;
+  updatedAt: string;
+}
 
 interface Props {
   /** 현재 로그인 uid (없으면 null — 익명 사용자) */
@@ -28,57 +33,44 @@ interface Props {
 }
 
 const TOP_LIMIT = 10;
-const RANK_SEARCH_LIMIT = 100;
 
 export function LeaderboardPanel({ uid, refreshKey, onRankResolved }: Props) {
-  const [top, setTop] = useState<LeaderboardRecord[] | null>(null);
-  const [myRank, setMyRank] = useState<number | "overflow" | null>(null);
-  const [myBest, setMyBest] = useState<LeaderboardRecord | null>(null);
+  const [entries, setEntries] = useState<LeaderboardEntry[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    (async () => {
-      // Top 100 한 번에 가져와 Top 10 + 본인 rank/record 모두 도출.
-      const top100 = await fetchTopRecords(RANK_SEARCH_LIMIT);
+    // authToken 생략 → apiFetch가 Cookie("accessToken")에서 자동 주입
+    apiFetch<{ entries: LeaderboardEntry[] }>("/nut-to/leaderboard").then(res => {
       if (cancelled) return;
-      setTop(top100.slice(0, TOP_LIMIT));
+      setEntries(res.entries);
 
       if (!uid) {
-        setMyRank(null);
-        setMyBest(null);
         onRankResolved?.(null);
-        setLoading(false);
-        return;
-      }
-
-      const idx = top100.findIndex((r) => r.uid === uid);
-      if (idx !== -1) {
-        const rank = idx + 1;
-        setMyRank(rank);
-        setMyBest(top100[idx] ?? null);
-        onRankResolved?.(rank);
       } else {
-        // 100위 밖 — 본인 best 는 따로 fetch (있을 수도, 아직 게임 안 했을 수도)
-        const my = await fetchMyBest(uid);
-        if (cancelled) return;
-        setMyBest(my);
-        const rank: "overflow" | null = my ? "overflow" : null;
-        setMyRank(rank);
-        onRankResolved?.(rank);
+        const myEntry = res.entries.find(e => e.accountId === uid);
+        if (myEntry) {
+          onRankResolved?.(myEntry.rank);
+        } else {
+          onRankResolved?.(null);
+        }
       }
       setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
+    }).catch(() => {
+      if (!cancelled) {
+        setEntries([]);
+        setLoading(false);
+        onRankResolved?.(null);
+      }
+    });
+    return () => { cancelled = true; };
   }, [uid, refreshKey, onRankResolved]);
 
-  // 본인 row 를 Top 10 아래 별도 표시할 조건: 본인이 Top 10 밖 (11~100 또는 overflow) 이면서 record 가 존재.
-  const showMyRowBelow = uid !== null && myBest !== null && (
-    myRank === "overflow" || (typeof myRank === "number" && myRank > TOP_LIMIT)
-  );
+  const top = entries ? entries.slice(0, TOP_LIMIT) : null;
+  const myEntry = uid && entries ? (entries.find(e => e.accountId === uid) ?? null) : null;
+  const myRank = myEntry?.rank ?? null;
+  const showMyRowBelow = uid !== null && myEntry !== null && myRank !== null && myRank > TOP_LIMIT;
 
   return (
     <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
@@ -104,18 +96,17 @@ export function LeaderboardPanel({ uid, refreshKey, onRankResolved }: Props) {
 
       {!loading && top && top.length > 0 && (
         <ol className="divide-y divide-white/5">
-          {top.map((r, i) => {
-            const rank = i + 1;
-            const isMe = uid !== null && r.uid === uid;
+          {top.map((r) => {
+            const isMe = uid !== null && r.accountId === uid;
             return (
               <li
-                key={r.uid}
+                key={r.accountId}
                 className={cn(
                   "px-3 py-2 flex items-center gap-2 text-xs",
                   isMe && "bg-amber-400/10",
                 )}
               >
-                <RankBadge rank={rank} />
+                <RankBadge rank={r.rank} />
                 <div className="flex-1 min-w-0">
                   <div
                     className={cn(
@@ -123,7 +114,7 @@ export function LeaderboardPanel({ uid, refreshKey, onRankResolved }: Props) {
                       isMe ? "text-amber-300" : "text-white/85",
                     )}
                   >
-                    {r.displayName || `익명-${r.uid.slice(0, 6)}`}
+                    {`익명-${r.accountId.slice(0, 6)}`}
                     {isMe && <span className="ml-1 text-[9px] text-amber-400">(나)</span>}
                   </div>
                   <div className="text-[10px] text-white/40 tabular-nums">
@@ -142,29 +133,29 @@ export function LeaderboardPanel({ uid, refreshKey, onRankResolved }: Props) {
         </ol>
       )}
 
-      {!loading && showMyRowBelow && myBest && (
+      {!loading && showMyRowBelow && myEntry && (
         <div className="border-t border-amber-400/30 bg-amber-400/[0.06]">
           <div className="px-3 py-1 text-[9px] uppercase tracking-wider text-amber-400/80 font-bold border-b border-amber-400/15">
             내 기록
           </div>
           <div className="px-3 py-2 flex items-center gap-2 text-xs">
             <div className="w-6 h-auto min-h-[1.5rem] rounded-full flex items-center justify-center bg-amber-400/20 text-amber-300 text-[10px] font-bold tabular-nums px-1">
-              {myRank === "overflow" ? `${RANK_SEARCH_LIMIT}+` : myRank}
+              {myRank}
             </div>
             <div className="flex-1 min-w-0">
               <div className="truncate font-semibold text-amber-300">
-                {myBest.displayName || `익명-${myBest.uid.slice(0, 6)}`}
+                {`익명-${myEntry.accountId.slice(0, 6)}`}
                 <span className="ml-1 text-[9px] text-amber-400">(나)</span>
               </div>
               <div className="text-[10px] text-white/40 tabular-nums">
-                {Math.round(myBest.accuracy * 100)}% · {(myBest.avgResponseMs / 1000).toFixed(1)}s
+                {Math.round(myEntry.accuracy * 100)}% · {(myEntry.avgResponseMs / 1000).toFixed(1)}s
               </div>
             </div>
             <span className="tabular-nums text-orange-300 font-bold w-14 text-right">
-              {myBest.streak}연속
+              {myEntry.streak}연속
             </span>
             <span className="tabular-nums text-emerald-300 font-bold w-16 text-right">
-              {myBest.score.toLocaleString()}
+              {myEntry.score.toLocaleString()}
             </span>
           </div>
         </div>
@@ -176,7 +167,7 @@ export function LeaderboardPanel({ uid, refreshKey, onRankResolved }: Props) {
         </div>
       )}
 
-      {!loading && uid !== null && myBest === null && top && top.length > 0 && (
+      {!loading && uid !== null && myEntry === null && top && top.length > 0 && (
         <div className="px-4 py-3 text-center text-[11px] text-white/45 border-t border-white/5 bg-white/[0.02]">
           첫 도전 결과가 여기에 표시됩니다
         </div>

@@ -8,6 +8,7 @@
  * - QueryClientProvider는 이 sub-app 내부에서 자체 관리
  *   (다른 sub-app과 캐시 공유 의도 없음, 의존성 명확화)
  */
+import { useRef } from "react";
 import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { LoginGate } from "@hh/ui";

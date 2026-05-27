@@ -17,7 +17,6 @@ import { useAuthState, apiFetch } from "@hh/shared";
 import { deriveMetrics, type DerivedMetrics } from "../lib/score";
 import { LeaderboardPanel } from "../components/LeaderboardPanel";
 
-
 interface SubmitResult {
   wasUpdated: boolean;
   previousBest: { streak: number; accuracy: number; avgResponseMs: number; score: number } | null;
@@ -339,6 +338,7 @@ export default function Home({ initialStreak = 0, initialBestStreak = 0 }: HomeP
   const [bestRecordModal, setBestRecordModal] = useState<SubmitResult | null>(null);
   /** results 헤더에서 표시할 내 순위 — LeaderboardPanel onRankResolved 콜백이 채움. */
   const [myRank, setMyRank] = useState<number | "overflow" | null>(null);
+  /** 최고기록 달성 모달 — wasUpdated=true 응답 시 채워짐. 닫기 버튼으로 null. */
 
   // Per-game
   const [streetIndex, setStreetIndex] = useState(0);
@@ -375,6 +375,7 @@ export default function Home({ initialStreak = 0, initialBestStreak = 0 }: HomeP
     setBestRecordModal(null);
     newRecordNotifiedRef.current = false;
     setMyRank(null);
+    setBestRecordModal(null);
   }
 
   function resetStreet(newStreetIdx?: number) {
@@ -394,16 +395,18 @@ export default function Home({ initialStreak = 0, initialBestStreak = 0 }: HomeP
     }
   }, [appPhase, phase, streetIndex]);
 
-  // new-record 모달 — submitResult.wasUpdated 가 true 가 된 직후 한 번.
+
+  // 최고기록 달성 모달 — submitResult.wasUpdated 가 true 이고 streak > 0 일 때 한 번.
   useEffect(() => {
     if (!submitResult?.wasUpdated) return;
+    if (!submitResult.newBest?.streak) return;  // streak === 0이면 신기록으로 간주 안 함
     if (newRecordNotifiedRef.current) return;
     newRecordNotifiedRef.current = true;
     try { triggerConfetti(); } catch {}
     setBestRecordModal(submitResult);
   }, [submitResult]);
 
-  // results phase 진입 시 한 번 leaderboard upsert. metrics 가 채워졌고 로그인된 경우만.
+  // results phase 진입 시 한 번 leaderboard upsert. metrics 가 채워졌고 로그인 + 토큰이 있는 경우만.
   // submitRequestedRef 가드로 동일 게임 결과를 두 번 submit 하지 않음.
   useEffect(() => {
     if (appPhase !== "results") return;

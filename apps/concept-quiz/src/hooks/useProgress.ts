@@ -69,6 +69,7 @@ function getSnapshot() {
 async function saveProgress(slug: CategorySlug, suit: Difficulty): Promise<void> {
   try {
     await apiFetch("/play-lab/quiz-clear", {
+
       method: "POST",
       body: JSON.stringify({ category: slug, difficulty: suit }),
     });
