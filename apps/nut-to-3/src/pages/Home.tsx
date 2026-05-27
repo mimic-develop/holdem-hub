@@ -17,7 +17,6 @@ import { useAuthState, apiFetch } from "@hh/shared";
 import { deriveMetrics, type DerivedMetrics } from "../lib/score";
 import { LeaderboardPanel } from "../components/LeaderboardPanel";
 
-const MIMIC_TOKEN_KEY = "mimic:accessToken";
 
 interface SubmitResult {
   wasUpdated: boolean;
@@ -301,17 +300,15 @@ async function generateShareCard(params: {
   });
 }
 
-const STORAGE_KEY_STREAK = "nut-to-3:streak";
-const STORAGE_KEY_BEST = "nut-to-3:bestStreak";
+interface HomeProps {
+  initialStreak?: number;
+  initialBestStreak?: number;
+}
 
-export default function Home() {
-  // Persistent across games
-  const [streak, setStreak] = useState(() => {
-    try { return Number(localStorage.getItem(STORAGE_KEY_STREAK)) || 0; } catch { return 0; }
-  });
-  const [bestStreak, setBestStreak] = useState(() => {
-    try { return Number(localStorage.getItem(STORAGE_KEY_BEST)) || 0; } catch { return 0; }
-  });
+export default function Home({ initialStreak = 0, initialBestStreak = 0 }: HomeProps) {
+  // Persistent across games — initialised from server data passed by Hub App.tsx
+  const [streak, setStreak] = useState(initialStreak);
+  const [bestStreak, setBestStreak] = useState(initialBestStreak);
   const [recentNutTypes, setRecentNutTypes] = useState<string[]>([]);
 
   const { data: game, isLoading, error } = useGameState(recentNutTypes);
@@ -415,11 +412,8 @@ export default function Home() {
     if (!user?.id) return;
     if (submitRequestedRef.current === user.id) return;
     submitRequestedRef.current = user.id;
-    const token = localStorage.getItem(MIMIC_TOKEN_KEY);
-    if (!token) return;
     void apiFetch<SubmitResult>("/nut-to/leaderboard/submit", {
       method: "POST",
-      authToken: token,
       body: JSON.stringify({
         streak: runStats?.finalStreak ?? 0,
         totalCorrect: metrics.totalCorrect,
@@ -459,7 +453,6 @@ export default function Home() {
       const prevStreak = streak;
       setStreak(0);
       setSessionAllCorrect(false);
-      try { localStorage.setItem(STORAGE_KEY_STREAK, "0"); } catch {}
       setTimedOut(true);
       setPhase("submitted");
       // 타임아웃 시 응답 시간 = 그 스트릿의 timer 한계 (ms).
@@ -1294,7 +1287,6 @@ export default function Home() {
       if (streak > 0) {
         newStreak = 0;
         setStreak(0);
-        try { localStorage.setItem(STORAGE_KEY_STREAK, "0"); } catch {}
       }
       setSessionAllCorrect(false);
     }
@@ -1306,8 +1298,6 @@ export default function Home() {
         newBest = Math.max(bestStreak, newStreak);
         setStreak(newStreak);
         setBestStreak(newBest);
-        try { localStorage.setItem(STORAGE_KEY_STREAK, String(newStreak)); } catch {}
-        try { localStorage.setItem(STORAGE_KEY_BEST, String(newBest)); } catch {}
         triggerConfetti();
       }
       const responseTimes = [...responseTimesRef.current];

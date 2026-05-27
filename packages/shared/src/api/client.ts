@@ -28,8 +28,10 @@ export function apiUrl(path: string): string {
   return `${baseUrl.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+const MIMIC_TOKEN_KEY = "mimic:accessToken";
+
 interface ApiFetchOptions extends RequestInit {
-  /** 인증 토큰 (장래에 자동 주입) */
+  /** 명시적 토큰. 없으면 localStorage["mimic:accessToken"] 자동 사용. */
   authToken?: string | null;
 }
 
@@ -38,12 +40,19 @@ export async function apiFetch<T = unknown>(
   options: ApiFetchOptions = {},
 ): Promise<T> {
   const { authToken, headers, ...rest } = options;
+  // 명시된 토큰 우선, 없으면 전역 토큰 자동 읽기
+  const token =
+    authToken !== undefined
+      ? authToken
+      : typeof localStorage !== "undefined"
+        ? localStorage.getItem(MIMIC_TOKEN_KEY)
+        : null;
   const merged: HeadersInit = {
     "Content-Type": "application/json",
     ...(headers ?? {}),
   };
-  if (authToken) {
-    (merged as Record<string, string>).Authorization = `Bearer ${authToken}`;
+  if (token) {
+    (merged as Record<string, string>).Authorization = `Bearer ${token}`;
   }
   const res = await fetch(apiUrl(path), { ...rest, headers: merged });
   let data: unknown = null;

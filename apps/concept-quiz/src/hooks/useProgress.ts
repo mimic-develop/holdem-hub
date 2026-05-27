@@ -8,7 +8,6 @@ const SUITS: Difficulty[] = ["club", "diamond", "heart", "spade"];
 const TOTAL_CARDS = SUITS.length * CATEGORIES.length;
 // 모노레포에서 다른 앱과 키 충돌을 막기 위해 `concept-quiz:` prefix 부여
 const ANON_STORAGE_KEY = "concept-quiz:pokeriq_cleared_cards";
-const MIMIC_TOKEN_KEY = "mimic:accessToken";
 
 function storageKeyForUid(uid: string | null): string {
   return uid ? `concept-quiz:pokeriq_cleared_cards:${uid}` : ANON_STORAGE_KEY;
@@ -71,20 +70,14 @@ function setActiveKey(key: string) {
   emitChange();
 }
 
-function getToken(): string | null {
-  return localStorage.getItem(MIMIC_TOKEN_KEY);
-}
-
-/** GET /api/play-lap/home → lastClearedCard로 cleared Set 복원
+/** GET /play-lap/home → lastClearedCard로 cleared Set 복원
  *  Hub 메인 홈에서 미리 prefetch 된 경우 캐시를 그대로 사용 (재요청 없음). */
 async function loadProgress(): Promise<Set<string>> {
-  const token = getToken();
-  if (!token) return new Set();
   try {
     const cached = getPlayLapHomeCache();
     const res = cached ?? await apiFetch<{
       lastClearedCard: { category: string; difficulty: string } | null;
-    }>("/api/play-lap/home", { authToken: token });
+    }>("/play-lap/home");
     if (!res.lastClearedCard) return new Set();
     const lastIndex = deckIndexOf(
       res.lastClearedCard.category as CategorySlug,
@@ -102,14 +95,11 @@ async function loadProgress(): Promise<Set<string>> {
   }
 }
 
-/** POST /api/play-lap/quiz-clear — 카드 클리어 기록 */
+/** POST /play-lap/quiz-clear — 카드 클리어 기록 */
 async function saveProgress(slug: CategorySlug, suit: Difficulty): Promise<void> {
-  const token = getToken();
-  if (!token) return;
   try {
     await apiFetch("/play-lap/quiz-clear", {
       method: "POST",
-      authToken: token,
       body: JSON.stringify({ category: slug, difficulty: suit }),
     });
   } catch (e) {

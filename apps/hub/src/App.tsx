@@ -1,7 +1,8 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Route, Switch } from "wouter";
-import { createQueryClient } from "@hh/shared";
+import { createQueryClient, useAuthState, apiFetch, setPlayLapHomeCache } from "@hh/shared";
+import type { PlayLapHomeData } from "@hh/shared";
 import { Navbar } from "./components/Navbar";
 import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
@@ -29,6 +30,22 @@ function PageFallback() {
 }
 
 export function App() {
+  const { user } = useAuthState();
+  const [homeData, setHomeData] = useState<PlayLapHomeData | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setHomeData(null);
+      return;
+    }
+    void apiFetch<PlayLapHomeData>("/play-lap/home")
+      .then(data => {
+        setHomeData(data);
+        setPlayLapHomeCache(data);
+      })
+      .catch(() => {});
+  }, [user?.id]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <div className="app-hub min-h-screen bg-background text-foreground">
@@ -67,10 +84,13 @@ export function App() {
                 <PotQuizApp />
               </Route>
               <Route path="/nut-to-3" nest>
-                <NutTo3App />
+                <NutTo3App
+                  initialStreak={homeData?.nutStreak ?? 0}
+                  initialBestStreak={homeData?.nutBestStreak ?? 0}
+                />
               </Route>
               <Route path="/concept-quiz" nest>
-                <ConceptQuizApp />
+                <ConceptQuizApp lastClearedCard={homeData?.lastClearedCard ?? null} />
               </Route>
               <Route path="/heads-up" nest>
                 <HeadsUpApp />

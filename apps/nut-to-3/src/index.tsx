@@ -19,7 +19,12 @@ import NotFound from "./pages/not-found";
 import mimicLogo from "./assets/mimic-logo.png";
 import "./index.css";
 
-export default function NutTo3App() {
+interface NutTo3AppProps {
+  initialStreak?: number;
+  initialBestStreak?: number;
+}
+
+export default function NutTo3App({ initialStreak = 0, initialBestStreak = 0 }: NutTo3AppProps) {
   return (
     <LoginGate appName="NUT TO 3" subtitle="너트 핸드 맞추기" logoSrc={mimicLogo}>
       <div className="app-nut-to-3 bg-background text-foreground" data-theme="dark">
@@ -27,7 +32,9 @@ export default function NutTo3App() {
           <TooltipProvider>
             <Toaster />
             <Switch>
-              <Route path="/" component={Home} />
+              <Route path="/">
+                <Home initialStreak={initialStreak} initialBestStreak={initialBestStreak} />
+              </Route>
               <Route component={NotFound} />
             </Switch>
           </TooltipProvider>
