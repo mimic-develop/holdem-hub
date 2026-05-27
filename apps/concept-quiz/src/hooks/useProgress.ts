@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import { CATEGORIES, type CategorySlug } from "../lib/categories";
 import type { Difficulty } from "../lib/quizData";
 import { useAuth } from "./useAuth";
-import { apiFetch } from "@hh/shared";
+import { apiFetch, getPlayLapHomeCache } from "@hh/shared";
 
 const SUITS: Difficulty[] = ["club", "diamond", "heart", "spade"];
 const TOTAL_CARDS = SUITS.length * CATEGORIES.length;
@@ -75,14 +75,16 @@ function getToken(): string | null {
   return localStorage.getItem(MIMIC_TOKEN_KEY);
 }
 
-/** GET /api/play-lap/home → lastClearedCard로 cleared Set 복원 */
+/** GET /api/play-lap/home → lastClearedCard로 cleared Set 복원
+ *  Hub 메인 홈에서 미리 prefetch 된 경우 캐시를 그대로 사용 (재요청 없음). */
 async function loadProgress(): Promise<Set<string>> {
   const token = getToken();
   if (!token) return new Set();
   try {
-    const res = await apiFetch<{
+    const cached = getPlayLapHomeCache();
+    const res = cached ?? await apiFetch<{
       lastClearedCard: { category: string; difficulty: string } | null;
-    }>("/play-lap/home", { authToken: token });
+    }>("/api/play-lap/home", { authToken: token });
     if (!res.lastClearedCard) return new Set();
     const lastIndex = deckIndexOf(
       res.lastClearedCard.category as CategorySlug,

@@ -4,6 +4,7 @@ import { Brain, Scale } from "lucide-react";
 import { getLastVisit, recordVisit } from "../lib/last-visited";
 import { tickStreakOnVisit } from "../lib/streak";
 import heroBgImg from "../assets/hero-bg.png";
+import { useAuthState, prefetchPlayLapHome } from "@hh/shared";
 
 const RED = "#E53935";
 const CARD_BG = "#1A1A1A";
@@ -63,13 +64,24 @@ const MODES: Mode[] = [
 
 const isDev = import.meta.env.DEV;
 
+const MIMIC_TOKEN_KEY = "mimic:accessToken";
+
 export function Home() {
   const [, navigate] = useLocation();
   const [streak, setStreak] = useState(0);
+  const { user } = useAuthState();
 
   useEffect(() => {
     setStreak(tickStreakOnVisit());
   }, []);
+
+  // 로그인 상태이면 play-lap 진행 데이터를 미리 받아둔다.
+  // concept-quiz(POKER IQ) 진입 시 추가 fetch 없이 캐시에서 바로 사용.
+  useEffect(() => {
+    if (!user) return;
+    const token = localStorage.getItem(MIMIC_TOKEN_KEY);
+    if (token) void prefetchPlayLapHome(token);
+  }, [user?.id]);
 
   const lastVisit = getLastVisit();
 
