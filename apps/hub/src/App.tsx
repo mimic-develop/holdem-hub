@@ -10,6 +10,8 @@ import { OAuthCallback } from "./pages/OAuthCallback";
 import { SnsCallback } from "./pages/SnsCallback";
 import { NotFound } from "./pages/NotFound";
 import { DevCards } from "./pages/DevCards";
+import { Terms } from "./pages/Terms";
+import { Privacy } from "./pages/Privacy";
 
 const isDev = import.meta.env.DEV;
 
@@ -97,6 +99,16 @@ export function App() {
               </Route>
               <Route path="/heads-up" nest>
                 <HeadsUpApp />
+              </Route>
+              <Route path="/terms">
+                <div className="mx-auto max-w-3xl px-4 py-8">
+                  <Terms />
+                </div>
+              </Route>
+              <Route path="/privacy">
+                <div className="mx-auto max-w-3xl px-4 py-8">
+                  <Privacy />
+                </div>
               </Route>
               <Route>
                 <div className="mx-auto max-w-6xl px-4 py-8">

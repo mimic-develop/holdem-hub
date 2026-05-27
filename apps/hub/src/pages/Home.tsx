@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
+import { useEffect } from "react";
+import { Link, useLocation } from "wouter";
 import { Brain, Scale } from "lucide-react";
 import { getLastVisit, recordVisit } from "../lib/last-visited";
 import { tickStreakOnVisit } from "../lib/streak";
@@ -61,14 +61,11 @@ const MODES: Mode[] = [
   },
 ];
 
-const isDev = import.meta.env.DEV;
-
 export function Home() {
   const [, navigate] = useLocation();
-  const [streak, setStreak] = useState(0);
 
   useEffect(() => {
-    setStreak(tickStreakOnVisit());
+    tickStreakOnVisit();
   }, []);
 
   const lastVisit = getLastVisit();
@@ -121,7 +118,7 @@ export function Home() {
           className="flex items-center rounded-xl overflow-hidden"
           style={{ background: CARD_BG, fontSize: 12 }}
         >
-          <div className="flex flex-1 items-center justify-center gap-1.5 py-2.5" style={{ borderRight: "1px solid rgba(255,255,255,0.07)" }}>
+          {/* <div className="flex flex-1 items-center justify-center gap-1.5 py-2.5" style={{ borderRight: "1px solid rgba(255,255,255,0.07)" }}>
             <span style={{ fontSize: 13 }}>🔥</span>
             <span style={{ color: "#fff", fontWeight: 600 }}>{streak}일 연속</span>
           </div>
@@ -132,7 +129,7 @@ export function Home() {
           <div className="flex flex-1 items-center justify-center gap-1.5 py-2.5">
             <span style={{ fontSize: 13 }}>🎁</span>
             <span style={{ color: SUB_TEXT }}>리워드 대기</span>
-          </div>
+          </div> */}
         </div>
 
         {/* ── HEADS-UP 피처 카드 ──────────────────────────────── */}
@@ -284,24 +281,26 @@ export function Home() {
 
         {/* ── 푸터 ─────────────────────────────────────────────── */}
         <footer
-          className="mt-8 flex items-center justify-between pb-6 pt-4"
+          className="mt-8 pb-6 pt-4"
           style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
         >
-          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.16)", fontStyle: "italic", letterSpacing: "0.08em" }}>
-            "All in Fun" — MIMIC
-          </span>
-          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.12)" }}>
-            © 2026 MIMIC PLAYLAB
-          </span>
-        </footer>
-
-        {isDev && (
-          <div className="pb-4">
-            <a href="/dev/cards" style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", textDecoration: "underline" }}>
-              /dev/cards
-            </a>
+          <div className="flex items-center justify-between">
+            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.16)", fontStyle: "italic", letterSpacing: "0.08em" }}>
+              "All in Fun" — MIMIC
+            </span>
+            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.12)" }}>
+              © 2026 MIMIC PLAYLAB
+            </span>
           </div>
-        )}
+          <div className="mt-2 flex gap-3">
+            <Link href="/terms" style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", textDecoration: "underline" }}>
+              이용약관
+            </Link>
+            <Link href="/privacy" style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", textDecoration: "underline" }}>
+              개인정보 처리방침
+            </Link>
+          </div>
+        </footer>
       </div>
       </div>
     </div>

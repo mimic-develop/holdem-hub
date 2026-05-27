@@ -40,6 +40,7 @@ const s: Record<string, React.CSSProperties> = {
   page: { position: 'relative', minHeight: '100vh', background: COLORS.bg },
   inner: { position: 'relative', zIndex: 1, maxWidth: 430, margin: '0 auto', padding: '12px 16px 24px' },
 
+  
   /* ARENA — VS 영역 */
   arena: {
     position: 'relative', overflow: 'hidden',
@@ -151,7 +152,6 @@ export default function HomePage() {
   const [pickedLevel, setPickedLevel] = useState<AiLevel>('MEDIUM');
   const [mode, setMode] = useState<'ai' | 'friend'>('ai');
   const [remoteDialog, setRemoteDialog] = useState<RemoteDialog>('none');
-  const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -168,19 +168,12 @@ export default function HomePage() {
   const avatarInitials = nickname.slice(0, 2).toUpperCase();
   const isAiMode = mode === 'ai';
 
-  const handleNameEdit = () => {
-    setNameInput(nickname === '익명' ? '' : nickname);
-    setEditingName(true);
-    setTimeout(() => nameInputRef.current?.focus(), 50);
-  };
   const commitName = () => {
     const trimmed = nameInput.trim();
     if (trimmed) setNickname(trimmed);
-    setEditingName(false);
   };
   const handleNameKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') commitName();
-    if (e.key === 'Escape') setEditingName(false);
   };
 
   return (

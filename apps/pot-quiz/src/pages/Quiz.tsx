@@ -505,43 +505,27 @@ export default function Quiz({ mode = 'game' }: QuizProps = {}) {
     setIndex(nextIndex);
   };
 
-  const handleQuit = async () => {
+  const handleQuit = () => {
     if (isPractice) {
       setLocation('/');
       return;
     }
-
-    const finalScore  = scoreRef.current;
-    const finalStreak = maxStreakRef.current;
-
-    let bestStreak = finalStreak;
-    let bestScore  = finalScore;
-    let wasNewBestStreak = false;
-
-    try {
-      const res = await apiFetch<{
-        wasScoreUpdated: boolean;
-        wasStreakUpdated: boolean;
-        bestScore: number;
-        bestStreak: number;
-      }>('/pot-quiz/stats', {
-        method: 'POST',
-        body: JSON.stringify({ difficulty, score: finalScore, maxStreak: finalStreak }),
-      });
-      bestStreak = res.bestStreak;
-      bestScore  = res.bestScore;
-      wasNewBestStreak = res.wasStreakUpdated;
-    } catch { /* 비로그인/네트워크 실패 무시 */ }
+    // 서버에 결과 저장 (fire-and-forget — 실패해도 화면 전환 차단 안 함)
+    void apiFetch('/play-lab/pot-quiz/stats', {
+      method: 'POST',
+      body: JSON.stringify({
+        difficulty,
+        score:     scoreRef.current,
+        maxStreak: maxStreakRef.current,
+      }),
+    }).catch(() => {});
 
     setLocation(`/summary/${difficulty}`, {
       state: {
-        score: finalScore,
-        streak: finalStreak,
+        score: scoreRef.current,
+        streak: maxStreakRef.current,
         correctCount: correctCountRef.current,
         totalAnswered: index + 1,
-        bestStreak,
-        bestScore,
-        wasNewBestStreak,
       },
     });
   };
