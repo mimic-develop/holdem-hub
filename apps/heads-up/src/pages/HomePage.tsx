@@ -246,7 +246,6 @@ export default function HomePage() {
               }}>
                 {avatarInitials}
               </div>
-              {editingName ? (
                 <input
                   ref={nameInputRef}
                   value={nameInput}
@@ -257,31 +256,12 @@ export default function HomePage() {
                   maxLength={12}
                   style={{
                     background: 'transparent',
-                    border: 'none', borderBottom: `1px solid ${COLORS.red}`,
                     color: COLORS.textPrimary, fontSize: '13px', fontWeight: 700,
                     letterSpacing: '0.1em', textAlign: 'center',
-                    width: '100px', outline: 'none', fontFamily: 'inherit',
+                    width: '100px', outline: 'none',
                     padding: '2px 0',
                   }}
                 />
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleNameEdit}
-                  title="이름 변경"
-                  style={{
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    position: 'relative', display: 'inline-flex', alignItems: 'center',
-                    padding: 0, fontFamily: 'inherit',
-                  }}
-                >
-                  <span style={s.vsName as React.CSSProperties}>{nickname.slice(0, 10)}</span>
-                  <span style={{
-                    position: 'absolute', left: '100%', marginLeft: 4,
-                    fontSize: 10, color: COLORS.textMuted,
-                  }}>✎</span>
-                </button>
-              )}
               <div style={s.vsSub}>나</div>
             </div>
 
