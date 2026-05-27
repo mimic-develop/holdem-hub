@@ -17,16 +17,13 @@ function decodeJwtPayload(token: string): Record<string, unknown> {
 }
 
 function payloadToUser(payload: Record<string, unknown>): AuthUser {
+  const nick = typeof payload.nick === "string" ? payload.nick : null;
   return {
     id: String(payload.sub ?? payload.id ?? ""),
     email: typeof payload.email === "string" ? payload.email : null,
-    displayName:
-      typeof payload.nickname === "string"
-        ? payload.nickname
-        : typeof payload.name === "string"
-          ? payload.name
-          : null,
+    displayName: nick ?? (typeof payload.name === "string" ? payload.name : null),
     photoURL: null,
+    nickname: nick,
   };
 }
 

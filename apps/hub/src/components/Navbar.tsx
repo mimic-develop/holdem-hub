@@ -121,7 +121,7 @@ export function Navbar() {
                 className="text-[10px] font-medium tracking-[0.08em] max-w-[120px] truncate"
                 style={{ color: isLight ? "rgba(0,0,0,0.65)" : "rgba(255,252,243,0.75)" }}
               >
-                {user.displayName || user.email || "사용자"}
+                {user.nickname || "사용자"}
               </span>
               <button
                 type="button"

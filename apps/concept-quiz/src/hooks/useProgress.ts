@@ -2,13 +2,13 @@ import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import { CATEGORIES, type CategorySlug } from "../lib/categories";
 import type { Difficulty } from "../lib/quizData";
 import { useAuth } from "./useAuth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db, isFirebaseConfigured } from "../lib/firebase";
+import { apiFetch } from "@hh/shared";
 
 const SUITS: Difficulty[] = ["club", "diamond", "heart", "spade"];
 const TOTAL_CARDS = SUITS.length * CATEGORIES.length;
 // 모노레포에서 다른 앱과 키 충돌을 막기 위해 `concept-quiz:` prefix 부여
 const ANON_STORAGE_KEY = "concept-quiz:pokeriq_cleared_cards";
+const MIMIC_TOKEN_KEY = "mimic:accessToken";
 
 function storageKeyForUid(uid: string | null): string {
   return uid ? `concept-quiz:pokeriq_cleared_cards:${uid}` : ANON_STORAGE_KEY;
@@ -71,54 +71,48 @@ function setActiveKey(key: string) {
   emitChange();
 }
 
-async function loadFromFirestore(uid: string): Promise<Set<string>> {
-  if (!isFirebaseConfigured) return new Set();
-  try {
-    const ref = doc(db, "users", uid);
-    const snap = await getDoc(ref);
-    if (snap.exists()) {
-      const data = snap.data();
-      if (Array.isArray(data.clearedCards)) {
-        return new Set(data.clearedCards as string[]);
-      }
-    }
-  } catch (e) {
-    console.error("Firestore load error:", e);
-  }
-  return new Set();
+function getToken(): string | null {
+  return localStorage.getItem(MIMIC_TOKEN_KEY);
 }
 
-async function saveToFirestore(uid: string, cards: Set<string>) {
-  if (!isFirebaseConfigured) return;
+/** GET /api/play-lap/home → lastClearedCard로 cleared Set 복원 */
+async function loadProgress(): Promise<Set<string>> {
+  const token = getToken();
+  if (!token) return new Set();
   try {
-    const ref = doc(db, "users", uid);
-    await setDoc(ref, { clearedCards: Array.from(cards), updatedAt: Date.now() }, { merge: true });
-  } catch (e) {
-    console.error("Firestore save error:", e);
+    const res = await apiFetch<{
+      lastClearedCard: { category: string; difficulty: string } | null;
+    }>("/api/play-lap/home", { authToken: token });
+    if (!res.lastClearedCard) return new Set();
+    const lastIndex = deckIndexOf(
+      res.lastClearedCard.category as CategorySlug,
+      res.lastClearedCard.difficulty as Difficulty,
+    );
+    if (lastIndex < 0) return new Set();
+    return new Set(
+      Array.from({ length: lastIndex + 1 }, (_, i) => {
+        const card = cardAtDeckIndex(i);
+        return card ? cardKey(card.slug, card.suit) : null;
+      }).filter((k): k is string => k !== null),
+    );
+  } catch {
+    return new Set();
   }
 }
 
-let syncVersion = 0;
-
-async function mergeAndSync(uid: string) {
-  const myVersion = ++syncVersion;
-  const targetKey = storageKeyForUid(uid);
-
-  setActiveKey(targetKey);
-
-  const anonData = readLocal(ANON_STORAGE_KEY);
-  const remoteData = await loadFromFirestore(uid);
-
-  if (syncVersion !== myVersion) return;
-
-  const freshUserData = readLocal(targetKey);
-  const merged = new Set(Array.from(freshUserData));
-  anonData.forEach(v => merged.add(v));
-  remoteData.forEach(v => merged.add(v));
-
-  writeLocal(targetKey, merged);
-  emitChange();
-  await saveToFirestore(uid, merged);
+/** POST /api/play-lap/quiz-clear — 카드 클리어 기록 */
+async function saveProgress(slug: CategorySlug, suit: Difficulty): Promise<void> {
+  const token = getToken();
+  if (!token) return;
+  try {
+    await apiFetch("/api/play-lap/quiz-clear", {
+      method: "POST",
+      authToken: token,
+      body: JSON.stringify({ category: slug, difficulty: suit }),
+    });
+  } catch (e) {
+    console.error("saveProgress error:", e);
+  }
 }
 
 export function useProgress() {
@@ -132,7 +126,14 @@ export function useProgress() {
     prevUidRef.current = uid;
 
     if (uid) {
-      mergeAndSync(uid);
+      const targetKey = storageKeyForUid(uid);
+      setActiveKey(targetKey);
+      loadProgress().then(remote => {
+        const local = readLocal(targetKey);
+        const merged = new Set([...local, ...remote]);
+        writeLocal(targetKey, merged);
+        emitChange();
+      }).catch(() => {});
     } else {
       setActiveKey(storageKeyForUid(null));
     }
@@ -162,9 +163,7 @@ export function useProgress() {
     current.add(key);
     writeLocal(activeKey, current);
     emitChange();
-    if (user) {
-      saveToFirestore(user.uid, current);
-    }
+    if (user) void saveProgress(slug, suit);
   }, [user]);
 
   const getNextCard = useCallback(
