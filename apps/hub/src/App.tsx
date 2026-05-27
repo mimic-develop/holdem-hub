@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Route, Switch } from "wouter";
+import { Route, Switch, useLocation } from "wouter";
 import { createQueryClient, useAuthState, apiFetch, setPlayLapHomeCache } from "@hh/shared";
 import type { PlayLapHomeData } from "@hh/shared";
 import { Navbar } from "./components/Navbar";
@@ -32,19 +32,22 @@ function PageFallback() {
 export function App() {
   const { user } = useAuthState();
   const [homeData, setHomeData] = useState<PlayLapHomeData | null>(null);
+  const [location] = useLocation();
 
   useEffect(() => {
     if (!user) {
       setHomeData(null);
       return;
     }
+    // "/" 라우트 진입 시마다 최신 데이터 fetch
+    if (location !== "/") return;
     void apiFetch<PlayLapHomeData>("/play-lap/home")
       .then(data => {
         setHomeData(data);
         setPlayLapHomeCache(data);
       })
       .catch(() => {});
-  }, [user?.id]);
+  }, [user?.id, location]);
 
   return (
     <QueryClientProvider client={queryClient}>

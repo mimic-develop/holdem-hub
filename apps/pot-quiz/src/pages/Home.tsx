@@ -18,7 +18,6 @@ import type { PuzzleDifficulty } from '../types/poker';
 const BLUE = '#3B82F6';       // Primary CTA bg
 const BLUE_BRIGHT = '#60A5FA'; // 브랜드 텍스트(POT 글자), 액센트
 const GOLD = '#F59E0B';       // 보조 강조 (난이도 active, hairline, 칩 그래픽)
-const GOLD_DIM = '#D97706';   // GOLD 보조 톤 (chip gradient end)
 const CARD_BG = '#181A20';    // 미세 푸른빛 dark card (인게임 토큰과 동기)
 const BG_BASE = '#0A0C12';    // deep navy black (pure #000 대신 깊이감)
 const SUB_TEXT = '#8A8A8A';

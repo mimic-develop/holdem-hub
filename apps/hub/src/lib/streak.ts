@@ -1,7 +1,7 @@
 // 연속 학습 보너스 — 홈 진입 일자를 기록하고 연속 일수를 계산.
 // 모노레포 prefix `hub:` 준수.
 
-const DATE_KEY = 'hub:streak-last-date';
+const DATE_KEY  = 'hub:streak-last-date';
 const COUNT_KEY = 'hub:streak-count';
 
 /** 보너스 도달 목표 일수 — 디자인의 진행 점 5개와 동기화. */
