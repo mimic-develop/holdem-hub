@@ -1,3 +1,5 @@
+import { apiFetch } from '@hh/shared';
+
 export interface Settings {
   nickname: string;
   /** Sound effects on/off (chip clicks, win chime). Default: true. */
@@ -12,8 +14,6 @@ export interface Settings {
   displayUnit: 'bb' | 'chips';
 }
 
-// 모노레포 통합 시 localStorage 충돌 방지 prefix.
-const KEY = 'heads-up:hs-settings';
 export const DEFAULT_BET_PRESETS: number[] = [0.5, 0.67, 1.0];
 export const MAX_BET_PRESETS = 5;
 export const DEFAULT_MATCH_LENGTH = 12;
@@ -21,6 +21,7 @@ export const MIN_MATCH_LENGTH = 10;
 export const MAX_MATCH_LENGTH = 15;
 /** 시작 스택은 25BB 고정. 설정으로 노출하지 않음. */
 export const DEFAULT_STACK_BB = 25;
+
 const DEFAULT: Settings = {
   nickname: '익명',
   soundEnabled: true,
@@ -48,32 +49,37 @@ function asMatchLength(v: unknown): number {
   return Math.max(MIN_MATCH_LENGTH, Math.min(MAX_MATCH_LENGTH, Math.round(v)));
 }
 
-export function getSettings(): Settings {
+function parseSettings(raw: Partial<Settings>): Settings {
+  return {
+    nickname:
+      typeof raw.nickname === 'string' && raw.nickname.trim().length > 0
+        ? raw.nickname.trim().slice(0, 20)
+        : DEFAULT.nickname,
+    soundEnabled:  asBool(raw.soundEnabled,  DEFAULT.soundEnabled),
+    hapticEnabled: asBool(raw.hapticEnabled, DEFAULT.hapticEnabled),
+    betPresets:    asBetPresets(raw.betPresets),
+    matchLength:   asMatchLength(raw.matchLength),
+    displayUnit:   raw.displayUnit === 'chips' ? 'chips' : 'bb',
+  };
+}
+
+export async function getSettings(): Promise<Settings> {
   try {
-    const raw =
-      typeof localStorage === 'undefined' ? null : localStorage.getItem(KEY);
-    if (!raw) return { ...DEFAULT, betPresets: [...DEFAULT.betPresets] };
-    const parsed = JSON.parse(raw) as Partial<Settings>;
-    return {
-      nickname:
-        typeof parsed.nickname === 'string' && parsed.nickname.trim().length > 0
-          ? parsed.nickname.trim().slice(0, 20)
-          : DEFAULT.nickname,
-      soundEnabled: asBool(parsed.soundEnabled, DEFAULT.soundEnabled),
-      hapticEnabled: asBool(parsed.hapticEnabled, DEFAULT.hapticEnabled),
-      betPresets: asBetPresets(parsed.betPresets),
-      matchLength: asMatchLength(parsed.matchLength),
-      displayUnit: parsed.displayUnit === 'chips' ? 'chips' : 'bb',
-    };
+    const data = await apiFetch<Partial<Settings>>('/heads-up/settings');
+    return parseSettings(data);
   } catch {
     return { ...DEFAULT, betPresets: [...DEFAULT.betPresets] };
   }
 }
 
-export function saveSettings(s: Settings): void {
+export async function saveSettings(s: Settings): Promise<void> {
   try {
-    localStorage.setItem(KEY, JSON.stringify(s));
+    await apiFetch('/heads-up/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(s),
+    });
   } catch {
-    // localStorage unavailable (private mode, SSR) — silently ignore.
+    // 비로그인/네트워크 실패 시 무시
   }
 }

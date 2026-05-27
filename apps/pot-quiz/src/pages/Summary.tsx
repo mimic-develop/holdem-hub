@@ -10,6 +10,8 @@ export default function Summary() {
     streak: number;
     correctCount: number;
     totalAnswered: number;
+    bestStreak?: number;
+    wasNewBestStreak?: boolean;
   } | null;
 
   const score = state?.score ?? 0;
@@ -19,10 +21,7 @@ export default function Summary() {
 
   const difficulty = location.split('/')[2] as Difficulty | undefined;
   const accuracy = totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0;
-  const bestStreakKey = `pot-quiz:bestStreak_${difficulty ?? 'medium'}`;
-  const bestStreak = parseInt(localStorage.getItem(bestStreakKey) ?? '0', 10);
-  const isNewBestStreak = maxStreak > 0 && maxStreak >= bestStreak;
-  if (isNewBestStreak) localStorage.setItem(bestStreakKey, String(maxStreak));
+  const isNewBestStreak = state?.wasNewBestStreak ?? false;
 
   const getStreakRating = () => {
     if (maxStreak >= 10) return { label: '마스터', color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/30' };

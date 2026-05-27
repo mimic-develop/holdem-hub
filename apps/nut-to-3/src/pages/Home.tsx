@@ -17,8 +17,6 @@ import { useAuthState, apiFetch } from "@hh/shared";
 import { deriveMetrics, type DerivedMetrics } from "../lib/score";
 import { LeaderboardPanel } from "../components/LeaderboardPanel";
 
-const MIMIC_TOKEN_KEY = "mimic:accessToken";
-
 interface SubmitResult {
   wasUpdated: boolean;
   previousBest: { streak: number; accuracy: number; avgResponseMs: number; score: number } | null;
@@ -399,9 +397,10 @@ export default function Home() {
     }
   }, [appPhase, phase, streetIndex]);
 
-  // 최고기록 달성 모달 — submitResult.wasUpdated 가 true 가 된 직후 한 번.
+  // 최고기록 달성 모달 — submitResult.wasUpdated 가 true 이고 streak > 0 일 때 한 번.
   useEffect(() => {
     if (!submitResult?.wasUpdated) return;
+    if (!submitResult.newBest?.streak) return;  // streak === 0이면 신기록으로 간주 안 함
     if (newRecordNotifiedRef.current) return;
     newRecordNotifiedRef.current = true;
     setBestRecordModal(submitResult);
@@ -416,8 +415,6 @@ export default function Home() {
     if (!user?.id) return;
     if (submitRequestedRef.current === user.id) return;
     submitRequestedRef.current = user.id;
-    const token = localStorage.getItem(MIMIC_TOKEN_KEY);
-    if (!token) return;
     const payload = {
       streak: runStats?.finalStreak ?? 0,
       totalCorrect: metrics.totalCorrect,
@@ -426,9 +423,9 @@ export default function Home() {
       recordedAt: Date.now(),
     };
     console.log("[nut-to-3] leaderboard submit start →", payload);
-    void apiFetch<SubmitResult>("/api/nut-to/leaderboard/submit", {
+    // authToken 생략 → apiFetch가 Cookie("accessToken")에서 자동 주입
+    void apiFetch<SubmitResult>("/nut-to/leaderboard/submit", {
       method: "POST",
-      authToken: token,
       body: JSON.stringify(payload),
     }).then((res) => {
       console.log("[nut-to-3] leaderboard submit result →", res);

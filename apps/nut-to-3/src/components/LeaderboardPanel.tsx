@@ -32,7 +32,6 @@ interface Props {
   onRankResolved?: (rank: number | "overflow" | null) => void;
 }
 
-const MIMIC_TOKEN_KEY = "mimic:accessToken";
 const TOP_LIMIT = 10;
 
 export function LeaderboardPanel({ uid, refreshKey, onRankResolved }: Props) {
@@ -42,11 +41,8 @@ export function LeaderboardPanel({ uid, refreshKey, onRankResolved }: Props) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    const token = localStorage.getItem(MIMIC_TOKEN_KEY);
-    apiFetch<{ entries: LeaderboardEntry[] }>(
-      "/api/nut-to/leaderboard",
-      { authToken: token ?? undefined },
-    ).then(res => {
+    // authToken 생략 → apiFetch가 Cookie("accessToken")에서 자동 주입
+    apiFetch<{ entries: LeaderboardEntry[] }>("/nut-to/leaderboard").then(res => {
       if (cancelled) return;
       setEntries(res.entries);
 

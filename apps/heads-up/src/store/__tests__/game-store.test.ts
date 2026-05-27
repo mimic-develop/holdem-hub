@@ -1,20 +1,45 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { CompletedHand } from '../../types/game';
 import { useGameStore } from '../game-store';
 import { useToastStore } from '../toast-store';
-import { _resetDBForTests, listHands } from '../../storage/history';
+import * as historyMod from '../../storage/history';
+import { listHands } from '../../storage/history';
+
+// storage/history는 API 기반으로 전환됨 — 테스트에서 in-memory mock으로 대체.
+vi.mock('../../storage/history');
+
+// in-memory 스토어 (테스트간 resetDB()로 초기화)
+let _hands: CompletedHand[] = [];
+
+function wireHistoryMocks() {
+  // saveHand: upsert by handId — 동일 ID 재저장 시 덮어씀 (insight 갱신 패턴 지원)
+  vi.mocked(historyMod.saveHand).mockImplementation(async (hand) => {
+    const idx = _hands.findIndex((h) => h.handId === hand.handId);
+    if (idx >= 0) _hands[idx] = hand;
+    else _hands.push(hand);
+  });
+  vi.mocked(historyMod.getHand).mockImplementation(async (id) =>
+    _hands.find((h) => h.handId === id) ?? null,
+  );
+  vi.mocked(historyMod.listHands).mockImplementation(async (opts = {}) => {
+    let result = [..._hands].sort((a, b) => b.playedAt - a.playedAt);
+    if (opts.mode) result = result.filter((h) => h.mode === opts.mode);
+    const offset = opts.offset ?? 0;
+    const limit = opts.limit !== undefined ? opts.limit : result.length;
+    return result.slice(offset, offset + limit);
+  });
+  vi.mocked(historyMod.getStats).mockResolvedValue({
+    total: 0, wins: 0, losses: 0, splits: 0, netChips: 0, winRate: 0,
+  });
+}
 
 function reset() {
   useGameStore.getState().resetGame();
 }
 
-async function resetDB() {
-  await _resetDBForTests();
-  await new Promise<void>((resolve, reject) => {
-    const req = indexedDB.deleteDatabase('heads-up:headsup-solo');
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-    req.onblocked = () => resolve();
-  });
+function resetDB() {
+  _hands = [];
+  wireHistoryMocks();
 }
 
 function waitMs(ms: number): Promise<void> {
@@ -22,7 +47,7 @@ function waitMs(ms: number): Promise<void> {
 }
 
 describe('game-store — core flow', () => {
-  beforeEach(() => reset());
+  beforeEach(() => { reset(); wireHistoryMocks(); });
 
   it('startAiGame initializes state with meta intact', () => {
     useGameStore.getState().startAiGame('EASY');
@@ -188,13 +213,13 @@ describe('game-store — core flow', () => {
 });
 
 describe('game-store — auto-save integration with IndexedDB', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     reset();
-    await resetDB();
+    resetDB();
   });
 
-  afterEach(async () => {
-    await resetDB();
+  afterEach(() => {
+    resetDB();
   });
 
   it('saves a completed hand to storage on fold', async () => {

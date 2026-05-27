@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useContext } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock } from "lucide-react";
@@ -8,6 +8,7 @@ import { getQuestionsByCategory, type Difficulty } from "../lib/quizData";
 import { useProgress } from "../hooks/useProgress";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/use-toast";
+import { LastClearedCardContext } from "../contexts/LastClearedCard";
 import bgVideo from "../assets/bg_sdr.mp4";
 
 const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"];
@@ -51,6 +52,9 @@ const canVibrate = typeof navigator !== "undefined" && "vibrate" in navigator;
 function triggerHaptic() {
   if (canVibrate) navigator.vibrate(10);
 }
+
+// 세션 내 최초 진입 시 1회만 자동 이동 — 뒤로가기 후 재진입 시 루프 방지
+let hasAutoNavigated = false;
 
 const CARD_W = 120;
 const CARD_H = 168;
@@ -131,6 +135,27 @@ export default function Home() {
   const { user, signInWithGoogle } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const lastClearedCard = useContext(LastClearedCardContext);
+
+  // 진행 기록이 있으면 다음 문제 화면으로 즉시 이동 (세션 당 1회)
+  useEffect(() => {
+    if (hasAutoNavigated) return;
+    if (!lastClearedCard) return;
+
+    const catIdx = CATEGORIES.findIndex(c => c.slug === lastClearedCard.category);
+    const suitIdx = SUITS.indexOf(lastClearedCard.difficulty as Difficulty);
+    if (catIdx < 0 || suitIdx < 0) return;
+
+    const nextDeckIdx = suitIdx * CATEGORIES.length + catIdx + 1;
+    if (nextDeckIdx >= SUITS.length * CATEGORIES.length) return; // 전부 클리어
+
+    const nextCat = CATEGORIES[nextDeckIdx % CATEGORIES.length];
+    const nextSuit = SUITS[Math.floor(nextDeckIdx / CATEGORIES.length)];
+    if (!nextCat || !nextSuit) return;
+
+    hasAutoNavigated = true;
+    navigate(`/quiz/${nextCat.slug}?difficulty=${nextSuit}`);
+  }, [lastClearedCard, navigate]);
 
   const initSuit = SUITS[Math.floor(currentStepIndex / 13)] ?? "club";
   const initRank = currentStepIndex % 13;

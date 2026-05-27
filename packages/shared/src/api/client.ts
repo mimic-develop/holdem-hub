@@ -1,18 +1,18 @@
 /**
  * 공통 fetch 래퍼.
  *
- * - VITE_API_BASE_URL 환경변수 기반으로 절대 URL 생성
+ * - dev:        http://localhost:48081/api
+ * - production: /api
  * - JSON 자동 파싱
  * - 에러는 ApiError로 통일
- * - 인증 토큰 주입 자리 마련 (현재 비활성)
+ * - Cookie["accessToken"] 자동 주입 (미지정 시)
  */
+import Cookies from "js-cookie";
 
-const baseUrl = (() => {
-  // 주의: `import.meta.env` 직접 접근. optional chaining(`import.meta?.env`)을 쓰면 Vite가
-  // env 주입 패턴을 감지하지 못해 런타임에 undefined가 된다 — auth/resolver.ts 주석 참조.
-  const env = (import.meta as unknown as { env?: Record<string, unknown> }).env;
-  return (env?.VITE_API_BASE_URL as string | undefined) ?? "";
-})();
+// Vite: import.meta.env.PROD === true in production build, false in dev
+const baseUrl = (import.meta as unknown as { env?: { PROD?: boolean } }).env?.PROD
+  ? "/api"
+  : "http://localhost:48081/api";
 
 export class ApiError extends Error {
   status: number;
@@ -27,12 +27,11 @@ export class ApiError extends Error {
 
 export function apiUrl(path: string): string {
   if (path.startsWith("http")) return path;
-  if (!baseUrl) return path; // dev: Vite proxy가 처리
   return `${baseUrl.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 interface ApiFetchOptions extends RequestInit {
-  /** 인증 토큰 (장래에 자동 주입) */
+  /** 명시적 토큰. 없으면 Cookie["accessToken"] 자동 사용. */
   authToken?: string | null;
 }
 
@@ -40,7 +39,10 @@ export async function apiFetch<T = unknown>(
   path: string,
   options: ApiFetchOptions = {},
 ): Promise<T> {
-  const { authToken, headers, ...rest } = options;
+  const { authToken: explicitToken, headers, ...rest } = options;
+  // 명시 토큰 없을 때 Cookie에서 자동 읽기
+  const authToken =
+    explicitToken !== undefined ? explicitToken : (Cookies.get("accessToken") ?? null);
   const merged: HeadersInit = {
     "Content-Type": "application/json",
     ...(headers ?? {}),

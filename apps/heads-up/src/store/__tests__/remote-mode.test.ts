@@ -2,7 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PeerConnection, ConnectionStatus } from '../../rtc/peer-connection';
 import type { ProtocolMessage } from '../../rtc/protocol';
 import { useGameStore } from '../game-store';
-import { _resetDBForTests } from '../../storage/history';
+
+// storage/history는 API 기반으로 전환되어 IndexedDB 정리가 불필요.
+vi.mock('../../storage/history', () => ({
+  saveHand: vi.fn().mockResolvedValue(undefined),
+  getHand: vi.fn().mockResolvedValue(null),
+  listHands: vi.fn().mockResolvedValue([]),
+  getStats: vi.fn().mockResolvedValue({ total: 0, wins: 0, losses: 0, splits: 0, netChips: 0, winRate: 0 }),
+}));
 
 /**
  * A MockPeer captures outgoing `send()` calls and lets tests inject incoming
@@ -56,24 +63,12 @@ class MockPeer implements Partial<PeerConnection> {
   }
 }
 
-async function resetDB() {
-  await _resetDBForTests();
-  await new Promise<void>((resolve, reject) => {
-    const req = indexedDB.deleteDatabase('heads-up:headsup-solo');
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-    req.onblocked = () => resolve();
-  });
-}
-
-beforeEach(async () => {
+beforeEach(() => {
   useGameStore.getState().resetGame();
-  await resetDB();
 });
 
-afterEach(async () => {
+afterEach(() => {
   useGameStore.getState().resetGame();
-  await resetDB();
   vi.useRealTimers();
 });
 

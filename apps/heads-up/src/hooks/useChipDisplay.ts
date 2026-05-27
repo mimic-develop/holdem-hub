@@ -1,35 +1,34 @@
 import { useCallback, useEffect, useState } from 'react';
+import { saveSettings } from '../storage/settings';
+import { useSettingsStore } from '../store/settings-store';
 
 type DisplayMode = 'bb' | 'chips';
 
-const STORAGE_KEY = 'heads-up:chip-display';
 const BIG_BLIND = 20; // SB=10, BB=20
 
 // ── 모듈 레벨 공유 상태 ──────────────────────────────────────────────────────
 // 모든 useChipDisplay 인스턴스가 동일 currentMode를 바라보며,
 // toggle 호출 시 listeners를 통해 전체 컴포넌트에 동기 브로드캐스트.
+// 초기값은 'bb' — 앱 마운트 시 initChipDisplayFromSettings()로 API 값 동기화.
 
-function readStoredMode(): DisplayMode {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === 'bb' || stored === 'chips') return stored;
-  } catch {
-    // private browsing or storage unavailable
-  }
-  return 'bb';
-}
-
-let _currentMode: DisplayMode = readStoredMode();
+let _currentMode: DisplayMode = 'bb';
 const _listeners = new Set<(m: DisplayMode) => void>();
+
+/** 앱 마운트 시 1회 호출 — settings 스토어의 displayUnit으로 초기값 동기화 */
+export function initChipDisplayFromSettings(): void {
+  const { settings } = useSettingsStore.getState();
+  if (settings.displayUnit !== _currentMode) {
+    _currentMode = settings.displayUnit;
+    _listeners.forEach((fn) => fn(_currentMode));
+  }
+}
 
 function _broadcast(next: DisplayMode) {
   _currentMode = next;
-  try {
-    localStorage.setItem(STORAGE_KEY, next);
-  } catch {
-    // private browsing
-  }
   _listeners.forEach((fn) => fn(next));
+  // fire-and-forget: PUT /heads-up/settings { displayUnit: next }
+  const current = useSettingsStore.getState().settings;
+  void saveSettings({ ...current, displayUnit: next });
 }
 // ────────────────────────────────────────────────────────────────────────────
 

@@ -8,6 +8,7 @@
  * - QueryClientProvider는 이 sub-app 내부에서 자체 관리
  *   (다른 sub-app과 캐시 공유 의도 없음, 의존성 명확화)
  */
+import { useRef } from "react";
 import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { LoginGate } from "@hh/ui";
@@ -20,6 +21,14 @@ import mimicLogo from "./assets/mimic-logo.png";
 import "./index.css";
 
 export default function NutTo3App() {
+  // render phase에서 실행돼 children 보다 먼저 처리됨.
+  // 앱 진입마다 캐시된 게임 데이터를 제거 → 항상 인트로 화면부터 시작.
+  const didClearRef = useRef(false);
+  if (!didClearRef.current) {
+    didClearRef.current = true;
+    queryClient.removeQueries({ queryKey: ["/api/nut-to-3/game/new"], exact: false });
+  }
+
   return (
     <LoginGate appName="NUT TO 3" subtitle="너트 핸드 맞추기" logoSrc={mimicLogo}>
       <div className="app-nut-to-3 bg-background text-foreground" data-theme="dark">
