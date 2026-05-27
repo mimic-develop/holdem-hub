@@ -45,7 +45,7 @@ export interface HandStats {
 }
 
 export async function getStats(): Promise<HandStats> {
-  return apiFetch<HandStats>('/heads-up/stats').catch(() => ({
+  return apiFetch<HandStats>('/play-lab/heads-up/stats').catch(() => ({
     total: 0,
     wins: 0,
     losses: 0,

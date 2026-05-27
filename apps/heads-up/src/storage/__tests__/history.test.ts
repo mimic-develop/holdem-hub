@@ -49,7 +49,7 @@ vi.mock('@hh/shared', async (importOriginal) => {
       }
 
       // GET /heads-up/stats
-      if (method === 'GET' && path === '/heads-up/stats') {
+      if (method === 'GET' && path === '/play-lab/heads-up/stats') {
         const total = _hands.length;
         const wins = _hands.filter((h) => h.result === 'WIN').length;
         const losses = _hands.filter((h) => h.result === 'LOSS').length;
