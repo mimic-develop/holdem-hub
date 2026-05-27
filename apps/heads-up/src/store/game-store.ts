@@ -16,7 +16,8 @@ import { HeuristicBot, type Difficulty } from '../bot/heuristic-bot';
 import { AI_PERSONAS } from '../bot/personas';
 import type { AiLevel, AiPersonaId } from '../types/ai';
 import { evaluateHand } from '../insight/hand-evaluator-main';
-import { getSettings, DEFAULT_STACK_BB } from '../storage/settings';
+import { DEFAULT_STACK_BB } from '../storage/settings';
+import { useSettingsStore } from './settings-store';
 import { getHand, saveHand } from '../storage/history';
 import { inferEventsFromHand, inferStreakEvents } from '../bot/preflop-25bb/eventInference';
 import { detectMilestones } from '../storage/stats';
@@ -130,7 +131,7 @@ interface GameStoreActions {
   startAiGame: (
     personaOrLevel: AiPersonaId | AiLevel,
     level?: AiLevel,
-  ) => void;
+  ) => Promise<void>;
   /** 같은 persona/level로 매치를 다시 시작 (카운터 리셋). */
   startRematch: () => void;
   setIntroComplete: () => void;
@@ -365,7 +366,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   _pingTimer: null,
   _currentSeed: null,
 
-  startAiGame: (personaOrLevel, level) => {
+  startAiGame: async (personaOrLevel, level) => {
     const s = get();
     cleanupTimers(s);
 
@@ -382,7 +383,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       resolvedLevel = personaOrLevel as AiLevel;
     }
 
-    const settings = getSettings();
+    const settings = useSettingsStore.getState().settings;
     const stackBB = DEFAULT_STACK_BB; // 25BB 고정
     const stackChips = stackBB * DEFAULT_BIG_BLIND;
     const stacks = {

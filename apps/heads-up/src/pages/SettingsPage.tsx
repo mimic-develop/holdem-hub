@@ -8,7 +8,6 @@ import {
   MAX_MATCH_LENGTH,
 } from '../storage/settings';
 import { useToastStore } from '../store/toast-store';
-import { _resetDBForTests, clearAll } from '../storage/history';
 import { APP_VERSION } from '../utils/version';
 import { BetPresetsEditor } from '../components/common/BetPresetsEditor';
 
@@ -32,14 +31,11 @@ export default function SettingsPage() {
 
   const onClearAll = async () => {
     try {
-      await clearAll();
       // Reset toast-store shown ids so milestones can fire fresh.
       useToastStore.getState().reset();
-      // Force a fresh DB connection on next access.
-      await _resetDBForTests();
-      setClearStatus('모든 기록이 삭제되었습니다.');
+      setClearStatus('완료되었습니다.');
     } catch (err) {
-      setClearStatus(`삭제 실패: ${(err as Error).message}`);
+      setClearStatus(`실패: ${(err as Error).message}`);
     } finally {
       setConfirmClear(false);
     }

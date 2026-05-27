@@ -1,15 +1,71 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+/**
+ * history.ts는 API 기반으로 전환됨.
+ * apiFetch를 in-memory mock으로 대체해 CRUD 계약을 검증.
+ */
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HandRank } from '../../engine/hand-evaluator';
 import type { CompletedHand } from '../../types/game';
 import {
-  _resetDBForTests,
-  clearAll,
-  deleteHand,
   getHand,
   getStats,
   listHands,
   saveHand,
 } from '../history';
+
+// ── in-memory API stub ───────────────────────────────────────────────────────
+let _hands: CompletedHand[] = [];
+
+vi.mock('@hh/shared', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@hh/shared')>();
+  return {
+    ...actual,
+    apiFetch: vi.fn(async (path: string, options?: { method?: string; body?: string }) => {
+      const method = (options?.method ?? 'GET').toUpperCase();
+
+      // POST /heads-up/hands
+      if (method === 'POST' && path === '/heads-up/hands') {
+        const hand: CompletedHand = JSON.parse(options?.body ?? '{}');
+        _hands.push(hand);
+        return { handId: hand.handId };
+      }
+
+      // GET /heads-up/hands/:id
+      if (method === 'GET' && /^\/heads-up\/hands\/[^/]+$/.test(path)) {
+        const id = path.split('/').at(-1)!;
+        const found = _hands.find((h) => h.handId === id);
+        if (!found) throw Object.assign(new Error('Not Found'), { status: 404 });
+        return found;
+      }
+
+      // GET /heads-up/hands (list)
+      if (method === 'GET' && path.startsWith('/heads-up/hands')) {
+        const qs = path.includes('?') ? new URLSearchParams(path.split('?')[1]) : new URLSearchParams();
+        let result = [..._hands].sort((a, b) => b.playedAt - a.playedAt);
+        const mode = qs.get('mode');
+        if (mode) result = result.filter((h) => h.mode === mode);
+        const offset = Number(qs.get('offset') ?? 0);
+        const limit = Number(qs.get('limit') ?? result.length);
+        return { hands: result.slice(offset, offset + limit), total: _hands.length };
+      }
+
+      // GET /heads-up/stats
+      if (method === 'GET' && path === '/heads-up/stats') {
+        const total = _hands.length;
+        const wins = _hands.filter((h) => h.result === 'WIN').length;
+        const losses = _hands.filter((h) => h.result === 'LOSS').length;
+        const splits = _hands.filter((h) => h.result === 'SPLIT').length;
+        const netChips = _hands.reduce((s, h) => s + h.myWinLoss, 0);
+        return {
+          total, wins, losses, splits, netChips,
+          winRate: total > 0 ? wins / total : 0,
+        };
+      }
+
+      throw new Error(`Unhandled mock: ${method} ${path}`);
+    }),
+  };
+});
+// ────────────────────────────────────────────────────────────────────────────
 
 function makeHand(overrides: Partial<CompletedHand> = {}): CompletedHand {
   const base: CompletedHand = {
@@ -37,20 +93,8 @@ function makeHand(overrides: Partial<CompletedHand> = {}): CompletedHand {
 }
 
 describe('storage/history — basic CRUD', () => {
-  // Reset fake-indexeddb between tests by clearing the store.
-  beforeEach(async () => {
-    await _resetDBForTests();
-    // Delete db to guarantee a pristine schema each test run.
-    await new Promise<void>((resolve, reject) => {
-      const req = indexedDB.deleteDatabase('heads-up:headsup-solo');
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-      req.onblocked = () => resolve();
-    });
-  });
-
-  afterEach(async () => {
-    await _resetDBForTests();
+  beforeEach(() => {
+    _hands = [];
   });
 
   it('saves and retrieves a single hand by id', async () => {
@@ -102,36 +146,14 @@ describe('storage/history — basic CRUD', () => {
     const remoteOnly = await listHands({ mode: 'REMOTE' });
     expect(remoteOnly.map((h) => h.handId)).toEqual(['remote-1']);
   });
-
-  it('deleteHand removes a single record', async () => {
-    await saveHand(makeHand({ handId: 'keep' }));
-    await saveHand(makeHand({ handId: 'delete-me' }));
-    await deleteHand('delete-me');
-    expect(await getHand('delete-me')).toBeNull();
-    expect(await getHand('keep')).not.toBeNull();
-  });
-
-  it('clearAll empties the store', async () => {
-    await saveHand(makeHand({ handId: '1' }));
-    await saveHand(makeHand({ handId: '2' }));
-    await clearAll();
-    const list = await listHands();
-    expect(list).toEqual([]);
-  });
 });
 
 describe('storage/history — stats', () => {
-  beforeEach(async () => {
-    _resetDBForTests();
-    await new Promise<void>((resolve, reject) => {
-      const req = indexedDB.deleteDatabase('heads-up:headsup-solo');
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-      req.onblocked = () => resolve();
-    });
+  beforeEach(() => {
+    _hands = [];
   });
 
-  it('empty DB returns zero stats', async () => {
+  it('empty store returns zero stats', async () => {
     const s = await getStats();
     expect(s).toEqual({
       total: 0,
@@ -140,7 +162,6 @@ describe('storage/history — stats', () => {
       splits: 0,
       netChips: 0,
       winRate: 0,
-      avgGtoScore: undefined,
     });
   });
 
@@ -172,20 +193,13 @@ describe('storage/history — stats', () => {
     const s = await getStats();
     const elapsed = performance.now() - start;
     expect(s.total).toBe(60);
-    // 60 saves + 1 stats scan should be well under 1 second even on fake-indexeddb.
     expect(elapsed).toBeLessThan(3000);
   });
 });
 
 describe('storage/history — round-trip with full CompletedHand', () => {
-  beforeEach(async () => {
-    _resetDBForTests();
-    await new Promise<void>((resolve, reject) => {
-      const req = indexedDB.deleteDatabase('heads-up:headsup-solo');
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-      req.onblocked = () => resolve();
-    });
+  beforeEach(() => {
+    _hands = [];
   });
 
   it('preserves nested objects (board, cards, actionLog, winningHand)', async () => {

@@ -1,10 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import {
   ArrowRight, ListOrdered, Layers, Trophy, Timer, Flame, BookOpen,
 } from 'lucide-react';
 import { SubAppHeader, BackToHub } from '@hh/ui';
+import { apiFetch } from '@hh/shared';
 import type { PuzzleDifficulty } from '../types/poker';
+
+interface PotQuizStats {
+  bestScore:  Record<'easy' | 'medium' | 'hard', number>;
+  bestStreak: Record<'easy' | 'medium' | 'hard', number>;
+}
 
 /**
  * POT SPLIT — MIMIC PLAYLAB 모드 인트로.
@@ -25,6 +31,13 @@ const SUB_TEXT = '#8A8A8A';
 export default function Home() {
   const [, setLocation] = useLocation();
   const [difficulty, setDifficulty] = useState<PuzzleDifficulty>('medium');
+  const [stats, setStats] = useState<PotQuizStats | null>(null);
+
+  useEffect(() => {
+    apiFetch<PotQuizStats>('/play-lab/pot-quiz/stats')
+      .then(setStats)
+      .catch(() => {}); // 비로그인 또는 네트워크 실패 시 0 표시
+  }, []);
 
   const difficultyConfig: Record<PuzzleDifficulty, { label: string; desc: string }> = {
     easy:   { label: '쉬움',   desc: '3명, 단순 팟 구조' },
@@ -34,8 +47,8 @@ export default function Home() {
 
   const records = (['easy', 'medium', 'hard'] as const).map(d => ({
     d,
-    score: parseInt(localStorage.getItem(`pot-quiz:bestScore_${d}`) ?? '0', 10),
-    streak: parseInt(localStorage.getItem(`pot-quiz:bestStreak_${d}`) ?? '0', 10),
+    score:  stats?.bestScore[d]  ?? 0,
+    streak: stats?.bestStreak[d] ?? 0,
   }));
   const topStreak = Math.max(0, ...records.map(r => r.streak));
   const hasAnyRecord = records.some(r => r.score > 0 || r.streak > 0);

@@ -1,17 +1,12 @@
-import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useContext, useEffect, useRef, useSyncExternalStore } from "react";
 import { CATEGORIES, type CategorySlug } from "../lib/categories";
 import type { Difficulty } from "../lib/quizData";
 import { useAuth } from "./useAuth";
-import { apiFetch, getPlayLapHomeCache } from "@hh/shared";
+import { apiFetch } from "@hh/shared";
+import { LastClearedCardContext } from "../contexts/LastClearedCard";
 
 const SUITS: Difficulty[] = ["club", "diamond", "heart", "spade"];
 const TOTAL_CARDS = SUITS.length * CATEGORIES.length;
-// 모노레포에서 다른 앱과 키 충돌을 막기 위해 `concept-quiz:` prefix 부여
-const ANON_STORAGE_KEY = "concept-quiz:pokeriq_cleared_cards";
-
-function storageKeyForUid(uid: string | null): string {
-  return uid ? `concept-quiz:pokeriq_cleared_cards:${uid}` : ANON_STORAGE_KEY;
-}
 
 function cardKey(slug: CategorySlug, suit: Difficulty): string {
   return `${slug}:${suit}`;
@@ -31,26 +26,30 @@ function cardAtDeckIndex(idx: number): { slug: CategorySlug; suit: Difficulty } 
   return { slug: CATEGORIES[catIdx].slug, suit: SUITS[suitIdx] };
 }
 
-function readLocal(key: string): Set<string> {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return new Set();
-    return new Set(JSON.parse(raw) as string[]);
-  } catch {
-    return new Set();
+/** lastClearedCard 기준으로 덱 0번 ~ lastIndex 범위의 cleared Set 생성 */
+function computeClearedSet(
+  lastClearedCard: { category: string; difficulty: string } | null,
+): Set<string> {
+  if (!lastClearedCard) return new Set();
+  const lastIndex = deckIndexOf(
+    lastClearedCard.category as CategorySlug,
+    lastClearedCard.difficulty as Difficulty,
+  );
+  if (lastIndex < 0) return new Set();
+  const result = new Set<string>();
+  for (let i = 0; i <= lastIndex; i++) {
+    const card = cardAtDeckIndex(i);
+    if (card) result.add(cardKey(card.slug, card.suit));
   }
+  return result;
 }
 
-function writeLocal(key: string, cards: Set<string>) {
-  localStorage.setItem(key, JSON.stringify(Array.from(cards)));
-}
-
-let activeKey = ANON_STORAGE_KEY;
+// ── module-level in-memory store ──────────────────────────────────────────
+// localStorage 완전 제거. lastClearedCard prop → computeClearedSet() → snapshot.
 let listeners: Array<() => void> = [];
-let snapshot = readLocal(activeKey);
+let snapshot: Set<string> = new Set();
 
 function emitChange() {
-  snapshot = readLocal(activeKey);
   for (const l of listeners) l();
 }
 
@@ -64,41 +63,12 @@ function subscribe(listener: () => void) {
 function getSnapshot() {
   return snapshot;
 }
+// ─────────────────────────────────────────────────────────────────────────
 
-function setActiveKey(key: string) {
-  activeKey = key;
-  emitChange();
-}
-
-/** GET /play-lap/home → lastClearedCard로 cleared Set 복원
- *  Hub 메인 홈에서 미리 prefetch 된 경우 캐시를 그대로 사용 (재요청 없음). */
-async function loadProgress(): Promise<Set<string>> {
-  try {
-    const cached = getPlayLapHomeCache();
-    const res = cached ?? await apiFetch<{
-      lastClearedCard: { category: string; difficulty: string } | null;
-    }>("/play-lap/home");
-    if (!res.lastClearedCard) return new Set();
-    const lastIndex = deckIndexOf(
-      res.lastClearedCard.category as CategorySlug,
-      res.lastClearedCard.difficulty as Difficulty,
-    );
-    if (lastIndex < 0) return new Set();
-    return new Set(
-      Array.from({ length: lastIndex + 1 }, (_, i) => {
-        const card = cardAtDeckIndex(i);
-        return card ? cardKey(card.slug, card.suit) : null;
-      }).filter((k): k is string => k !== null),
-    );
-  } catch {
-    return new Set();
-  }
-}
-
-/** POST /play-lap/quiz-clear — 카드 클리어 기록 */
+/** POST /play-lab/quiz-clear — 카드 클리어 기록 */
 async function saveProgress(slug: CategorySlug, suit: Difficulty): Promise<void> {
   try {
-    await apiFetch("/play-lap/quiz-clear", {
+    await apiFetch("/play-lab/quiz-clear", {
       method: "POST",
       body: JSON.stringify({ category: slug, difficulty: suit }),
     });
@@ -109,27 +79,20 @@ async function saveProgress(slug: CategorySlug, suit: Difficulty): Promise<void>
 
 export function useProgress() {
   const { user } = useAuth();
+  const lastClearedCard = useContext(LastClearedCardContext);
   const cleared = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-  const prevUidRef = useRef<string | null>(null);
+  const prevCardKeyRef = useRef<string | undefined>(undefined);
 
+  // lastClearedCard 변경 시마다 snapshot 재계산 (in-memory only, no localStorage)
   useEffect(() => {
-    const uid = user?.uid ?? null;
-    if (uid === prevUidRef.current) return;
-    prevUidRef.current = uid;
-
-    if (uid) {
-      const targetKey = storageKeyForUid(uid);
-      setActiveKey(targetKey);
-      loadProgress().then(remote => {
-        const local = readLocal(targetKey);
-        const merged = new Set([...local, ...remote]);
-        writeLocal(targetKey, merged);
-        emitChange();
-      }).catch(() => {});
-    } else {
-      setActiveKey(storageKeyForUid(null));
-    }
-  }, [user]);
+    const cardStr = lastClearedCard
+      ? `${lastClearedCard.category}:${lastClearedCard.difficulty}`
+      : "";
+    if (cardStr === prevCardKeyRef.current) return;
+    prevCardKeyRef.current = cardStr;
+    snapshot = computeClearedSet(lastClearedCard);
+    emitChange();
+  }, [lastClearedCard]);
 
   const isCardCleared = useCallback(
     (slug: CategorySlug, suit: Difficulty) => cleared.has(cardKey(slug, suit)),
@@ -150,10 +113,8 @@ export function useProgress() {
 
   const markCardCleared = useCallback((slug: CategorySlug, suit: Difficulty) => {
     const key = cardKey(slug, suit);
-    const current = readLocal(activeKey);
-    if (current.has(key)) return;
-    current.add(key);
-    writeLocal(activeKey, current);
+    if (snapshot.has(key)) return;
+    snapshot = new Set([...snapshot, key]);
     emitChange();
     if (user) void saveProgress(slug, suit);
   }, [user]);

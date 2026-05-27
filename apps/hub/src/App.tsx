@@ -41,7 +41,7 @@ export function App() {
     }
     // "/" 라우트 진입 시마다 최신 데이터 fetch
     if (location !== "/") return;
-    void apiFetch<PlayLapHomeData>("/play-lap/home")
+    void apiFetch<PlayLapHomeData>("/play-lab/home")
       .then(data => {
         setHomeData(data);
         setPlayLapHomeCache(data);

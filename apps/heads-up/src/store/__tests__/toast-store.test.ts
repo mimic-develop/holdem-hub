@@ -65,13 +65,9 @@ describe('toast-store', () => {
     expect(useToastStore.getState().toasts).toHaveLength(1);
   });
 
-  it('push dedupes across reset (persisted in localStorage)', () => {
-    useToastStore.getState().push([M_FIRST]);
-    // Drop active toasts but keep persisted shown ids in localStorage.
-    useToastStore.setState({ toasts: [] });
-    // Clear in-memory shown set to simulate a fresh page load (which still
-    // reads from localStorage on push).
-    useToastStore.setState({ shownIds: new Set() });
+  it('push dedupes via server-loaded shown ids (pre-populated by init)', () => {
+    // Simulate what init() does: populate shownIds from the server.
+    useToastStore.setState({ shownIds: new Set(['FIRST_HAND']) });
     useToastStore.getState().push([M_FIRST]);
     expect(useToastStore.getState().toasts).toHaveLength(0);
   });

@@ -18,7 +18,6 @@
     "@hh/ui": "workspace:*",
     "clsx": "^2.1.1",
     "framer-motion": "^11.15.0",
-    "idb": "^8.0.3",
     "peerjs": "^1.5.4",
     "react-router-dom": "^6.28.2",
     "tailwind-merge": "^2.6.0",

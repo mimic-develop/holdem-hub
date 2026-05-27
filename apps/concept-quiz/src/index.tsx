@@ -7,7 +7,6 @@
  * - VITE_FIREBASE_API_KEY가 없으면 로그인은 실패하지만 UI 자체는 로드됨
  */
 
-import { useEffect } from "react";
 import { Switch, Route, Redirect } from "wouter";
 import { Toaster } from "./components/ui/toaster";
 import { TooltipProvider } from "./components/ui/tooltip";
@@ -16,7 +15,7 @@ import NotFound from "./pages/not-found";
 import Home from "./pages/home";
 import Quiz from "./pages/quiz";
 import Login from "./pages/login";
-import { setPlayLapHomeCache } from "@hh/shared";
+import { LastClearedCardContext } from "./contexts/LastClearedCard";
 import "./index.css";
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -69,18 +68,16 @@ interface ConceptQuizAppProps {
 export default function ConceptQuizApp({ lastClearedCard = null }: ConceptQuizAppProps) {
   const authValue = useAuthProvider();
 
-  useEffect(() => {
-    setPlayLapHomeCache({ nutStreak: 0, nutBestStreak: 0, lastClearedCard });
-  }, [lastClearedCard]);
-
   return (
-    <div className="app-concept-quiz bg-background text-foreground" data-theme="light">
-      <AuthContext.Provider value={authValue}>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
-      </AuthContext.Provider>
-    </div>
+    <LastClearedCardContext.Provider value={lastClearedCard ?? null}>
+      <div className="app-concept-quiz bg-background text-foreground" data-theme="light">
+        <AuthContext.Provider value={authValue}>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </AuthContext.Provider>
+      </div>
+    </LastClearedCardContext.Provider>
   );
 }

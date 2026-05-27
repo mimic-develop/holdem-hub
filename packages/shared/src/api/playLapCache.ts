@@ -30,7 +30,7 @@ export function clearPlayLapHomeCache(): void {
  */
 export async function prefetchPlayLapHome(token: string): Promise<void> {
   try {
-    const res = await apiFetch<PlayLapHomeData>("/play-lap/home", {
+    const res = await apiFetch<PlayLapHomeData>("/play-lab/home", {
       authToken: token,
     });
     cache = res;

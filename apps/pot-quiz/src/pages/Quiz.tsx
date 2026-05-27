@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useParams, useLocation } from 'wouter';
+import { apiFetch } from '@hh/shared';
 import { ArrowLeft, Volume2, VolumeX } from 'lucide-react';
 import { SubAppHeader } from '@hh/ui';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -341,13 +342,6 @@ export default function Quiz({ mode = 'game' }: QuizProps = {}) {
     setStreak(newStreak);
     setMaxStreak(newMaxStreak);
     setCorrectCount(correctCountRef.current);
-    const bestScoreKey = `pot-quiz:bestScore_${difficulty}`;
-    if (newScore > parseInt(localStorage.getItem(bestScoreKey) ?? '0', 10))
-      localStorage.setItem(bestScoreKey, String(newScore));
-
-    const bestStreakKey = `pot-quiz:bestStreak_${difficulty}`;
-    if (newMaxStreak > parseInt(localStorage.getItem(bestStreakKey) ?? '0', 10))
-      localStorage.setItem(bestStreakKey, String(newMaxStreak));
 
     setLastResult({
       correct: true,
@@ -511,17 +505,43 @@ export default function Quiz({ mode = 'game' }: QuizProps = {}) {
     setIndex(nextIndex);
   };
 
-  const handleQuit = () => {
+  const handleQuit = async () => {
     if (isPractice) {
       setLocation('/');
       return;
     }
+
+    const finalScore  = scoreRef.current;
+    const finalStreak = maxStreakRef.current;
+
+    let bestStreak = finalStreak;
+    let bestScore  = finalScore;
+    let wasNewBestStreak = false;
+
+    try {
+      const res = await apiFetch<{
+        wasScoreUpdated: boolean;
+        wasStreakUpdated: boolean;
+        bestScore: number;
+        bestStreak: number;
+      }>('/pot-quiz/stats', {
+        method: 'POST',
+        body: JSON.stringify({ difficulty, score: finalScore, maxStreak: finalStreak }),
+      });
+      bestStreak = res.bestStreak;
+      bestScore  = res.bestScore;
+      wasNewBestStreak = res.wasStreakUpdated;
+    } catch { /* 비로그인/네트워크 실패 무시 */ }
+
     setLocation(`/summary/${difficulty}`, {
       state: {
-        score: scoreRef.current,
-        streak: maxStreakRef.current,
+        score: finalScore,
+        streak: finalStreak,
         correctCount: correctCountRef.current,
         totalAnswered: index + 1,
+        bestStreak,
+        bestScore,
+        wasNewBestStreak,
       },
     });
   };
