@@ -231,7 +231,7 @@ function aggregateInternal(input: AggregateInputs): AggregateStats {
     trendBuckets.set(bucket, existing);
 
     // Per-street
-    for (const [stKey, score] of Object.entries(a.streetScores)) {
+    for (const [stKey, score] of Object.entries(a.streetScores ?? {})) {
       if (typeof score !== 'number') continue;
       const st = stKey as Street;
       const acc = (streetSums[st] ??= { sum: 0, count: 0 });
@@ -240,7 +240,7 @@ function aggregateInternal(input: AggregateInputs): AggregateStats {
     }
 
     // Mistakes & spots iterate per ActionEvaluation
-    for (const evalu of a.actionEvaluations) {
+    for (const evalu of (a.actionEvaluations ?? [])) {
       const spot = classifySpot(h, evalu);
       if (spot) {
         const cur = spotMap.get(spot.key) ?? {
@@ -255,11 +255,11 @@ function aggregateInternal(input: AggregateInputs): AggregateStats {
         spotMap.set(spot.key, cur);
       }
     }
-    for (const m of a.mistakes) {
+    for (const m of (a.mistakes ?? [])) {
       mistakeCounts.set(m.type, (mistakeCounts.get(m.type) ?? 0) + 1);
       // Find the action's score and use (100 - score) as the rough impact proxy.
-      const ev = a.actionEvaluations[m.actionIndex] ??
-        a.actionEvaluations.find((e) => e.actionIndex === m.actionIndex);
+      const ev = (a.actionEvaluations ?? [])[m.actionIndex] ??
+        (a.actionEvaluations ?? []).find((e) => e.actionIndex === m.actionIndex);
       const impact = ev ? 100 - ev.score : 50;
       mistakeImpactSum.set(
         m.type,
