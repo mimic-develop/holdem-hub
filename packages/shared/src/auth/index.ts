@@ -1,6 +1,6 @@
 export type { AuthUser, AuthProvider, AuthProviderName } from "./types.js";
 export { AuthError } from "./types.js";
-export { createMimicAuthStub } from "./mimic.js";
+export { createMimicAuthStub, setTokens, clearTokens } from "./mimic.js";
 export { createNoneAuthStub } from "./none.js";
 export {
   getActiveAuthProvider,

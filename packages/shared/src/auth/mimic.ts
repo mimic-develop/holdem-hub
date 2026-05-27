@@ -1,8 +1,40 @@
+import Cookies from "js-cookie";
 import type { AuthProvider, AuthUser } from "./types.js";
 import { AuthError } from "./types.js";
 
-const ACCESS_TOKEN_KEY = "mimic:accessToken";
-const REFRESH_TOKEN_KEY = "mimic:refreshToken";
+const COOKIE_ACCESS  = "accessToken";
+const COOKIE_REFRESH = "refresh_token";
+
+/** production(HTTPS)은 Secure 플래그, localhost dev(HTTP)는 생략 */
+function cookieOpts(days: number): Cookies.CookieAttributes {
+  return {
+    expires: days,
+    sameSite: "Lax",
+    ...(typeof location !== "undefined" && location.protocol === "https:"
+      ? { secure: true }
+      : {}),
+  };
+}
+
+// ── 모듈 레벨 헬퍼 (SnsCallback / OAuthCallback 에서도 사용) ────────────
+
+/** 토큰을 쿠키에 저장하고 'mimic:token-set' 이벤트를 dispatch한다. */
+export function setTokens(accessToken: string, refreshToken?: string | null): void {
+  Cookies.set(COOKIE_ACCESS, accessToken, cookieOpts(1));
+  if (refreshToken) Cookies.set(COOKIE_REFRESH, refreshToken, cookieOpts(30));
+  // onAuthChange의 handleTokenSet이 이 이벤트를 받아 notify(readUser())를 호출함
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("mimic:token-set"));
+  }
+}
+
+/** 쿠키에서 토큰을 삭제한다. */
+export function clearTokens(): void {
+  Cookies.remove(COOKIE_ACCESS);
+  Cookies.remove(COOKIE_REFRESH);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 
 function decodeJwtPayload(token: string): Record<string, unknown> {
   const parts = token.split(".");
@@ -31,7 +63,7 @@ function payloadToUser(payload: Record<string, unknown>): AuthUser {
  * MIMIC 서버 인증 provider.
  *
  * VITE_AUTH_PROVIDER=mimic 설정 시 활성화.
- * POST /v1/auth/login API를 호출하고 accessToken/refreshToken을 localStorage에 저장한다.
+ * POST /v1/auth/login API를 호출하고 accessToken/refreshToken을 Cookie에 저장한다.
  */
 export function createMimicAuthStub(): AuthProvider {
   const env = (import.meta as unknown as { env?: Record<string, unknown> }).env;
@@ -43,7 +75,7 @@ export function createMimicAuthStub(): AuthProvider {
 
   function readUser(): AuthUser | null {
     try {
-      const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+      const token = Cookies.get(COOKIE_ACCESS);
       if (!token) return null;
       return payloadToUser(decodeJwtPayload(token));
     } catch {
@@ -68,10 +100,10 @@ export function createMimicAuthStub(): AuthProvider {
       throw new AuthError(code);
     }
 
-    const data = await res.json() as { accessToken: string; refreshToken: string };
-    localStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
-    localStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
+    const data = await res.json() as { accessToken: string; refreshToken?: string };
 
+    // 쿠키 저장 — setTokens가 mimic:token-set 이벤트 dispatch까지 처리
+    setTokens(data.accessToken, data.refreshToken ?? null);
     const user = payloadToUser(decodeJwtPayload(data.accessToken));
     notify(user);
     return user;
@@ -85,8 +117,7 @@ export function createMimicAuthStub(): AuthProvider {
     },
 
     async signOut(): Promise<void> {
-      localStorage.removeItem(ACCESS_TOKEN_KEY);
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
+      clearTokens();
       notify(null);
     },
 
@@ -98,14 +129,18 @@ export function createMimicAuthStub(): AuthProvider {
       listeners.add(cb);
       cb(readUser());
 
-      // SnsCallback 등 외부에서 토큰을 직접 localStorage에 저장한 뒤
-      // 'mimic:token-set' 이벤트를 dispatch하면 여기서 감지해 상태를 갱신한다.
+      // SnsCallback/OAuthCallback 등 외부에서 토큰 저장 후 dispatch하는 이벤트
       const handleTokenSet = () => notify(readUser());
       window.addEventListener("mimic:token-set", handleTokenSet);
+
+      // apiFetch 401 refresh 실패 시 dispatch — 강제 로그아웃 처리
+      const handleSignedOut = () => notify(null);
+      window.addEventListener("mimic:signed-out", handleSignedOut);
 
       return () => {
         listeners.delete(cb);
         window.removeEventListener("mimic:token-set", handleTokenSet);
+        window.removeEventListener("mimic:signed-out", handleSignedOut);
       };
     },
 
