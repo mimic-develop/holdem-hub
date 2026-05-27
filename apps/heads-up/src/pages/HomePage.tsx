@@ -502,7 +502,7 @@ export default function HomePage() {
 
           {statsLoading || !stats || stats.totalHands === 0 ? (
             <div style={s.statsEmpty}>
-              <div style={s.statsEmptyT}>오늘 플레이한 핸드가 없습니다</div>
+              <div style={s.statsEmptyT}>{RANGE_LABELS[range]} 플레이한 핸드가 없습니다</div>
               <div style={s.statsEmptyS}>첫 대결을 시작해보세요</div>
             </div>
           ) : (
