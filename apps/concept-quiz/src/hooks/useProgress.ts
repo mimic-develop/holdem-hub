@@ -82,7 +82,7 @@ async function loadProgress(): Promise<Set<string>> {
   try {
     const res = await apiFetch<{
       lastClearedCard: { category: string; difficulty: string } | null;
-    }>("/api/play-lap/home", { authToken: token });
+    }>("/play-lap/home", { authToken: token });
     if (!res.lastClearedCard) return new Set();
     const lastIndex = deckIndexOf(
       res.lastClearedCard.category as CategorySlug,
@@ -105,7 +105,7 @@ async function saveProgress(slug: CategorySlug, suit: Difficulty): Promise<void>
   const token = getToken();
   if (!token) return;
   try {
-    await apiFetch("/api/play-lap/quiz-clear", {
+    await apiFetch("/play-lap/quiz-clear", {
       method: "POST",
       authToken: token,
       body: JSON.stringify({ category: slug, difficulty: suit }),

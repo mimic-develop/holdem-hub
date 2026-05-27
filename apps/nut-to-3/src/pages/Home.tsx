@@ -417,7 +417,7 @@ export default function Home() {
     submitRequestedRef.current = user.id;
     const token = localStorage.getItem(MIMIC_TOKEN_KEY);
     if (!token) return;
-    void apiFetch<SubmitResult>("/api/nut-to/leaderboard/submit", {
+    void apiFetch<SubmitResult>("/nut-to/leaderboard/submit", {
       method: "POST",
       authToken: token,
       body: JSON.stringify({
