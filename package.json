@@ -13,6 +13,7 @@
     "dev:all": "concurrently -n api,hub -c blue,magenta \"pnpm --filter @hh/api dev\" \"pnpm --filter @hh/hub dev\"",
     "dev:api": "pnpm --filter @hh/api dev",
     "build": "pnpm -r build",
+    "build:staging": "pnpm --filter @hh/hub build -- --mode staging && pnpm --filter @hh/api build",
     "typecheck": "pnpm -r --parallel typecheck",
     "lint": "pnpm -r --parallel lint",
     "test": "pnpm -r --parallel test",

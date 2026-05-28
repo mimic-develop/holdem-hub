@@ -1,18 +1,25 @@
 /**
  * 공통 fetch 래퍼.
  *
- * - dev:        http://localhost:48081/api
- * - production: /api
+ * baseUrl 우선순위:
+ *   1. VITE_API_BASE_URL  — 명시적 override (dev/prod 모두 적용)
+ *   2. prod 빌드          — "/api" (프론트와 같은 도메인에 API 서버가 있을 때)
+ *   3. dev 빌드           — "http://localhost:48081/api"
+ *
  * - JSON 자동 파싱
  * - 에러는 ApiError로 통일
  * - Cookie["accessToken"] 자동 주입 (미지정 시)
  */
 import Cookies from "js-cookie";
 
-// Vite: import.meta.env.PROD === true in production build, false in dev
-const baseUrl = (import.meta as unknown as { env?: { PROD?: boolean } }).env?.PROD
-  ? "/api"
-  : "http://localhost:48081/api";
+type Env = { PROD?: boolean; VITE_API_BASE_URL?: string; VITE_MIMIC_API_URL?: string };
+const _env = (import.meta as unknown as { env?: Env }).env;
+
+// 우선순위: VITE_API_BASE_URL > VITE_MIMIC_API_URL > 빌드 모드 기본값
+const baseUrl =
+  _env?.VITE_API_BASE_URL?.trim() ||
+  _env?.VITE_MIMIC_API_URL?.trim() ||
+  (_env?.PROD ? "/api" : "http://localhost:48081/api");
 
 export class ApiError extends Error {
   status: number;

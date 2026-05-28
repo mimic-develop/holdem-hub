@@ -8,7 +8,17 @@ import { headsUpRouter } from "./routes/heads-up.js";
 export function createApp(): Express {
   const app = express();
 
-  app.use(cors());
+  // CORS_ORIGIN: 쉼표로 구분된 허용 origin 목록 (미설정 시 전체 허용 — dev 전용)
+  const allowedOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(",").map((o) => o.trim())
+    : [];
+  app.use(
+    cors(
+      allowedOrigins.length > 0
+        ? { origin: allowedOrigins, credentials: true }
+        : undefined,
+    ),
+  );
   app.use(express.json({ limit: "1mb" }));
 
   app.use("/api/health", healthRouter);
