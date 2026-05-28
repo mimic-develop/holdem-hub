@@ -1,0 +1,62 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # 수동 실행 허용
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm --filter @hh/hub build
+        # .env.production 의 VITE_* 값이 자동으로 번들에 주입됨
+
+      - name: SPA fallback — 404.html
+        run: cp apps/hub/dist/index.html apps/hub/dist/404.html
+        # GitHub Pages는 새로고침/직접URL 시 404를 반환함.
+        # index.html 복사본을 두면 앱이 로드된 뒤 클라이언트 라우터가 처리.
+
+      - name: Disable Jekyll
+        run: touch apps/hub/dist/.nojekyll
+        # Vite 번들에 _assets/ 같은 언더스코어 경로가 포함됨.
+        # .nojekyll 이 없으면 Jekyll이 해당 파일을 무시해 404 발생.
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/hub/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
