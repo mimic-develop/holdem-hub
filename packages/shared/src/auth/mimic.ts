@@ -41,7 +41,10 @@ function decodeJwtPayload(token: string): Record<string, unknown> {
   if (parts.length < 2) return {};
   try {
     const padded = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const decoded = atob(padded);
+    // atob()는 Latin-1 바이너리 문자열을 반환 → UTF-8 한글이 깨짐.
+    // Uint8Array로 변환 후 TextDecoder로 올바르게 디코딩.
+    const bytes = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+    const decoded = new TextDecoder().decode(bytes);
     return JSON.parse(decoded) as Record<string, unknown>;
   } catch {
     return {};
