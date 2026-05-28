@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/holdem-hub/sw.js', { scope: '/holdem-hub/' })})}

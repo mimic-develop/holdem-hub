@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#ffffff" />
+  <path d="M256 80 L309 187 L427 203 L341 285 L361 402 L256 347 L151 402 L171 285 L85 203 L203 187 Z" fill="#ba0c19" />
+  <text x="256" y="475" text-anchor="middle" font-family="Pretendard, system-ui, sans-serif" font-weight="700" font-size="56" fill="#18181b">HUB</text>
+</svg>
