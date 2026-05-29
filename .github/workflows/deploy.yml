@@ -47,7 +47,7 @@ jobs:
       - name: Deploy to external repo
         uses: peaceiris/actions-gh-pages@v4
         with:
-          personal_token: ${{ secrets.PAGES_DEPLOY_TOKEN }}
+          deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
           external_repository: mimic-develop/play-lab-stage # ← 배포할 target 레포
           publish_branch: gh-pages
           publish_dir: apps/hub/dist
