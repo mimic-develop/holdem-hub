@@ -3,19 +3,18 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
-  workflow_dispatch:  # 수동 실행 허용
+  workflow_dispatch: # 수동 실행 허용
 
+# 다른 레포로 push하는 방식이므로 pages/id-token 권한 불필요
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -46,17 +45,11 @@ jobs:
         # Vite 번들에 _assets/ 같은 언더스코어 경로가 포함됨.
         # .nojekyll 이 없으면 Jekyll이 해당 파일을 무시해 404 발생.
 
-      - uses: actions/upload-pages-artifact@v3
+      - name: Deploy to external repo
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: apps/hub/dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          personal_token: ${{ secrets.PAGES_DEPLOY_TOKEN }}
+          external_repository: mimic-develop/play-lab-stage # ← 배포할 target 레포
+          publish_branch: gh-pages
+          publish_dir: apps/hub/dist
+          force_orphan: true # gh-pages 브랜치를 커밋 히스토리 없이 항상 새로 덮어씀
