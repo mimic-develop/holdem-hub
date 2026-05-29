@@ -1,1 +1,1 @@
-if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/play-lab-stage/sw.js', { scope: '/play-lab-stage/' })})}
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/holdem-hub/sw.js', { scope: '/holdem-hub/' })})}
