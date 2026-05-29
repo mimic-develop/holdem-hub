@@ -30,7 +30,7 @@ export default function NutTo3App({ initialStreak = 0, initialBestStreak = 0 }: 
   const didClearRef = useRef(false);
   if (!didClearRef.current) {
     didClearRef.current = true;
-    queryClient.removeQueries({ queryKey: ["/api/nut-to-3/game/new"], exact: false });
+    queryClient.removeQueries({ queryKey: ["/api/nut-to/new"], exact: false });
   }
 
   return (

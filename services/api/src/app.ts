@@ -22,7 +22,7 @@ export function createApp(): Express {
   app.use(express.json({ limit: "1mb" }));
 
   app.use("/api/health", healthRouter);
-  app.use("/api/nut-to-3", nutTo3Router);
+  app.use("/api/nut-to", nutTo3Router);
   app.use("/api/nut-to", nutToRouter);
   app.use("/api/play-lab/heads-up", headsUpRouter);
 

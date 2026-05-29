@@ -2,7 +2,7 @@
  * Nut-to-3 API contract — 클라이언트 측 zod 스키마.
  *
  * 원본 `Nut-to-3/shared/{schema,routes}.ts`를 합치고
- * 경로를 monorepo 규칙에 맞게 prefix(`/api/nut-to-3`) 적용.
+ * 경로를 monorepo 규칙에 맞게 prefix(`/api/nut-to`) 적용.
  */
 import { z } from "zod";
 
@@ -35,7 +35,7 @@ export const api = {
   game: {
     new: {
       method: "GET" as const,
-      path: "/api/nut-to-3/game/new" as const,
+      path: "/nut-to/new" as const,
       responses: {
         200: gameStateSchema,
       },

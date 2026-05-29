@@ -53,7 +53,7 @@ function getStreetTiers(board: string[]): NutTier[] {
   return filtered.slice(0, 3);
 }
 
-nutTo3Router.get("/game/new", (req, res) => {
+nutTo3Router.get("/new", (req, res) => {
   try {
     const noFlush = req.query.noFlush === "true" || req.query.noFlush === "1";
     const avoidNutTypesRaw = typeof req.query.avoidNutTypes === "string" ? req.query.avoidNutTypes : "";
