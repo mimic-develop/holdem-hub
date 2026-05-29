@@ -171,7 +171,9 @@ export function createMimicAuthStub(): AuthProvider {
 
     async signInWithApple(): Promise<AuthUser> {
       const redirectUri = encodeURIComponent(window.location.origin + "/oauth/redirect");
-window.location.href = `https://gore-ravioli-alkaline.ngrok-free.dev/api/oauth2/authorization/apple-web?redirect_uri=${redirectUri}`;      return new Promise(() => {});
+      // window.location.href = `https://gore-ravioli-alkaline.ngrok-free.dev/api/oauth2/authorization/apple-web?redirect_uri=${redirectUri}`;      
+      window.location.href = `${apiUrl}/oauth2/authorization/apple-web?redirect_uri=${redirectUri}`;
+      return new Promise(() => {});
     },
 
     // async signInWithApple(): Promise<AuthUser> {
