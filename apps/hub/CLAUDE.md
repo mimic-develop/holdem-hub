@@ -2,6 +2,22 @@
 
 > Hub 전용 작업 가이드. sub-app 자체에 손대는 게 아니라면 sub-app `src/`는 읽지 말 것.
 
+# 스테이징 배포
+
+pnpm run deploy:stage
+
+# → mode=staging 빌드 → mimic-stage.r-e.kr API URL 주입
+
+# → play-lab-stage 레포 gh-pages 브랜치
+
+# 운영 배포
+
+pnpm run deploy:prod
+
+# → mode=production 빌드 → mimic.im API URL 주입
+
+# → holdem-hub 레포 gh-pages 브랜치
+
 ## 정체성
 
 - **역할**: 모노레포의 단일 Vite 번들 진입점. navbar + sub-app 라우팅 + PWA 호스트 + 통합 인증 진입점.
@@ -14,6 +30,7 @@
 
 **`src/main.tsx`** — React root 렌더링.
 **`src/App.tsx`** — `<QueryClientProvider>` + `.app-hub` div + Navbar + `<Switch>` 라우팅. sub-app은 lazy 로드:
+
 ```tsx
 const PotQuizApp = lazy(() => import("@hh/pot-quiz"));
 const NutTo3App = lazy(() => import("@hh/nut-to-3"));
@@ -23,18 +40,18 @@ const HeadsUpApp = lazy(() => import("@hh/heads-up"));
 
 ## 파일 맵
 
-| 작업 종류 | 먼저 읽을 파일 |
-|---|---|
-| sub-app 추가 / 라우팅 | `src/App.tsx` (`<Route ... nest>` 추가) |
-| navbar 메뉴 추가 / 로그인 버튼 | `src/components/Navbar.tsx` (`NAV_ITEMS` + auth 토스트) |
-| 홈 카드 추가 | `src/pages/Home.tsx` (`APPS` 배열) |
-| 404 | `src/pages/NotFound.tsx` |
-| 카드 데모 (개발자용) | `src/pages/DevCards.tsx` |
-| 색상 / 베이스 테마 | `src/index.css` (`.app-hub` 스코프 — 흰 배경 + #BA0C19 primary) |
-| Vite 설정 / 프록시 / PWA 설정 / dedupe | `vite.config.ts` |
-| 빌드 / 포트 | 루트 `package.json` 스크립트 + `apps/hub/.env.local` |
-| HTML / 메타 / 폰트 | `index.html` |
-| 환경 변수 예시 | 루트 `.env.example` |
+| 작업 종류                              | 먼저 읽을 파일                                                  |
+| -------------------------------------- | --------------------------------------------------------------- |
+| sub-app 추가 / 라우팅                  | `src/App.tsx` (`<Route ... nest>` 추가)                         |
+| navbar 메뉴 추가 / 로그인 버튼         | `src/components/Navbar.tsx` (`NAV_ITEMS` + auth 토스트)         |
+| 홈 카드 추가                           | `src/pages/Home.tsx` (`APPS` 배열)                              |
+| 404                                    | `src/pages/NotFound.tsx`                                        |
+| 카드 데모 (개발자용)                   | `src/pages/DevCards.tsx`                                        |
+| 색상 / 베이스 테마                     | `src/index.css` (`.app-hub` 스코프 — 흰 배경 + #BA0C19 primary) |
+| Vite 설정 / 프록시 / PWA 설정 / dedupe | `vite.config.ts`                                                |
+| 빌드 / 포트                            | 루트 `package.json` 스크립트 + `apps/hub/.env.local`            |
+| HTML / 메타 / 폰트                     | `index.html`                                                    |
+| 환경 변수 예시                         | 루트 `.env.example`                                             |
 
 ## 디렉토리 구조
 
@@ -61,6 +78,7 @@ apps/hub/
 ## 라우팅 패턴
 
 **Hub 자체 페이지** (가로 제한 + padding):
+
 ```tsx
 <Route path="/">
   <div className="mx-auto max-w-6xl px-4 py-8">
@@ -70,6 +88,7 @@ apps/hub/
 ```
 
 **Sub-app** (풀폭, 자체 레이아웃):
+
 ```tsx
 <Route path="/pot-quiz" nest>
   <PotQuizApp />
@@ -83,12 +102,14 @@ heads-up 만 `react-router-dom` v6 사용하지만, Hub `<Route nest>` 안에서
 ## Navbar / Auth
 
 **`src/components/Navbar.tsx`**:
+
 - `NAV_ITEMS` 배열 = (label, path) 쌍.
 - 로그인 버튼은 `useAuthState()` (from `@hh/shared`) 호출 → `signIn`/`signOut` 토글.
 - 미설정 / 미구현 provider 시 우측 아래 4초 토스트로 에러 표시.
 - 에러 토스트 재호출은 `error` state 변경에 의존 (같은 메시지 재시도해도 reflow).
 
 **Auth 동작**:
+
 - `VITE_AUTH_PROVIDER` env 값에 따라 `mimic` / `none` provider stub. 둘 다 throw로 응답.
 - 실제 Firebase 로그인은 `concept-quiz` 내부에서 자체 처리 — Hub navbar는 아직 통합되지 않음.
 
@@ -98,7 +119,7 @@ heads-up 만 `react-router-dom` v6 사용하지만, Hub `<Route nest>` 안에서
 .app-hub {
   --background: 0 0% 100%;
   --foreground: 0 0% 9%;
-  --primary: 354 88% 39%;        /* #BA0C19 — MIMIC red */
+  --primary: 354 88% 39%; /* #BA0C19 — MIMIC red */
   --primary-foreground: 0 0% 100%;
   /* ... */
 }
@@ -110,14 +131,16 @@ HSL 변수와 별도. 토큰 정의는 `@hh/tailwind-config/base.css`.
 ## Vite 설정 핵심
 
 **`vite.config.ts`**:
+
 - **`server.port`**: `Number(env.HUB_PORT) || 5175`
 - **`proxy /api`**: `http://localhost:${env.API_PORT || 3002}` (dev 모드 한정)
 - **`resolve.dedupe: ["react", "react-dom"]`** — sub-app react 중복 인스턴스 방지 (필수)
 - **`VitePWA(...)`**: 통합 manifest "홀덤 허브", `theme_color: "#ffffff"`, dev mode SW 비활성
 
 **`src/index.css` `@import`**:
+
 ```css
-@import "@hh/tailwind-config/base.css";  /* Tailwind 본체 + 모든 sub-app @source 등록 */
+@import "@hh/tailwind-config/base.css"; /* Tailwind 본체 + 모든 sub-app @source 등록 */
 ```
 
 `@source` 디렉티브로 모노레포 다른 워크스페이스 src를 명시 스캔 (`@hh/tailwind-config/base.css` 참조). Tailwind v4가 Vite root만 자동 스캔하므로 이게 없으면 sub-app 클래스가 빈 utility로 컴파일됨.
@@ -125,6 +148,7 @@ HSL 변수와 별도. 토큰 정의는 `@hh/tailwind-config/base.css`.
 ## 환경 변수
 
 **`apps/hub/.env.local`** (gitignored):
+
 - `HUB_PORT`, `API_PORT` — 포트 override (기본값 5175/3002와 동일하면 생략 가능)
 - `VITE_AUTH_PROVIDER` — `mimic` / `firebase` / 기본 `none`
 
