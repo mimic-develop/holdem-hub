@@ -20,8 +20,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
+        # package.json의 packageManager 필드(pnpm@10.12.1)를 자동으로 읽음
 
       - uses: actions/setup-node@v4
         with:
