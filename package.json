@@ -18,7 +18,8 @@
     "lint": "pnpm -r --parallel lint",
     "test": "pnpm -r --parallel test",
     "clean": "pnpm -r exec rm -rf node_modules dist .turbo && rm -rf node_modules",
-    "deploy": "gh workflow run deploy.yml"
+    "deploy:stage": "pnpm --filter @hh/hub deploy:stage",
+    "deploy:prod": "pnpm --filter @hh/hub deploy:prod"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",

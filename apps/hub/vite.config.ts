@@ -93,6 +93,6 @@ export default defineConfig(({ mode }) => {
       outDir: "dist",
       sourcemap: true,
     },
-    base: mode === "staging" ? "/play-lab-stage/" : "/holdem-hub/"
+    base: mode === "staging" ? "/play-lab-stage/" : "/"
   };
 });
