@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       VitePWA({
         registerType: "autoUpdate",
-        includeAssets: ["favicon.svg"],
+        includeAssets: ["photo_2026-06-01_17-41-13.jpg"],
         manifest: {
           name: "미믹 플레이랩",
           short_name: "미믹 플레이랩",
