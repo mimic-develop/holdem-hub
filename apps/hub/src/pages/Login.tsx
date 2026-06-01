@@ -146,10 +146,14 @@ export function Login() {
             <GoogleIcon />
             Google로 계속하기
           </button>
+          {/* ─── 네이버 로그인 버튼 ─────────────────────────────────────────────
+              TODO(naver-login): 연동 재개 시 onClick을 아래로 교체하고 /login/naver-unavailable 라우트 제거
+              onClick={() => handleSns("signInWithNaver")}
+              ────────────────────────────────────────────────────────────────── */}
           <button
             type="button"
             disabled={busy}
-            onClick={() => handleSns("signInWithNaver")}
+            onClick={() => navigate("/login/naver-unavailable")}
             className="flex w-full items-center justify-center gap-2 rounded-md border border-[rgba(255,252,243,0.12)] py-2.5 text-sm font-medium text-[rgba(255,252,243,0.7)] transition-colors hover:bg-[rgba(255,252,243,0.05)] disabled:opacity-40 cursor-pointer"
           >
             <NaverIcon />
