@@ -164,9 +164,13 @@ export function createMimicAuthStub(): AuthProvider {
     },
 
     async signInWithNaver(): Promise<AuthUser> {
-      const redirectUri = encodeURIComponent(window.location.origin + "/oauth/redirect");
-      window.location.href = `${apiUrl}/oauth2/authorization/naver?redirect_uri=${redirectUri}`;
-      return new Promise(() => {});
+      // ─── 네이버 로그인 연동 재개 시 아래 주석 해제하고 throw 제거 ────────
+      // const redirectUri = encodeURIComponent(window.location.origin + "/oauth/redirect");
+      // window.location.href = `${apiUrl}/oauth2/authorization/naver?redirect_uri=${redirectUri}`;
+      // return new Promise(() => {});
+      // ────────────────────────────────────────────────────────────────────
+      // TODO(naver-login): 준비 중 — Login.tsx에서 직접 /login/naver-unavailable로 이동하므로 여기까지 도달하지 않음
+      throw Object.assign(new Error("naver_unavailable"), { code: "naver_unavailable" });
     },
 
     async signInWithApple(): Promise<AuthUser> {

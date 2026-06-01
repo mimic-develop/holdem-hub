@@ -6,6 +6,7 @@ import type { PlayLapHomeData } from "@hh/shared";
 import { Navbar } from "./components/Navbar";
 import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
+import { NaverUnavailable } from "./pages/NaverUnavailable";
 import { OAuthCallback } from "./pages/OAuthCallback";
 import { SnsCallback } from "./pages/SnsCallback";
 import { NotFound } from "./pages/NotFound";
@@ -60,6 +61,10 @@ export function App() {
             <Switch>
               <Route path="/login">
                 <Login />
+              </Route>
+              {/* TODO(naver-login): 연동 재개 시 아래 라우트와 NaverUnavailable import 제거 */}
+              <Route path="/login/naver-unavailable">
+                <NaverUnavailable />
               </Route>
               <Route path="/oauth/redirect">
                 <OAuthCallback />
