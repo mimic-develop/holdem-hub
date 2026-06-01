@@ -754,7 +754,7 @@ export default function Home({ initialStreak = 0, initialBestStreak = 0 }: HomeP
                 }}
               >
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-display font-bold text-base text-white">명예의 전당</h2>
+                  <h2 className="font-display font-bold text-base text-white">Nut to 3</h2>
                   <button
                     data-testid="button-close-leaderboard"
                     onClick={() => setShowLeaderboard(false)}

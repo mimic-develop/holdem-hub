@@ -64,7 +64,7 @@ export function NaverUnavailable() {
           <div className="flex items-center gap-2">
             <NaverIcon />
             <p className="text-sm font-semibold text-[rgba(255,252,243,0.85)]">
-              네이버 로그인은 현재 준비 중이에요.
+              네이버 로그인은 현재 준비 중입니다.
             </p>
           </div>
           <p className="text-sm text-[rgba(255,252,243,0.55)]">
@@ -73,7 +73,7 @@ export function NaverUnavailable() {
           <p className="text-xs text-[rgba(255,252,243,0.4)] leading-relaxed">
             비밀번호가 기억나지 않으신다면<br />
             <span className="text-[rgba(255,252,243,0.6)]">마이플레이 → 프로필 설정 → 비밀번호 변경</span>
-            에서 재설정할 수 있어요.
+            에서 재설정할 수 있습니다.
           </p>
         </div>
 
