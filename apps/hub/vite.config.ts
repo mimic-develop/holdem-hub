@@ -19,8 +19,8 @@ export default defineConfig(({ mode }) => {
         registerType: "autoUpdate",
         includeAssets: ["favicon.svg"],
         manifest: {
-          name: "홀덤 허브",
-          short_name: "홀덤 허브",
+          name: "미믹 플레이랩",
+          short_name: "미믹 플레이랩",
           description:
             "홀덤 학습/연습 앱 통합 — 팟 분배, 너트 핸드, 개념 퀴즈, 헤즈업 트레이너.",
           lang: "ko",

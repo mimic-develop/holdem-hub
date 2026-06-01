@@ -9,7 +9,7 @@ function readPort(): number {
   }
   const envPort = Number(process.env.API_PORT);
   if (Number.isFinite(envPort) && envPort > 0) return envPort;
-  // 기본 포트 3002 (홀덤 허브 표준).
+  // 기본 포트 3002 (미믹 플레이랩 표준).
   return 3002;
 }
 

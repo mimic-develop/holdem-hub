@@ -2,7 +2,7 @@
   "name": "holdem-hub",
   "version": "0.1.0",
   "private": true,
-  "description": "홀덤 허브 모노레포 — 팟 분배 퀴즈, 너트 게임, 개념 퀴즈, 헤즈업 트레이너 통합",
+  "description": "미믹 플레이랩 모노레포 — 팟 분배 퀴즈, 너트 게임, 개념 퀴즈, 헤즈업 트레이너 통합",
   "packageManager": "pnpm@10.12.1",
   "engines": {
     "node": ">=20"

@@ -101,9 +101,9 @@ export function LeaderboardPanel({ uid, refreshKey, onRankResolved }: Props) {
               <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/10 text-white text-[10px] font-bold tabular-nums">
                {myRank}
               </div>
-              <div className="flex-1 min-w-0 truncate font-semibold text-white/85">{myEntry.nickname}</div>
-              <span className="tabular-nums text-orange-300 font-bold w-14 text-right">{myEntry.streak}연속</span>
-              <span className="tabular-nums text-emerald-300 font-bold w-16 text-right">{myEntry.score.toLocaleString()}</span>
+              <div className="flex-1 min-w-0 truncate font-semibold text-white/85">{myEntry?.nickname}</div>
+              <span className="tabular-nums text-orange-300 font-bold w-14 text-right">{myEntry?.streak}연속</span>
+              <span className="tabular-nums text-emerald-300 font-bold w-16 text-right">{myEntry?.score.toLocaleString()}</span>
             </div>
           ) : (
             <div className="px-3 py-2 text-center text-[11px] text-white/40">순위권 밖입니다</div>

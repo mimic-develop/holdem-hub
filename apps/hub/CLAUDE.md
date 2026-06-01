@@ -24,7 +24,7 @@ pnpm run deploy:prod
 - **테마**: **화이트 + MIMIC red `#BA0C19`** (HSL `354 88% 39%`). MIMIC 브랜드 표준.
 - **라우터**: wouter. Hub 자체 `/`, `/dev/cards` + sub-app `/<name>` (nested).
 - **상태**: useState + `@hh/shared` `useAuthState`. 가벼운 React Query (sub-app으로 전파 안 됨).
-- **PWA**: `vite-plugin-pwa`로 통합 — manifest "홀덤 허브", autoUpdate, navigateFallbackDenylist `/api/*`.
+- **PWA**: `vite-plugin-pwa`로 통합 — manifest "미믹 플레이랩", autoUpdate, navigateFallbackDenylist `/api/*`.
 
 ## 진입점
 
@@ -135,7 +135,7 @@ HSL 변수와 별도. 토큰 정의는 `@hh/tailwind-config/base.css`.
 - **`server.port`**: `Number(env.HUB_PORT) || 5175`
 - **`proxy /api`**: `http://localhost:${env.API_PORT || 3002}` (dev 모드 한정)
 - **`resolve.dedupe: ["react", "react-dom"]`** — sub-app react 중복 인스턴스 방지 (필수)
-- **`VitePWA(...)`**: 통합 manifest "홀덤 허브", `theme_color: "#ffffff"`, dev mode SW 비활성
+- **`VitePWA(...)`**: 통합 manifest "미믹 플레이랩", `theme_color: "#ffffff"`, dev mode SW 비활성
 
 **`src/index.css` `@import`**:
 
@@ -175,4 +175,4 @@ HSL 변수와 별도. 토큰 정의는 `@hh/tailwind-config/base.css`.
 
 - **단일 번들 + sub-app 컴포넌트 export 패턴**: 각 sub-app은 `src/index.tsx`에서 default export, Hub가 `lazy()`로 코드 분할.
 - **wouter ↔ RR6 공존**: heads-up만 RR6, 나머지 wouter. 같은 history 공유, 독립 매칭.
-- **PWA 통합**: 원본 mimic_heads_up의 PWA 설정을 Hub로 흡수. 매니페스트 이름/아이콘은 "홀덤 허브" 통합 브랜드.
+- **PWA 통합**: 원본 mimic_heads_up의 PWA 설정을 Hub로 흡수. 매니페스트 이름/아이콘은 "미믹 플레이랩" 통합 브랜드.
