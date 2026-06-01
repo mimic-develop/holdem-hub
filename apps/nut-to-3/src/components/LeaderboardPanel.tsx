@@ -62,7 +62,6 @@ export function LeaderboardPanel({ uid, refreshKey, onRankResolved }: Props) {
         <Trophy className="w-4 h-4 text-amber-400" />
         <span className="font-display font-bold text-sm text-white tracking-tight">
           명예의 전당
-          {myRank !== null && <span className="ml-2 text-[11px] text-amber-400 font-normal">{myRank}위</span>}
         </span>
         <span className="ml-auto text-[10px] text-white/40 uppercase tracking-wider">All-time</span>
       </div>
