@@ -6,7 +6,6 @@ import type { PlayLapHomeData } from "@hh/shared";
 import { Navbar } from "./components/Navbar";
 import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
-import { NaverUnavailable } from "./pages/NaverUnavailable";
 import { OAuthCallback } from "./pages/OAuthCallback";
 import { SnsCallback } from "./pages/SnsCallback";
 import { NotFound } from "./pages/NotFound";
