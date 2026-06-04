@@ -8,7 +8,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   "400025": "정지된 계정입니다. 관리자에게 문의해주세요.",
   "400026": "차단된 계정입니다. 관리자에게 문의해주세요.",
   "400000": "가입된 계정이 없습니다.",
-  "None registered account": "가입된 계정이 없습니다." 
+  "None registered account": "가입된 계정이 없습니다."
 };
 
 function resolveError(err: unknown): string {
@@ -28,24 +28,22 @@ export function Login() {
     const params = new URLSearchParams(window.location.search);
     const raw = params.get("error");
     if (!raw) return null;
-    
+
     const decoded = decodeURIComponent(raw);
-    
+
     if (ERROR_MESSAGES[decoded]) {
       return ERROR_MESSAGES[decoded];
     }
     if (decoded === "oauth_failed") return "소셜 로그인에 실패했습니다.";
-    
+
     try {
       if (decoded.includes("{")) {
         const parsed = JSON.parse(decoded);
         const code = parsed.code || parsed.message;
         if (ERROR_MESSAGES[code]) return ERROR_MESSAGES[code];
       }
-    } catch (e) {
+    } catch (e) {}
 
-    }
-    
     return decoded;
   });
 
@@ -84,7 +82,6 @@ export function Login() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4" style={{ backgroundColor: "#000", color: "#fff" }}>
       <div className="w-full max-w-sm space-y-6 rounded-xl p-8" style={{ background: "rgb(0, 0, 0)", border: "1px solid rgba(255,255,255,0.08)" }}>
-        {/* Header */}
         <div className="text-center space-y-1">
           <p className="text-[11px] font-extrabold tracking-[0.22em] uppercase text-[rgba(255,252,243,0.4)]">
             MIMIC PLAYLAB
@@ -92,7 +89,6 @@ export function Login() {
           <h1 className="text-xl font-bold tracking-tight">로그인</h1>
         </div>
 
-        {/* Email form */}
         <form onSubmit={handleEmailLogin} className="space-y-3">
           <input
             type="email"
@@ -128,15 +124,13 @@ export function Login() {
           </button>
         </form>
 
-        {/* Divider */}
         <div className="flex items-center gap-3">
           <div className="h-px flex-1 bg-[rgba(255,252,243,0.1)]" />
           <span className="text-[10px] tracking-widest text-[rgba(255,252,243,0.3)] uppercase">or</span>
           <div className="h-px flex-1 bg-[rgba(255,252,243,0.1)]" />
         </div>
 
-        {/* SNS buttons */}
-        <div className="space-y-2">
+        <div className="space-y-4">
           <button
             type="button"
             disabled={busy}
@@ -146,15 +140,23 @@ export function Login() {
             <GoogleIcon />
             Google로 계속하기
           </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => handleSns("signInWithNaver")}
-            className="flex w-full items-center justify-center gap-2 rounded-md border border-[rgba(255,252,243,0.12)] py-2.5 text-sm font-medium text-[rgba(255,252,243,0.7)] transition-colors hover:bg-[rgba(255,252,243,0.05)] disabled:opacity-40 cursor-pointer"
-          >
-            <NaverIcon />
-            네이버로 계속하기
-          </button>
+
+          {/* Naver Login with Badge */}
+          <div className="relative">
+            <div className="absolute -top-2.5 left-3 px-1.5 py-0.5 rounded-full bg-[#03C75A] text-[9px] font-bold text-white leading-none z-10 shadow-lg">
+              로그인 가능
+            </div>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => handleSns("signInWithNaver")}
+              className="flex w-full items-center justify-center gap-2 rounded-md border border-[rgba(255,252,243,0.12)] py-2.5 text-sm font-medium text-[rgba(255,252,243,0.7)] transition-colors hover:bg-[rgba(255,252,243,0.05)] disabled:opacity-40 cursor-pointer"
+            >
+              <NaverIcon />
+              네이버로 계속하기
+            </button>
+          </div>
+
           <button
             type="button"
             disabled={busy}
@@ -166,7 +168,6 @@ export function Login() {
           </button>
         </div>
 
-        {/* Back */}
         <p className="text-center">
           <button
             type="button"
