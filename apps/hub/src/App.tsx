@@ -62,10 +62,6 @@ export function App() {
               <Route path="/login">
                 <Login />
               </Route>
-              {/* TODO(naver-login): 연동 재개 시 아래 라우트와 NaverUnavailable import 제거 */}
-              <Route path="/login/naver-unavailable">
-                <NaverUnavailable />
-              </Route>
               <Route path="/oauth/redirect">
                 <OAuthCallback />
               </Route>
