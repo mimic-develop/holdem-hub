@@ -1,0 +1,325 @@
+/**
+ * nut-to/new mock fixtures.
+ *
+ * 실제 API 서버(`services/api`)의 `GET /api/nut-to/new` 응답을 그대로 캡처한 정적 데이터.
+ * pokersolver 로직을 재현하지 않고, 미리 계산된 완성 보드를 순환 반환한다.
+ *
+ * 재생성 방법: `pnpm dev:api` 후 `curl http://localhost:3002/api/nut-to/new`를 여러 번 호출해
+ * 응답을 이 배열에 붙여넣으면 된다.
+ */
+
+/** 캡처된 완성 보드 fixture (서버 응답 구조 + gameStateSchema 호환). */
+export const NUT_TO_NEW_FIXTURES = [
+  {
+    board: ["Jd", "8c", "7s", "8d", "7c"],
+    streets: [
+      {
+        name: "플랍",
+        board: ["Jd", "8c", "7s"],
+        tiers: [
+          {
+            koreanDescr: "스트레이트",
+            descr: "Straight, J High",
+            validCombos: [["9s", "Ts"], ["9s", "Th"], ["9s", "Td"], ["9s", "Tc"], ["Ts", "9h"], ["Ts", "9d"], ["Ts", "9c"], ["9h", "Th"], ["9h", "Td"], ["9h", "Tc"], ["Th", "9d"], ["Th", "9c"], ["9d", "Td"], ["9d", "Tc"], ["Td", "9c"], ["9c", "Tc"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["9s", "Ts"],
+            exampleDescr: "스트레이트 (J High) — 홀카드: 9♠ T♠",
+          },
+          {
+            koreanDescr: "트리플",
+            descr: "Three of a Kind, J's",
+            validCombos: [["Js", "Jh"], ["Js", "Jc"], ["Jh", "Jc"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["Js", "Jh"],
+            exampleDescr: "트리플 (J's) — 홀카드: J♠ J♥",
+          },
+          {
+            koreanDescr: "트리플",
+            descr: "Three of a Kind, 8's",
+            validCombos: [["8s", "8h"], ["8s", "8d"], ["8h", "8d"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["8s", "8h"],
+            exampleDescr: "트리플 (8's) — 홀카드: 8♠ 8♥",
+          },
+        ],
+      },
+      {
+        name: "턴",
+        board: ["Jd", "8c", "7s", "8d"],
+        tiers: [
+          {
+            koreanDescr: "포카드",
+            descr: "Four of a Kind, 8's",
+            validCombos: [["8s", "8h"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["8s", "8h"],
+            exampleDescr: "포카드 (8's) — 홀카드: 8♠ 8♥",
+          },
+          {
+            koreanDescr: "풀하우스",
+            descr: "Full House, J's over 8's",
+            validCombos: [["Js", "Jh"], ["Js", "Jc"], ["Jh", "Jc"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["Js", "Jh"],
+            exampleDescr: "풀하우스 (J's over 8's) — 홀카드: J♠ J♥",
+          },
+          {
+            koreanDescr: "풀하우스",
+            descr: "Full House, 8's over J's",
+            validCombos: [["8s", "Js"], ["8s", "Jh"], ["8s", "Jc"], ["Js", "8h"], ["8h", "Jh"], ["8h", "Jc"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["8s", "Jc"],
+            exampleDescr: "풀하우스 (8's over J's) — 홀카드: 8♠ J♣",
+          },
+        ],
+      },
+      {
+        name: "리버",
+        board: ["Jd", "8c", "7s", "8d", "7c"],
+        tiers: [
+          {
+            koreanDescr: "포카드",
+            descr: "Four of a Kind, 8's",
+            validCombos: [["8s", "8h"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["8s", "8h"],
+            exampleDescr: "포카드 (8's) — 홀카드: 8♠ 8♥",
+          },
+          {
+            koreanDescr: "포카드",
+            descr: "Four of a Kind, 7's",
+            validCombos: [["7h", "7d"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["7h", "7d"],
+            exampleDescr: "포카드 (7's) — 홀카드: 7♥ 7♦",
+          },
+          {
+            koreanDescr: "풀하우스",
+            descr: "Full House, J's over 8's",
+            validCombos: [["Js", "Jh"], ["Js", "Jc"], ["Jh", "Jc"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["Js", "Jh"],
+            exampleDescr: "풀하우스 (J's over 8's) — 홀카드: J♠ J♥",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    board: ["Kh", "9s", "3s", "3h", "As"],
+    streets: [
+      {
+        name: "플랍",
+        board: ["Kh", "9s", "3s"],
+        tiers: [
+          {
+            koreanDescr: "트리플",
+            descr: "Three of a Kind, K's",
+            validCombos: [["Ks", "Kd"], ["Ks", "Kc"], ["Kd", "Kc"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["Ks", "Kd"],
+            exampleDescr: "트리플 (K's) — 홀카드: K♠ K♦",
+          },
+          {
+            koreanDescr: "트리플",
+            descr: "Three of a Kind, 9's",
+            validCombos: [["9h", "9d"], ["9h", "9c"], ["9d", "9c"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["9h", "9d"],
+            exampleDescr: "트리플 (9's) — 홀카드: 9♥ 9♦",
+          },
+          {
+            koreanDescr: "트리플",
+            descr: "Three of a Kind, 3's",
+            validCombos: [["3h", "3d"], ["3h", "3c"], ["3d", "3c"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["3h", "3d"],
+            exampleDescr: "트리플 (3's) — 홀카드: 3♥ 3♦",
+          },
+        ],
+      },
+      {
+        name: "턴",
+        board: ["Kh", "9s", "3s", "3h"],
+        tiers: [
+          {
+            koreanDescr: "포카드",
+            descr: "Four of a Kind, 3's",
+            validCombos: [["3d", "3c"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["3d", "3c"],
+            exampleDescr: "포카드 (3's) — 홀카드: 3♦ 3♣",
+          },
+          {
+            koreanDescr: "풀하우스",
+            descr: "Full House, K's over 3's",
+            validCombos: [["Ks", "Kd"], ["Ks", "Kc"], ["Kd", "Kc"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["Ks", "Kd"],
+            exampleDescr: "풀하우스 (K's over 3's) — 홀카드: K♠ K♦",
+          },
+          {
+            koreanDescr: "풀하우스",
+            descr: "Full House, 9's over 3's",
+            validCombos: [["9h", "9d"], ["9h", "9c"], ["9d", "9c"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["9h", "9d"],
+            exampleDescr: "풀하우스 (9's over 3's) — 홀카드: 9♥ 9♦",
+          },
+        ],
+      },
+      {
+        name: "리버",
+        board: ["Kh", "9s", "3s", "3h", "As"],
+        tiers: [
+          {
+            koreanDescr: "포카드",
+            descr: "Four of a Kind, 3's",
+            validCombos: [["3d", "3c"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["3d", "3c"],
+            exampleDescr: "포카드 (3's) — 홀카드: 3♦ 3♣",
+          },
+          {
+            koreanDescr: "풀하우스",
+            descr: "Full House, A's over 3's",
+            validCombos: [["Ah", "Ad"], ["Ah", "Ac"], ["Ad", "Ac"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["Ah", "Ad"],
+            exampleDescr: "풀하우스 (A's over 3's) — 홀카드: A♥ A♦",
+          },
+          {
+            koreanDescr: "풀하우스",
+            descr: "Full House, K's over 3's",
+            validCombos: [["Ks", "Kd"], ["Ks", "Kc"], ["Kd", "Kc"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["Ks", "Kd"],
+            exampleDescr: "풀하우스 (K's over 3's) — 홀카드: K♠ K♦",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    board: ["Th", "4c", "Jd", "5d", "3h"],
+    streets: [
+      {
+        name: "플랍",
+        board: ["Th", "4c", "Jd"],
+        tiers: [
+          {
+            koreanDescr: "트리플",
+            descr: "Three of a Kind, J's",
+            validCombos: [["Js", "Jh"], ["Js", "Jc"], ["Jh", "Jc"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["Js", "Jh"],
+            exampleDescr: "트리플 (J's) — 홀카드: J♠ J♥",
+          },
+          {
+            koreanDescr: "트리플",
+            descr: "Three of a Kind, 10's",
+            validCombos: [["Ts", "Td"], ["Ts", "Tc"], ["Td", "Tc"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["Ts", "Td"],
+            exampleDescr: "트리플 (10's) — 홀카드: T♠ T♦",
+          },
+          {
+            koreanDescr: "트리플",
+            descr: "Three of a Kind, 4's",
+            validCombos: [["4s", "4h"], ["4s", "4d"], ["4h", "4d"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["4s", "4h"],
+            exampleDescr: "트리플 (4's) — 홀카드: 4♠ 4♥",
+          },
+        ],
+      },
+      {
+        name: "턴",
+        board: ["Th", "4c", "Jd", "5d"],
+        tiers: [
+          {
+            koreanDescr: "트리플",
+            descr: "Three of a Kind, J's",
+            validCombos: [["Js", "Jh"], ["Js", "Jc"], ["Jh", "Jc"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["Js", "Jh"],
+            exampleDescr: "트리플 (J's) — 홀카드: J♠ J♥",
+          },
+          {
+            koreanDescr: "트리플",
+            descr: "Three of a Kind, 10's",
+            validCombos: [["Ts", "Td"], ["Ts", "Tc"], ["Td", "Tc"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["Ts", "Td"],
+            exampleDescr: "트리플 (10's) — 홀카드: T♠ T♦",
+          },
+          {
+            koreanDescr: "트리플",
+            descr: "Three of a Kind, 5's",
+            validCombos: [["5s", "5h"], ["5s", "5c"], ["5h", "5c"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["5s", "5h"],
+            exampleDescr: "트리플 (5's) — 홀카드: 5♠ 5♥",
+          },
+        ],
+      },
+      {
+        name: "리버",
+        board: ["Th", "4c", "Jd", "5d", "3h"],
+        tiers: [
+          {
+            koreanDescr: "스트레이트",
+            descr: "Straight, 7 High",
+            validCombos: [["6s", "7s"], ["6s", "7h"], ["6s", "7d"], ["6s", "7c"], ["7s", "6h"], ["7s", "6d"], ["7s", "6c"], ["6h", "7h"], ["6h", "7d"], ["6h", "7c"], ["7h", "6d"], ["7h", "6c"], ["6d", "7d"], ["6d", "7c"], ["7d", "6c"], ["6c", "7c"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["6s", "7s"],
+            exampleDescr: "스트레이트 (7 High) — 홀카드: 6♠ 7♠",
+          },
+          {
+            koreanDescr: "스트레이트",
+            descr: "Straight, 6 High",
+            validCombos: [["2s", "6s"], ["2s", "6h"], ["2s", "6d"], ["2s", "6c"], ["6s", "2h"], ["6s", "2d"], ["6s", "2c"], ["2h", "6h"], ["2h", "6d"], ["2h", "6c"], ["6h", "2d"], ["6h", "2c"], ["2d", "6d"], ["2d", "6c"], ["6d", "2c"], ["2c", "6c"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["2s", "6h"],
+            exampleDescr: "스트레이트 (6 High) — 홀카드: 2♠ 6♥",
+          },
+          {
+            koreanDescr: "스트레이트",
+            descr: "Straight, 5 High",
+            validCombos: [["2s", "As"], ["2s", "Ah"], ["2s", "Ad"], ["2s", "Ac"], ["As", "2h"], ["As", "2d"], ["As", "2c"], ["2h", "Ah"], ["2h", "Ad"], ["2h", "Ac"], ["Ah", "2d"], ["Ah", "2c"], ["2d", "Ad"], ["2d", "Ac"], ["Ad", "2c"], ["2c", "Ac"]],
+            validSingleCards: [],
+            isBoardPlay: false,
+            exampleCards: ["As", "2h"],
+            exampleDescr: "스트레이트 (5 High) — 홀카드: A♠ 2♥",
+          },
+        ],
+      },
+    ],
+  },
+] as const;

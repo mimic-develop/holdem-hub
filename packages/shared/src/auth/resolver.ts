@@ -13,8 +13,20 @@
 import type { AuthProvider, AuthProviderName } from "./types.js";
 import { createMimicAuthStub } from "./mimic.js";
 import { createNoneAuthStub } from "./none.js";
+import { createMockAuthStub } from "./mock.js";
 
 let cached: AuthProvider | null = null;
+
+/**
+ * mock 모드 여부. `VITE_MOCK=true`이면 provider 설정(`VITE_AUTH_PROVIDER`)과 무관하게
+ * 자동 로그인된 mock provider를 사용한다.
+ *
+ * import.meta.env 직접 접근 — optional chaining 금지 (Vite static 주입 패턴 보존).
+ */
+function isMockMode(): boolean {
+  const env = (import.meta as unknown as { env?: Record<string, unknown> }).env;
+  return env?.VITE_MOCK === "true";
+}
 /** 외부에서 주입된 provider (registerAuthProvider로 설정) */
 let registered: AuthProvider | null = null;
 /** Firebase provider가 등록되길 기다리는 콜백 목록 */
@@ -95,6 +107,11 @@ export function registerAuthProvider(provider: AuthProvider): void {
 
 export function getActiveAuthProvider(): AuthProvider {
   if (cached) return cached;
+  if (isMockMode()) {
+    // VITE_MOCK=true — 로그인 없이 항상 인증된 mock 사용자
+    cached = createMockAuthStub();
+    return cached;
+  }
   const name = readProviderName();
   if (name === "firebase") {
     // 이미 등록돼 있으면 바로 사용, 없으면 대기 프록시 반환

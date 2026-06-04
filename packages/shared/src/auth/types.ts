@@ -35,4 +35,4 @@ export class AuthError extends Error {
   }
 }
 
-export type AuthProviderName = "firebase" | "mimic" | "none";
+export type AuthProviderName = "firebase" | "mimic" | "none" | "mock";

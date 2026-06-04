@@ -10,7 +10,9 @@
     "./auth": "./src/auth/index.ts",
     "./api": "./src/api/index.ts",
     "./hooks": "./src/hooks/index.ts",
-    "./lib": "./src/lib/index.ts"
+    "./lib": "./src/lib/index.ts",
+    "./mocks": "./src/mocks/index.ts",
+    "./mocks/browser": "./src/mocks/browser.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
@@ -34,6 +36,7 @@
     "@hh/tsconfig": "workspace:*",
     "@types/js-cookie": "^3.0.6",
     "@types/react": "^18.3.18",
+    "msw": "^2.14.6",
     "react": "^18.3.1",
     "typescript": "^5.7.3"
   }

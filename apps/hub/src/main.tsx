@@ -24,8 +24,24 @@ declare global {
 const root = globalThis.__hh_hub_root__ ?? ReactDOM.createRoot(rootElement);
 globalThis.__hh_hub_root__ = root;
 
-root.render(
-  <Router base={routerBase}>
-    <App />
-  </Router>
-);
+/**
+ * VITE_MOCK=true일 때만 MSW worker를 시작한다.
+ * mock 정의는 동적 import로만 로드해 production 번들에 포함되지 않게 한다.
+ */
+async function enableMockingIfRequested(): Promise<void> {
+  if (import.meta.env.VITE_MOCK !== "true") return;
+  const { worker } = await import("@hh/shared/mocks/browser");
+  // BASE_URL을 service worker 경로에 반영 (gh-pages sub-path 대응)
+  await worker.start({
+    onUnhandledRequest: "bypass",
+    serviceWorker: { url: `${import.meta.env.BASE_URL}mockServiceWorker.js` },
+  });
+}
+
+void enableMockingIfRequested().then(() => {
+  root.render(
+    <Router base={routerBase}>
+      <App />
+    </Router>
+  );
+});
