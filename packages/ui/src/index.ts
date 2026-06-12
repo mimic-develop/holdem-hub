@@ -33,3 +33,7 @@ export {
   type SurfacePadding,
 } from "./components/Surface.js";
 export { LoginGate, type LoginGateProps } from "./components/LoginGate.js";
+export {
+  ScaleToFit,
+  type ScaleToFitProps,
+} from "./components/ScaleToFit/index.js";
