@@ -12,12 +12,13 @@ interface PokerTableProps {
 
 export function PokerTable({ children, oppBet, myBet }: PokerTableProps) {
   return (
-    <div className="relative mx-auto w-full" style={{ maxWidth: '480px' }}>
-      {/* Bezel */}
+    <div className="relative mx-auto h-full w-full" style={{ maxWidth: '480px' }}>
+      {/* Bezel — 부모(table 영역 flex-1) 높이를 채워 위아래로 늘어난다. 좌석과의 여백
+          최소화. 예전 40dvh는 ScaleToFit transform과 이중 스케일되므로 미사용. */}
       <div
         className="relative w-full overflow-hidden rounded-[50%/30%]"
         style={{
-          height: 'clamp(180px, 40dvh, 340px)',
+          height: '100%',
           padding: '10px',
           background:
             'radial-gradient(ellipse at center, #1a1a1a 0%, #0a0a0a 70%, #000 100%)',

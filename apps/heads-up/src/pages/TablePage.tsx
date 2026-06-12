@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+import { ScaleToFit } from '@hh/ui';
 import { ActionBar } from '../components/table/ActionBar';
 import { ActionToast } from '../components/table/ActionToast';
 import { BetChip } from '../components/table/BetChip';
@@ -362,8 +363,16 @@ export default function TablePage() {
         </div>
       </div>
 
-      {/* Game area — 3-section flex column */}
-      <div className="flex flex-1 flex-col min-h-0" style={{ gap: 'clamp(4px, 1dvh, 10px)' }}>
+      {/* Game area — 3-section flex column. 화면 크기에 맞춰 한 덩어리로 비례 축소
+          (좌석/카드/펠트/베팅칩 모두 함께). 상단바·ActionBar는 스케일 밖(유동, 또렷). */}
+      <ScaleToFit
+        axis="both"
+        baseWidth={480}
+        baseHeight={900}
+        maxScale={1}
+        className="flex-1 min-h-0"
+      >
+      <div className="flex h-full flex-col" style={{ gap: 10 }}>
 
         {/* ── Opponent section ── */}
         <div
@@ -411,9 +420,10 @@ export default function TablePage() {
           </div>
         </div>
 
-        {/* ── Table section — flex-1 fills remaining height ── */}
+        {/* ── Table section — flex-1로 좌석 사이 공간을 차지하고, 펠트가 그 높이를
+             채우도록(위아래로 늘어남) 해 좌석과의 여백을 없앤다. ── */}
         <div className="flex flex-1 min-h-0 items-center justify-center px-2 overflow-hidden" style={{ zIndex: 10 }}>
-          <div className="relative w-full" style={{ maxWidth: '480px' }}>
+          <div className="relative h-full w-full" style={{ maxWidth: '480px' }}>
             <PokerTable
               oppBet={opp.currentBet > 0 ? <BetChip amount={opp.currentBet} /> : undefined}
               myBet={me.currentBet > 0 ? <BetChip amount={me.currentBet} /> : undefined}
@@ -484,6 +494,7 @@ export default function TablePage() {
         </div>
 
       </div>
+      </ScaleToFit>
 
       {/* Bottom area — ActionBar + optional chat (normal flow).
            z-30: player-section(z-20)/table-section(z-10)보다 위에 렌더링 보장. */}
@@ -494,6 +505,16 @@ export default function TablePage() {
           paddingBottom: 'max(4px, env(safe-area-inset-bottom))',
         }}
       >
+        {/* Decision countdown timer — AI mode only. bottom-full로 ActionBar 바로 위에
+            띄워 bet/raise 버튼과 겹치지 않게 한다. */}
+        {mode === 'AI' && (
+          <DecisionTimer
+            remaining={timerRemaining}
+            maxTime={timerMaxTime}
+            timebanksLeft={myTimebanksLeft}
+            show={isTimerActive}
+          />
+        )}
         {mode === 'REMOTE' && (
           <>
             <ChatToast entries={chatMessages} />
@@ -560,16 +581,6 @@ export default function TablePage() {
 
       {/* "내 차례" 플로팅 배너 */}
       <TurnBanner show={turnBannerShow} />
-
-      {/* Decision countdown timer — AI mode only, shown during my turn */}
-      {mode === 'AI' && (
-        <DecisionTimer
-          remaining={timerRemaining}
-          maxTime={timerMaxTime}
-          timebanksLeft={myTimebanksLeft}
-          show={isTimerActive}
-        />
-      )}
 
       {/* 매치메이킹 VS 인트로 (게임 시작 시 한 번) */}
       <AnimatePresence>
