@@ -1013,19 +1013,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set({ pingMs: rtt });
         break;
       }
-      case 'RESYNC_REQUEST': {
-        if (s.isHost && s.gameState) {
-          s._peer?.send({
-            type: 'RESYNC_RESPONSE',
-            state: stripPlayerCards(s.gameState, s.myPlayerId),
-          });
-        }
-        break;
-      }
-      case 'RESYNC_RESPONSE': {
-        set({ gameState: msg.state });
-        break;
-      }
       case 'LEAVE': {
         set({ opponentLeft: true, connectionStatus: 'DISCONNECTED' });
         break;

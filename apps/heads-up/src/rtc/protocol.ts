@@ -56,11 +56,6 @@ export interface NextHandMessage {
   type: 'NEXT_HAND';
 }
 
-export interface AckMessage {
-  type: 'ACK';
-  messageId: string;
-}
-
 export interface ChatMessage {
   type: 'CHAT';
   message: string;
@@ -78,17 +73,6 @@ export interface PongMessage {
   timestamp: number;
 }
 
-/** Guest → Host: guest's local state seems off; please retransmit. */
-export interface ResyncRequestMessage {
-  type: 'RESYNC_REQUEST';
-}
-
-/** Host → Guest: reply with the canonical state. */
-export interface ResyncResponseMessage {
-  type: 'RESYNC_RESPONSE';
-  state: GameState;
-}
-
 /** Either side: explicit bye. */
 export interface LeaveMessage {
   type: 'LEAVE';
@@ -101,12 +85,9 @@ export type ProtocolMessage =
   | HandEndMessage
   | ActionMessage
   | NextHandMessage
-  | AckMessage
   | ChatMessage
   | PingMessage
   | PongMessage
-  | ResyncRequestMessage
-  | ResyncResponseMessage
   | LeaveMessage;
 
 export function isProtocolMessage(x: unknown): x is ProtocolMessage {
@@ -120,63 +101,43 @@ export function isProtocolMessage(x: unknown): x is ProtocolMessage {
     'HAND_END',
     'ACTION',
     'NEXT_HAND',
-    'ACK',
     'CHAT',
     'PING',
     'PONG',
-    'RESYNC_REQUEST',
-    'RESYNC_RESPONSE',
     'LEAVE',
   ];
   return validTypes.includes(obj.type);
 }
 
-/* Room code: "hs-NNNN-XXYY" — short, memorable, prefixed to avoid accidental
- * collision with other PeerJS-using apps on the public broker.
+/* Room code: a simple 4-digit number ("7392") — easy to read out loud / type.
  *
- * IMPORTANT: PeerJS public broker validates peer IDs against an ASCII-only
- * regex (roughly /^[A-Za-z0-9_-]+$/). Korean characters are rejected — every
- * `createRoom` attempt fails with "ID is invalid". So we use romanized Korean
- * syllables (ga, na, da, …) to preserve the Korean feel while staying ASCII.
+ * The code the user sees and types is just the 4 digits. The actual PeerJS
+ * peer id is the code with an `hs-` prefix (→ "hs-7392"): the public broker
+ * (`0.peerjs.com`) is shared globally, so a bare "7392" would collide with
+ * other PeerJS apps' ids. The prefix namespaces us. Use `peerIdForRoom()`
+ * whenever you need the broker-facing id; keep the bare code for display.
  *
- * Combinations: 14 × 14 = 196 syllable pairs × 10000 numeric = ~2M codes.
- * Plenty for a small practice app on a free broker.
+ * Space: 10000 codes — plenty for a small practice app (createRoom retries on
+ * the rare "id taken" collision).
  */
 
-const KR_SYLLABLES = [
-  'ga',
-  'na',
-  'da',
-  'ra',
-  'ma',
-  'ba',
-  'sa',
-  'ya',
-  'ja',
-  'cha',
-  'ka',
-  'ta',
-  'pa',
-  'ha',
-] as const;
-
-// Match the actual code shape: hs-NNNN-{2..6 lowercase ascii letters}
-// (cha + cha = 6 chars max). PeerJS-broker safe.
-const ROOM_CODE_REGEX = /^hs-\d{4}-[a-z]{2,6}$/;
+const ROOM_ID_PREFIX = 'hs-';
+const ROOM_CODE_REGEX = /^\d{4}$/;
 
 export function generateRoomCode(): string {
-  const digits = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-  const c1 = KR_SYLLABLES[Math.floor(Math.random() * KR_SYLLABLES.length)];
-  const c2 = KR_SYLLABLES[Math.floor(Math.random() * KR_SYLLABLES.length)];
-  return `hs-${digits}-${c1}${c2}`;
+  return String(Math.floor(Math.random() * 10000)).padStart(4, '0');
 }
 
 export function isValidRoomCode(code: string): boolean {
-  return ROOM_CODE_REGEX.test(code.trim().toLowerCase());
+  return ROOM_CODE_REGEX.test(code.trim());
 }
 
 export function normalizeRoomCode(input: string): string {
-  // Lowercase too — users may type "HS-1234-DATA" but the broker is
-  // case-sensitive and we generate lowercase.
-  return input.trim().toLowerCase();
+  // Keep digits only — tolerate stray spaces/dashes a user might paste.
+  return input.replace(/\D/g, '').slice(0, 4);
+}
+
+/** Map a user-facing room code ("7392") to its broker-safe peer id ("hs-7392"). */
+export function peerIdForRoom(code: string): string {
+  return `${ROOM_ID_PREFIX}${code}`;
 }

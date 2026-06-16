@@ -3,7 +3,11 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { PeerConnection } from '../../rtc/peer-connection';
 import { getPeerOptions } from '../../rtc/peer-options';
-import { isValidRoomCode, normalizeRoomCode } from '../../rtc/protocol';
+import {
+  isValidRoomCode,
+  normalizeRoomCode,
+  peerIdForRoom,
+} from '../../rtc/protocol';
 import { useGameStore } from '../../store/game-store';
 
 interface JoinRoomDialogProps {
@@ -41,20 +45,21 @@ export function JoinRoomDialog({ open, onClose, myName }: JoinRoomDialogProps) {
   const connect = async () => {
     const normalized = normalizeRoomCode(code);
     if (!isValidRoomCode(normalized)) {
-      setError('형식이 올바르지 않습니다. 예: hs-1234-gana');
+      setError('형식이 올바르지 않습니다. 4자리 숫자를 입력하세요. 예: 7392');
       return;
     }
     setConnecting(true);
     setError(null);
+    const hostPeerId = peerIdForRoom(normalized);
     const peer = new PeerConnection({ peerOptions: getPeerOptions() });
     try {
-      await peer.joinRoom(normalized);
+      await peer.joinRoom(hostPeerId);
       attachRemoteConnection({
         peer,
         isHost: false,
         myName,
         roomCode: normalized,
-        opponentPeerId: normalized,
+        opponentPeerId: hostPeerId,
       });
       // Ownership handed to the store; no dialog-side cleanup needed.
     } catch (err) {
@@ -90,16 +95,18 @@ export function JoinRoomDialog({ open, onClose, myName }: JoinRoomDialogProps) {
               </span>
               <input
                 type="text"
+                inputMode="numeric"
+                maxLength={4}
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && valid && !connecting) connect();
                 }}
-                placeholder="hs-1234-gana"
+                placeholder="7392"
                 autoComplete="off"
                 spellCheck={false}
                 disabled={connecting}
-                className="w-full rounded-md border border-border bg-muted px-3 py-2 text-base font-mono text-foreground focus:border-primary focus:outline-none disabled:opacity-50"
+                className="w-full rounded-md border border-border bg-muted px-3 py-2 text-base font-mono tracking-[0.3em] text-foreground focus:border-primary focus:outline-none disabled:opacity-50"
               />
             </label>
 
