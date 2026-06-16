@@ -115,7 +115,10 @@ export default function PokerTable({
   const seatPositions = computeSeatPositions(allSeats.length);
 
   return (
-    <div className="relative w-full flex-1 min-h-[240px]" style={{ marginTop: 50 }}>
+    // ScaleToFit가 부여하는 고정 좌표 박스(baseWidth×baseHeight)를 가득 채운다.
+    // 펠트/림 % 인셋과 computeSeatPositions가 안정된 좌표계에 대해 해석되어
+    // 좌석이 펠트와 함께 비례 축소된다.
+    <div className="relative h-full w-full">
       {/* Outer rim — 인트로 톤(#181A20 card)에 맞춘 dark metal 그라데이션 + 골드 inner highlight */}
       <div
         className="absolute rounded-[50%]"

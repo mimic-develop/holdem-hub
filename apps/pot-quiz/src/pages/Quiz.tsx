@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { apiFetch } from '@hh/shared';
 import { ArrowLeft, Volume2, VolumeX } from 'lucide-react';
-import { SubAppHeader } from '@hh/ui';
+import { SubAppHeader, ScaleToFit } from '@hh/ui';
 import { AnimatePresence, motion } from 'framer-motion';
 import { calcStreakBonus, STEP1_PTS, STEP2_PTS, STEP3_PTS } from '@hh/poker-engine';
 import { POT_QUIZ_PASS_SECONDS as PASS_SECONDS, calcTimeScore } from '../lib/timing';
@@ -654,23 +654,27 @@ export default function Quiz({ mode = 'game' }: QuizProps = {}) {
         className="flex-1 min-h-0 flex flex-col relative"
         style={{ maxHeight: 'calc(70dvh - 124px)', paddingTop: 32 }}
       >
-      <PokerTable
-        puzzle={puzzle}
-        phase={phase}
-        rankAssignments={rankAssignments}
-        lockedRankings={lockedRankings}
-        lastResult={lastResult}
-        adjDeadMoney={adjDeadMoney}
-        onSeatClick={handleSeatClick}
-        chipsAtSeat={chipsAtSeatForTable}
-        chipsAtDeadMoney={chipsAtDeadMoneyForTable}
-        deadMoneyActive={deadMoneyActive}
-        onDeadMoneyClick={handleDeadMoneyClick}
-        highlightSeatIds={highlightSeatIds}
-        selectedSeatIds={selectedSeatIds}
-        shakeTick={flow.state.errorTick}
-        shakeSeatId={lastClickedSeatRef.current}
-      />
+      {/* 테이블만 화면 크기에 맞춰 비례 축소(축소 전용). chrome(타이머/PotArea/패널)은
+          스케일 대상 아님 — 유동 레이아웃 유지로 텍스트 또렷 + 네이티브 스크롤 보존. */}
+      <ScaleToFit baseWidth={400} baseHeight={440} axis="both" maxScale={1} className="flex-1 min-h-0">
+        <PokerTable
+          puzzle={puzzle}
+          phase={phase}
+          rankAssignments={rankAssignments}
+          lockedRankings={lockedRankings}
+          lastResult={lastResult}
+          adjDeadMoney={adjDeadMoney}
+          onSeatClick={handleSeatClick}
+          chipsAtSeat={chipsAtSeatForTable}
+          chipsAtDeadMoney={chipsAtDeadMoneyForTable}
+          deadMoneyActive={deadMoneyActive}
+          onDeadMoneyClick={handleDeadMoneyClick}
+          highlightSeatIds={highlightSeatIds}
+          selectedSeatIds={selectedSeatIds}
+          shakeTick={flow.state.errorTick}
+          shakeSeatId={lastClickedSeatRef.current}
+        />
+      </ScaleToFit>
 
       {phase === 'pot' && flow.flow && narrationVisible && (
         <NarrationToast

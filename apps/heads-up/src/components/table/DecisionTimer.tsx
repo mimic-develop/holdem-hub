@@ -48,7 +48,7 @@ export function DecisionTimer({ remaining, maxTime, timebanksLeft, show }: Decis
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.85 }}
           transition={{ duration: 0.18 }}
-          className="pointer-events-none absolute bottom-2 right-3 z-30 flex flex-col items-center gap-1"
+          className="pointer-events-none absolute bottom-full right-3 z-30 mb-2 flex flex-col items-center gap-1"
         >
           {/* Circular ring */}
           <motion.div
