@@ -238,7 +238,13 @@ export default function ResultPanel({ phase, lastResult, puzzle, score, onQuit, 
         </div>
       </div>
 
-      <div className="flex gap-3">
+      <div
+        className="sticky bottom-0 flex gap-3 pt-3"
+        style={{
+          background: 'hsl(var(--background))',
+          borderTop: '1px solid rgba(255,255,255,0.06)',
+        }}
+      >
         <button
           onClick={onQuit}
           data-testid="btn-home"
