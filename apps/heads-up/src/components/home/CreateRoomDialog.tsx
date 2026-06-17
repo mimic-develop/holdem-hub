@@ -23,6 +23,8 @@ export function CreateRoomDialog({ open, onClose, myName }: CreateRoomDialogProp
   const gameState = useGameStore((s) => s.gameState);
   const [state, setState] = useState<State>({ status: 'creating' });
   const [peer, setPeer] = useState<PeerConnection | null>(null);
+  // Transient "복사됨" feedback after the share/copy button is pressed.
+  const [copied, setCopied] = useState(false);
   // Tracks whether this effect's peer was successfully passed to the store
   // (via attachRemoteConnection). Once handed off, the store owns the peer's
   // lifecycle, and dialog unmount must NOT close it — otherwise navigating to
@@ -84,21 +86,57 @@ export function CreateRoomDialog({ open, onClose, myName }: CreateRoomDialogProp
     onClose();
   };
 
+  const flashCopied = () => {
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyToClipboard = async (value: string): Promise<boolean> => {
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+        return true;
+      }
+    } catch {
+      // fall through to the legacy path below
+    }
+    // Fallback for non-secure contexts / older browsers without the async API.
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = value;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  };
+
   const share = async () => {
     if (state.status !== 'waiting') return;
     const text = `HEADS-UP 대결\n코드: ${state.code}`;
-    try {
-      const nav = (typeof navigator !== 'undefined'
-        ? (navigator as unknown as { share?: (d: { title: string; text: string }) => Promise<void> })
-        : undefined);
-      if (nav?.share) {
+    const nav =
+      typeof navigator !== 'undefined'
+        ? (navigator as unknown as {
+            share?: (d: { title: string; text: string }) => Promise<void>;
+          })
+        : undefined;
+    // Mobile / supported browsers: native share sheet (its own feedback).
+    if (nav?.share) {
+      try {
         await nav.share({ title: 'HEADS-UP', text });
-      } else if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(state.code);
+        return;
+      } catch {
+        // user cancelled the share sheet, or it failed — fall back to copy.
       }
-    } catch {
-      // user-cancelled share is fine
     }
+    // Desktop / no Web Share API: copy the code and show feedback so the
+    // button isn't silent.
+    if (await copyToClipboard(state.code)) flashCopied();
   };
 
   return (
@@ -126,11 +164,19 @@ export function CreateRoomDialog({ open, onClose, myName }: CreateRoomDialogProp
                 <p className="mb-3 text-sm text-foreground">
                   상대에게 아래 코드를 공유하세요.
                 </p>
-                <div className="mb-4 rounded-lg border border-primary/30 bg-black/40 p-4 text-center">
+                <button
+                  type="button"
+                  onClick={share}
+                  title="코드 복사"
+                  className="mb-2 w-full rounded-lg border border-primary/30 bg-black/40 p-4 text-center transition-colors hover:border-primary/60 hover:bg-black/60"
+                >
                   <div className="text-2xl font-bold tracking-wider text-primary">
                     {state.code}
                   </div>
-                </div>
+                </button>
+                <p className="mb-3 h-4 text-center text-xs text-green-400">
+                  {copied ? '코드를 복사했어요!' : ''}
+                </p>
                 <div className="mb-4 flex items-center justify-center gap-2 text-xs text-muted-foreground">
                   <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
                   상대를 기다리는 중…
@@ -148,7 +194,7 @@ export function CreateRoomDialog({ open, onClose, myName }: CreateRoomDialogProp
                     onClick={share}
                     className="flex-1 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
                   >
-                    공유
+                    {copied ? '복사됨 ✓' : '공유'}
                   </button>
                 </div>
               </>

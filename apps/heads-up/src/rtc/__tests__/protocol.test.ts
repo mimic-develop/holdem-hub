@@ -4,44 +4,45 @@ import {
   isProtocolMessage,
   isValidRoomCode,
   normalizeRoomCode,
+  peerIdForRoom,
   type ProtocolMessage,
 } from '../protocol';
 
 describe('protocol — room code', () => {
-  it('generateRoomCode produces the expected ASCII shape', () => {
-    for (let i = 0; i < 100; i++) {
+  it('generateRoomCode produces a 4-digit numeric code', () => {
+    for (let i = 0; i < 200; i++) {
       const code = generateRoomCode();
-      // PeerJS broker requires alphanumerics + - / _ — no unicode.
-      expect(code).toMatch(/^hs-\d{4}-[a-z]{2,6}$/);
-      // Defensive: must NOT contain any non-ASCII char (Korean would crash broker).
-      // eslint-disable-next-line no-control-regex
-      expect(code).toMatch(/^[\x00-\x7F]+$/);
+      expect(code).toMatch(/^\d{4}$/);
     }
   });
 
-  it('isValidRoomCode accepts well-formed codes (romanized syllables)', () => {
-    expect(isValidRoomCode('hs-1234-gana')).toBe(true);
-    expect(isValidRoomCode('hs-0001-haha')).toBe(true);
-    expect(isValidRoomCode('hs-9055-data')).toBe(true);
-    expect(isValidRoomCode('hs-7777-chacha')).toBe(true); // 6 chars (cha+cha)
-    expect(isValidRoomCode(' hs-1234-gana ')).toBe(true); // trims
-    expect(isValidRoomCode('HS-1234-GANA')).toBe(true); // case-insensitive on input
+  it('isValidRoomCode accepts 4-digit codes', () => {
+    expect(isValidRoomCode('1234')).toBe(true);
+    expect(isValidRoomCode('0001')).toBe(true);
+    expect(isValidRoomCode('0000')).toBe(true);
+    expect(isValidRoomCode('9999')).toBe(true);
+    expect(isValidRoomCode(' 7392 ')).toBe(true); // trims
   });
 
   it('isValidRoomCode rejects malformed codes', () => {
-    expect(isValidRoomCode('1234')).toBe(false);
-    expect(isValidRoomCode('hs-1234')).toBe(false);
-    expect(isValidRoomCode('hs-1234-가나')).toBe(false); // unicode rejected
-    expect(isValidRoomCode('hs-1234-a')).toBe(false); // too short
-    expect(isValidRoomCode('hs-1234-abcdefg')).toBe(false); // too long (max 6)
-    expect(isValidRoomCode('hs-12345-gana')).toBe(false); // too many digits
-    expect(isValidRoomCode('hs-1234-da_ta')).toBe(false); // underscore not allowed
+    expect(isValidRoomCode('123')).toBe(false); // too short
+    expect(isValidRoomCode('12345')).toBe(false); // too long
+    expect(isValidRoomCode('12a4')).toBe(false); // non-digit
+    expect(isValidRoomCode('hs-1234')).toBe(false); // prefix is internal only
+    expect(isValidRoomCode('가나다라')).toBe(false); // unicode
     expect(isValidRoomCode('')).toBe(false);
   });
 
-  it('normalizeRoomCode trims whitespace and lowercases', () => {
-    expect(normalizeRoomCode('  hs-1234-gana\n')).toBe('hs-1234-gana');
-    expect(normalizeRoomCode('HS-1234-GANA')).toBe('hs-1234-gana');
+  it('normalizeRoomCode keeps digits only, capped at 4', () => {
+    expect(normalizeRoomCode('  7392\n')).toBe('7392');
+    expect(normalizeRoomCode('73-92')).toBe('7392'); // strips dashes
+    expect(normalizeRoomCode('7392x')).toBe('7392'); // strips letters
+    expect(normalizeRoomCode('123456')).toBe('1234'); // caps at 4
+  });
+
+  it('peerIdForRoom prefixes the code for broker namespacing', () => {
+    expect(peerIdForRoom('7392')).toBe('hs-7392');
+    expect(peerIdForRoom('0001')).toBe('hs-0001');
   });
 });
 
@@ -69,12 +70,9 @@ describe('protocol — message validation', () => {
     },
     { type: 'ACTION', playerId: 'a', action: 'fold', timestamp: 1 },
     { type: 'NEXT_HAND' },
-    { type: 'ACK', messageId: 'm1' },
     { type: 'CHAT', message: 'hi', fromName: 'Alice' },
     { type: 'PING', timestamp: 1 },
     { type: 'PONG', timestamp: 1 },
-    { type: 'RESYNC_REQUEST' },
-    { type: 'RESYNC_RESPONSE', state: {} as never },
     { type: 'LEAVE' },
   ];
 

@@ -2,6 +2,7 @@ import { Peer, type DataConnection } from 'peerjs';
 import {
   generateRoomCode,
   isProtocolMessage,
+  peerIdForRoom,
   type ProtocolMessage,
 } from './protocol';
 
@@ -46,16 +47,18 @@ export class PeerConnection {
   }
 
   async createRoom(): Promise<string> {
-    // Generate a short Korean-styled ID. If the broker rejects (ID taken),
-    // retry a handful of times with fresh IDs.
+    // Generate a 4-digit code; the broker-facing peer id is the prefixed form.
+    // If the broker rejects (ID taken), retry a handful of times with fresh codes.
     const MAX_ATTEMPTS = 5;
     let lastErr: unknown;
+    let roomCode: string | null = null;
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       if (this.destroyed) throw new Error('PeerConnection destroyed');
       const candidate = generateRoomCode();
       try {
-        await this.openPeer(candidate);
-        this.myPeerId = candidate;
+        await this.openPeer(peerIdForRoom(candidate));
+        this.myPeerId = peerIdForRoom(candidate);
+        roomCode = candidate;
         break;
       } catch (err) {
         lastErr = err;
@@ -63,7 +66,7 @@ export class PeerConnection {
         this.peer = null;
       }
     }
-    if (!this.myPeerId) {
+    if (!this.myPeerId || !roomCode) {
       throw new Error(
         `방 만들기에 실패했습니다. 네트워크 상태를 확인하세요. (${String(lastErr)})`,
       );
@@ -75,7 +78,8 @@ export class PeerConnection {
     });
 
     this.setStatus('CONNECTING');
-    return this.myPeerId;
+    // Return the bare 4-digit code for display; getMyPeerId() keeps the prefix.
+    return roomCode;
   }
 
   async joinRoom(hostPeerId: string): Promise<void> {
@@ -91,28 +95,51 @@ export class PeerConnection {
     });
     this.attachConnection(conn);
 
+    const peer = this.peer!;
     await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(
-        () =>
+      let settled = false;
+      let timeout: ReturnType<typeof setTimeout>;
+      const cleanup = () => {
+        clearTimeout(timeout);
+        conn.off('open', onOpen);
+        conn.off('error', onConnError);
+        peer.off('error', onPeerError);
+      };
+      const settle = (fn: () => void) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        fn();
+      };
+      const onOpen = () => settle(resolve);
+      const onConnError = (err: Error) => settle(() => reject(err));
+      // The broker reports "host not found / already left" as a peer-level
+      // error (type 'peer-unavailable'), NOT a conn error. Without this
+      // listener a wrong/expired code just hangs until the timeout fires.
+      const onPeerError = (err: Error & { type?: string }) =>
+        settle(() =>
           reject(
-            new Error(
-              '연결 시간이 초과되었습니다. 방 코드가 맞는지, 상대방이 방을 만들었는지 확인하세요.',
+            err.type === 'peer-unavailable'
+              ? new Error(
+                  '방을 찾을 수 없습니다. 코드가 맞는지, 상대가 아직 방에 있는지 확인하세요.',
+                )
+              : err,
+          ),
+        );
+      timeout = setTimeout(
+        () =>
+          settle(() =>
+            reject(
+              new Error(
+                '연결 시간이 초과되었습니다. 방 코드가 맞는지, 상대방이 방을 만들었는지 확인하세요.',
+              ),
             ),
           ),
         15000,
       );
-      const onOpen = () => {
-        clearTimeout(timeout);
-        conn.off('error', onError);
-        resolve();
-      };
-      const onError = (err: Error) => {
-        clearTimeout(timeout);
-        conn.off('open', onOpen);
-        reject(err);
-      };
       conn.once('open', onOpen);
-      conn.once('error', onError);
+      conn.once('error', onConnError);
+      peer.once('error', onPeerError);
     });
   }
 
