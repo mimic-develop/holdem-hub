@@ -345,4 +345,68 @@ describe('game-store — auto-save integration with IndexedDB', () => {
     const list = await listHands();
     expect(list.length).toBeGreaterThanOrEqual(1);
   }, 10000);
+
+  it('waits for the initial saveHand to land before getHand (no save↔get race)', async () => {
+    // Regression: finalizeHand fires the initial saveHand (POST) without await,
+    // then analyzeAndPersist does getHand (GET). These are independent HTTP
+    // requests with no ordering guarantee — a slow POST overtaken by the GET
+    // leaves the server with no record → 404 → getHand returns null → the
+    // enriched (analyzed) hand is never re-persisted. The fix awaits the
+    // initial save before getHand. Here we hold the FIRST save open and assert
+    // getHand is never called while it is still pending.
+    let firstSaveResolve: (() => void) | null = null;
+    let firstSaveResolved = false;
+    let getHandCalledBeforeFirstSaveResolved = false;
+    let saveCallCount = 0;
+
+    const persist = (hand: CompletedHand) => {
+      const idx = _hands.findIndex((h) => h.handId === hand.handId);
+      if (idx >= 0) _hands[idx] = hand;
+      else _hands.push(hand);
+    };
+
+    vi.mocked(historyMod.saveHand).mockImplementation(async (hand) => {
+      saveCallCount += 1;
+      if (saveCallCount === 1) {
+        // Initial save (no insight): park until the test releases it.
+        await new Promise<void>((r) => {
+          firstSaveResolve = () => {
+            persist(hand);
+            firstSaveResolved = true;
+            r();
+          };
+        });
+      } else {
+        // Enriched re-save (with insight): land immediately.
+        persist(hand);
+      }
+    });
+    vi.mocked(historyMod.getHand).mockImplementation(async (id) => {
+      if (!firstSaveResolved) getHandCalledBeforeFirstSaveResolved = true;
+      return _hands.find((h) => h.handId === id) ?? null;
+    });
+
+    useGameStore.getState().startAiGame('EASY');
+    useGameStore.getState().applyMyAction('fold');
+
+    // Let analyzeAndPersist run through evaluateHand and reach `await savePromise`.
+    await waitMs(300);
+    // getHand must NOT have fired yet — the initial save is still pending.
+    expect(getHandCalledBeforeFirstSaveResolved).toBe(false);
+
+    // Release the initial save → the POST "lands" on the server.
+    expect(firstSaveResolve).not.toBeNull();
+    firstSaveResolve!();
+
+    // Now getHand finds the hand and the enriched version is persisted.
+    let saved: CompletedHand | null = null;
+    for (let i = 0; i < 30; i++) {
+      await waitMs(50);
+      saved = (await listHands())[0] ?? null;
+      if (saved?.postHandInsight) break;
+    }
+    expect(getHandCalledBeforeFirstSaveResolved).toBe(false);
+    expect(saved).not.toBeNull();
+    expect(saved!.postHandInsight).toBeDefined();
+  }, 10000);
 });

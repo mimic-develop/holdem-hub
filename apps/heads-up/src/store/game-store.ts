@@ -966,10 +966,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
           isSendingAction: false,
           deckVerificationFailed: !verified,
         });
-        void saveHand(completed).catch((err) => {
+        const savePromise = saveHand(completed).catch((err) => {
           console.error('[game-store] saveHand failed', err);
         });
-        void analyzeAndPersist(set, get, completed);
+        void analyzeAndPersist(set, get, completed, savePromise);
         break;
       }
       case 'ACTION': {
@@ -1124,10 +1124,10 @@ function finalizeHand(
     isWaitingForBot: false,
     isSendingAction: false,
   });
-  void saveHand(completed).catch((err) => {
+  const savePromise = saveHand(completed).catch((err) => {
     console.error('[game-store] saveHand failed', err);
   });
-  void analyzeAndPersist(set, get, completed);
+  void analyzeAndPersist(set, get, completed, savePromise);
 
   // Feed the persona-state layer with single-hand + streak-window events.
   // AI mode only — REMOTE has no local bot instance.
@@ -1167,6 +1167,7 @@ async function analyzeAndPersist(
   set: (partial: Partial<GameStoreState>) => void,
   get: () => GameStore,
   completed: CompletedHand,
+  savePromise?: Promise<void>,
 ): Promise<void> {
   if (analysisInFlight.has(completed.handId)) return;
   const existing = get().handHistory.find((h) => h.handId === completed.handId);
@@ -1223,6 +1224,14 @@ async function analyzeAndPersist(
     // the hand has been removed from IDB (user cleared history, test reset
     // the DB) — otherwise we'd resurrect a "phantom" record.
     try {
+      // Order the two independent HTTP requests: the initial saveHand (POST)
+      // is fired without await by the caller, while this getHand (GET) checks
+      // whether the record landed. Without ordering, a slow POST can be
+      // overtaken by the GET → server has no entry yet → 404 → getHand returns
+      // null → the enriched (analyzed) hand is never re-persisted. Awaiting the
+      // initial save guarantees the server Map.set() completed (201) before we
+      // read. savePromise already swallows rejections, so this never throws.
+      if (savePromise) await savePromise;
       const stillStored = await getHand(enriched.handId);
       if (stillStored) await saveHand(enriched);
     } catch (err) {
