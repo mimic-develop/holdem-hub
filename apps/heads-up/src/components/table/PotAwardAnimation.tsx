@@ -4,6 +4,12 @@ import clsx from 'clsx';
 
 const BIG_BLIND = 20;
 
+/**
+ * 핸드 종료 후 다음 핸드로 자동 진행하기까지의 대기 시간.
+ * 쇼다운 시 양쪽 핸드/보드를 확인할 시간을 확보하기 위해 1.2초 → 2.5초로 늘림.
+ */
+const ADVANCE_DELAY_MS = 2500;
+
 interface PotAwardAnimationProps {
   /** Did I (the human player) win? */
   iWon: boolean;
@@ -11,7 +17,7 @@ interface PotAwardAnimationProps {
   isSplit: boolean;
   /** Net chip change for me (positive = won, negative = lost). */
   myWinLoss: number;
-  /** Called when the animation finishes (~1.9s). */
+  /** Called when the animation finishes (ADVANCE_DELAY_MS 경과 후). */
   onComplete: () => void;
 }
 
@@ -22,8 +28,7 @@ interface PotAwardAnimationProps {
  *
  * - 골드 코인 스택이 팟 중앙에서 수상자 방향으로 날아감
  * - 승패 결과 pill이 테이블 중앙에 잠깐 등장 후 페이드
- * - 1.2초 후 onComplete 자동 호출 (→ startNextHand)
- *   매 핸드 NIT 폴드/체크가 누적되는 경우 4초 → 2.5초로 단축되어 진행감 회복.
+ * - ADVANCE_DELAY_MS(2.5초) 후 onComplete 자동 호출 (→ startNextHand).
  */
 export function PotAwardAnimation({
   iWon,
@@ -32,7 +37,7 @@ export function PotAwardAnimation({
   onComplete,
 }: PotAwardAnimationProps) {
   useEffect(() => {
-    const t = setTimeout(onComplete, 1200);
+    const t = setTimeout(onComplete, ADVANCE_DELAY_MS);
     return () => clearTimeout(t);
   }, [onComplete]);
 
