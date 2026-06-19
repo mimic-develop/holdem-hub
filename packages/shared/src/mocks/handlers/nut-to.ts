@@ -9,10 +9,12 @@ import { NUT_TO_NEW_FIXTURES } from "../fixtures/nut-to.js";
 
 // 호출마다 fixture를 순환 반환해 단조로움을 줄인다.
 let nutToCursor = 0;
+const _env = (import.meta as unknown as { env?: { VITE_MIMIC_NUT_ENGINE_URL?: string } }).env;
+const ENGINE = (_env?.VITE_MIMIC_NUT_ENGINE_URL ?? "http://localhost:3010").replace(/\/$/, "");
 
 export const nutToHandlers = [
   // GET /api/nut-to/new — 새 게임 보드 + 3 스트릿 너트 티어
-  http.get("*/nut-to/new", () => {
+  http.get(`${ENGINE}/game/new`, () => {
     const fixture = NUT_TO_NEW_FIXTURES[nutToCursor % NUT_TO_NEW_FIXTURES.length];
     nutToCursor += 1;
     return HttpResponse.json(fixture);
