@@ -88,6 +88,19 @@ describe('evaluatePreflopAction — SB opens with AA', () => {
     expect(ev.score).toBeLessThanOrEqual(90);
     expect(ev.score).toBeGreaterThanOrEqual(80);
   });
+
+  it('raising AA all-in is a sizing error, not a "recommended" play', () => {
+    // Recommended open = 2.5bb at 100bb. Shoving the full stack is a huge
+    // over-bet — must score far below a normal raise and be flagged as 올인.
+    const ev = evaluatePreflopAction(
+      [c('As'), c('Ah')],
+      CTX_SB,
+      'raise',
+      BB_CHIPS * 100, // all-in (entire 100bb stack)
+    );
+    expect(ev.score).toBeLessThanOrEqual(50);
+    expect(ev.commentary).toMatch(/올인/);
+  });
 });
 
 describe('evaluatePreflopAction — SB 72o', () => {
