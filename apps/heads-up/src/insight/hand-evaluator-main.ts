@@ -48,6 +48,9 @@ export function evaluateHand(
   }
 
   const replay = replayActions(hand, ids);
+  // Constant for the whole hand — used to avoid recommending donk bets.
+  const preflopAggressor = computePreflopAggressor(hand, ids);
+  const isOOP = hand.myPosition === 'BB'; // heads-up: BB acts first postflop
 
   for (const step of replay) {
     if (step.action.playerId !== ids.my) continue;
@@ -89,6 +92,9 @@ export function evaluateHand(
       myStack: step.snapshot.myStack,
       oppStack: step.snapshot.oppStack,
       opponentHistory: step.oppPriorActions,
+      preflopAggressor,
+      isOOP,
+      opponentPersona: hand.aiPersona,
     };
     const ev = evaluatePostflopAction(
       ctx,
@@ -290,6 +296,19 @@ function derivePreflopSituation(
 /* ------------------------------------------------------------------ */
 /*  Player ID resolution                                              */
 /* ------------------------------------------------------------------ */
+
+/** Last player to raise during preflop = the aggressor. 'none' = limped pot. */
+function computePreflopAggressor(
+  hand: CompletedHand,
+  ids: { my: string; opp: string },
+): 'me' | 'opp' | 'none' {
+  let aggressor: 'me' | 'opp' | 'none' = 'none';
+  for (const e of hand.actionLog) {
+    if (e.street !== 'preflop') continue;
+    if (e.action === 'raise') aggressor = e.playerId === ids.my ? 'me' : 'opp';
+  }
+  return aggressor;
+}
 
 function determinePlayerIds(
   hand: CompletedHand,

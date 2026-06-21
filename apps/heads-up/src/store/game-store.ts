@@ -303,6 +303,7 @@ function buildCompletedHand(
     handNumber: s.handNumber,
     mode: s.mode ?? 'AI',
     aiDifficulty: s.mode === 'AI' ? s.aiDifficulty : undefined,
+    aiPersona: s.mode === 'AI' ? s.aiPersona : undefined,
     opponentName: labelForPlayer(
       oppId,
       myId,

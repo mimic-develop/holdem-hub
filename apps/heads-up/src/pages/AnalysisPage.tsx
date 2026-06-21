@@ -11,6 +11,7 @@ import type {
   CompletedHand,
   Mistake,
   MistakeType,
+  Position,
   Street,
 } from '../types/game';
 
@@ -114,7 +115,7 @@ export default function AnalysisPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+      <main className="flex min-h-screen items-center justify-center bg-neutral-950 text-neutral-500">
         불러오는 중…
       </main>
     );
@@ -122,9 +123,12 @@ export default function AnalysisPage() {
 
   if (notFound || !hand) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-6 text-foreground">
+      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-neutral-950 p-6 text-neutral-100">
         <p>해당 핸드를 찾을 수 없습니다.</p>
-        <Link to="/history" className="rounded bg-muted px-3 py-1.5 text-sm hover:bg-secondary">
+        <Link
+          to="/history"
+          className="rounded bg-neutral-800 px-3 py-1.5 text-sm text-neutral-200 hover:bg-neutral-700"
+        >
           ← 히스토리로
         </Link>
       </main>
@@ -133,31 +137,30 @@ export default function AnalysisPage() {
 
   const resultColor =
     hand.result === 'WIN'
-      ? 'text-green-400'
+      ? 'text-emerald-400'
       : hand.result === 'LOSS'
         ? 'text-red-400'
-        : 'text-foreground';
+        : 'text-neutral-100';
   const resultLabel = hand.result === 'WIN' ? '승리' : hand.result === 'LOSS' ? '패배' : '무승부';
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/90 px-4 py-3 backdrop-blur">
-        <Link to="/history" className="text-sm text-muted-foreground hover:text-foreground">
+    <main className="min-h-screen bg-neutral-950 text-neutral-100">
+      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-800 bg-neutral-950/90 px-4 py-3 backdrop-blur">
+        <Link to="/history" className="text-sm text-neutral-400 hover:text-neutral-100">
           ← 히스토리
         </Link>
-        <h1 className="text-base font-bold text-primary">핸드 #{hand.handNumber}</h1>
+        <h1 className="text-base font-bold text-white">핸드 #{hand.handNumber}</h1>
         <div className={clsx('text-sm font-bold', resultColor)}>
           {resultLabel} {formatChips(hand.myWinLoss)}
         </div>
       </header>
 
       <div className="mx-auto max-w-2xl space-y-4 px-4 py-4">
-        <p className="text-[11px] text-muted-foreground text-center -mb-1">
-          정답 채점이 아닌, 회고용 보조 자료입니다.
-        </p>
-
         {/* Summary card */}
         <ScoreSummary hand={hand} evaluating={evaluating} />
+
+        {/* Take-aways — 피드백을 카드/타임라인보다 먼저 보이도록 상단 배치 */}
+        <TakeAways hand={hand} />
 
         {/* Cards & board */}
         <CardsSection hand={hand} />
@@ -165,8 +168,10 @@ export default function AnalysisPage() {
         {/* Action timeline */}
         <Timeline hand={hand} />
 
-        {/* Take-aways */}
-        <TakeAways hand={hand} />
+        {/* 면책 문구 — 상단을 어지럽히지 않도록 하단 푸터로 */}
+        <p className="pt-1 text-center text-[11px] text-neutral-600">
+          정답 채점이 아닌, 회고용 보조 자료입니다.
+        </p>
       </div>
     </main>
   );
@@ -185,7 +190,7 @@ function ScoreSummary({
 }) {
   const a = hand.postHandInsight;
   return (
-    <section className="rounded-lg border border-border bg-card p-4">
+    <section className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
       <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
         <Info label="날짜" value={new Date(hand.playedAt).toLocaleString()} />
         <Info
@@ -196,22 +201,22 @@ function ScoreSummary({
         <Info label="종료" value={hand.wentToShowdown ? '쇼다운' : '폴드'} />
       </div>
 
-      <div className="mt-4 flex items-center gap-4 border-t border-border pt-4">
+      <div className="mt-4 flex items-center gap-4 border-t border-neutral-800 pt-4">
         <div className="flex-shrink-0">
           <CircularScore
             score={a?.overallScore ?? null}
             evaluating={evaluating}
           />
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           {a ? (
             <>
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              <div className="text-xs uppercase tracking-wide text-neutral-500">
                 핸드 회고
               </div>
-              <div className="mt-1 text-sm text-foreground">{a.summary}</div>
+              <div className="mt-1 text-sm text-neutral-200">{a.summary}</div>
               {a.strengths.length > 0 && (
-                <ul className="mt-2 text-xs text-green-400">
+                <ul className="mt-2 text-xs text-emerald-400">
                   {a.strengths.slice(0, 2).map((s, i) => (
                     <li key={i}>· {s}</li>
                   ))}
@@ -219,9 +224,9 @@ function ScoreSummary({
               )}
             </>
           ) : evaluating ? (
-            <div className="text-sm text-muted-foreground">인사이트 준비 중…</div>
+            <div className="text-sm text-neutral-500">인사이트 준비 중…</div>
           ) : (
-            <div className="text-sm text-muted-foreground">회고 데이터 없음</div>
+            <div className="text-sm text-neutral-500">회고 데이터 없음</div>
           )}
         </div>
       </div>
@@ -232,23 +237,18 @@ function ScoreSummary({
             const v = a.streetScores[st];
             if (v === undefined) {
               return (
-                <div key={st} className="rounded bg-background p-2 text-center">
-                  <div className="text-[10px] text-muted-foreground">{STREET_KO[st]}</div>
-                  <div className="text-xs text-foreground">—</div>
+                <div key={st} className="rounded bg-neutral-800 p-2 text-center">
+                  <div className="text-[10px] text-neutral-500">{STREET_KO[st]}</div>
+                  <div className="text-xs text-neutral-400">—</div>
                 </div>
               );
             }
             return (
-              <div
-                key={st}
-                className="rounded bg-background p-2 text-center"
-              >
-                <div className="text-[10px] text-muted-foreground">
+              <div key={st} className="rounded bg-neutral-800 p-2 text-center">
+                <div className="text-[10px] text-neutral-500">
                   {STREET_KO[st]}
                 </div>
-                <div
-                  className={clsx('text-sm font-bold', scoreColorClass(v))}
-                >
+                <div className={clsx('text-sm font-bold', scoreColorClass(v))}>
                   {v}
                 </div>
               </div>
@@ -282,7 +282,7 @@ function CircularScore({
           cx={sz / 2}
           cy={sz / 2}
           r={r}
-          stroke="rgb(38 38 38)"
+          stroke="rgb(64 64 64)"
           strokeWidth={stroke}
           fill="none"
         />
@@ -307,10 +307,10 @@ function CircularScore({
             <div className={clsx('text-2xl font-bold', scoreColorClass(score))}>
               {score}
             </div>
-            <div className="text-[10px] text-muted-foreground">/ 100</div>
+            <div className="text-[10px] text-neutral-500">/ 100</div>
           </>
         ) : (
-          <div className="text-xs text-muted-foreground">
+          <div className="text-xs text-neutral-500">
             {evaluating ? '…' : '—'}
           </div>
         )}
@@ -325,13 +325,13 @@ function CircularScore({
 
 function CardsSection({ hand }: { hand: CompletedHand }) {
   return (
-    <section className="rounded-lg border border-border bg-card p-4">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+    <section className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
         카드
       </h2>
       <div className="space-y-3">
         <div className="flex items-center gap-3">
-          <span className="w-12 text-xs text-muted-foreground">내 핸드</span>
+          <span className="w-12 text-xs text-neutral-500">내 핸드</span>
           <div className="flex gap-1">
             <CardView card={hand.myCards[0]} animate={false} />
             <CardView card={hand.myCards[1]} animate={false} />
@@ -339,7 +339,7 @@ function CardsSection({ hand }: { hand: CompletedHand }) {
         </div>
         {hand.opponentCards && (
           <div className="flex items-center gap-3">
-            <span className="w-12 text-xs text-muted-foreground">상대</span>
+            <span className="w-12 text-xs text-neutral-500">상대</span>
             <div className="flex gap-1">
               <CardView card={hand.opponentCards[0]} animate={false} />
               <CardView card={hand.opponentCards[1]} animate={false} />
@@ -348,7 +348,7 @@ function CardsSection({ hand }: { hand: CompletedHand }) {
         )}
         {hand.board.length > 0 && (
           <div className="flex items-center gap-3">
-            <span className="w-12 text-xs text-muted-foreground">보드</span>
+            <span className="w-12 text-xs text-neutral-500">보드</span>
             <div className="flex gap-1">
               {hand.board.map((c, i) => (
                 <CardView key={i} card={c} animate={false} />
@@ -358,9 +358,9 @@ function CardsSection({ hand }: { hand: CompletedHand }) {
         )}
       </div>
       {hand.winningHand && (
-        <div className="mt-3 text-xs text-muted-foreground">
+        <div className="mt-3 text-xs text-neutral-400">
           승자 핸드:{' '}
-          <span className="text-primary font-semibold">
+          <span className="font-semibold text-amber-300">
             {HAND_RANK_KO[hand.winningHand.rank] ?? hand.winningHand.rank}
           </span>
         </div>
@@ -389,8 +389,8 @@ function Timeline({ hand }: { hand: CompletedHand }) {
   const grouped = useMemo(() => groupByStreet(hand.actionLog), [hand.actionLog]);
 
   return (
-    <section className="rounded-lg border border-border bg-card p-4">
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+    <section className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">
         액션 타임라인
       </h2>
       <div className="space-y-4">
@@ -400,7 +400,7 @@ function Timeline({ hand }: { hand: CompletedHand }) {
           return (
             <div key={st}>
               <div className="mb-1.5 flex items-baseline gap-2">
-                <div className="text-xs font-bold text-primary">{STREET_KO[st]}</div>
+                <div className="text-xs font-bold text-neutral-200">{STREET_KO[st]}</div>
                 {hand.postHandInsight?.streetScores[st] !== undefined && (
                   <div
                     className={clsx(
@@ -419,6 +419,7 @@ function Timeline({ hand }: { hand: CompletedHand }) {
                     entry={a.entry}
                     evalu={evalMap.get(a.index) ?? null}
                     mistake={mistakeMap.get(a.index) ?? null}
+                    myPosition={hand.myPosition}
                   />
                 ))}
               </ol>
@@ -434,18 +435,21 @@ function ActionCard({
   entry,
   evalu,
   mistake,
+  myPosition,
 }: {
   entry: ActionLogEntry;
   evalu: ActionEvaluation | null;
   mistake: Mistake | null;
+  myPosition: Position;
 }) {
   const isMine = entry.playerLabel === '나';
+  const pos = isMine ? myPosition : myPosition === 'SB' ? 'BB' : 'SB';
   return (
     <li
       className={clsx(
-        'rounded-lg border bg-background p-2.5',
-        isMine ? 'border-border' : 'border-border/50',
-        evalu && evalu.score < 50 && 'border-red-900/50',
+        'rounded-lg border bg-neutral-950 p-2.5',
+        isMine ? 'border-neutral-700' : 'border-neutral-800',
+        evalu && evalu.score < 50 && 'border-red-500/40',
       )}
     >
       <div className="flex items-center justify-between gap-2">
@@ -453,50 +457,50 @@ function ActionCard({
           <span
             className={clsx(
               'rounded px-1.5 py-0.5 text-[10px] font-semibold',
-              isMine ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground',
+              isMine ? 'bg-amber-500/20 text-amber-300' : 'bg-sky-500/20 text-sky-300',
             )}
           >
-            {entry.playerLabel}
+            {entry.playerLabel} · {pos}
           </span>
           <span className="text-sm font-bold text-white">
             {ACTION_KO[entry.action] ?? entry.action}
           </span>
           {(entry.action === 'bet' || entry.action === 'raise' || entry.action === 'call') &&
             entry.amount > 0 && (
-              <span className="text-xs text-primary">{entry.amount}</span>
+              <span className="text-xs text-neutral-400">{entry.amount}</span>
             )}
         </div>
         <div className="flex items-center gap-2">
           {mistake && (
-            <span className="rounded bg-red-950/60 px-1.5 py-0.5 text-[10px] font-semibold text-red-300">
+            <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-red-300">
               ⚠ {MISTAKE_LABEL[mistake.type]?.tag ?? mistake.type}
             </span>
           )}
           {evalu && isMine && <ScoreBadge score={evalu.score} />}
-          <span className="text-[10px] text-muted-foreground">팟 {entry.potAfter}</span>
+          <span className="text-[10px] text-neutral-500">팟 {entry.potAfter}</span>
         </div>
       </div>
 
       {evalu && isMine && (
-        <div className="mt-2 space-y-1 border-t border-border/70 pt-2 text-xs">
+        <div className="mt-2 space-y-1 border-t border-neutral-800 pt-2 text-xs">
           {typeof evalu.equity === 'number' && (
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <span className="text-muted-foreground">에쿼티:</span>
+            <div className="flex items-center gap-1.5 text-neutral-400">
+              <span className="text-neutral-500">에쿼티:</span>
               <EquityBar equity={evalu.equity} />
-              <span className="font-mono text-foreground">
+              <span className="font-mono text-neutral-200">
                 {(evalu.equity * 100).toFixed(0)}%
               </span>
             </div>
           )}
-          <div className="text-foreground">
-            <span className="text-muted-foreground">권장:</span>{' '}
-            <span className="text-primary">{evalu.recommended}</span>
+          <div className="text-neutral-200">
+            <span className="text-neutral-500">권장:</span>{' '}
+            <span className="text-amber-300">{evalu.recommended}</span>
           </div>
           {evalu.reasoning && (
-            <div className="text-muted-foreground">{evalu.reasoning}</div>
+            <div className="text-neutral-400">{evalu.reasoning}</div>
           )}
           {mistake && (
-            <div className="rounded bg-red-950/40 px-2 py-1 text-[11px] leading-relaxed text-red-200">
+            <div className="rounded bg-red-500/10 px-2 py-1 text-[11px] leading-relaxed text-red-300">
               💡 {MISTAKE_LABEL[mistake.type]?.tip ?? mistake.description}
             </div>
           )}
@@ -509,12 +513,12 @@ function ActionCard({
 function EquityBar({ equity }: { equity: number }) {
   const pct = Math.max(0, Math.min(1, equity)) * 100;
   return (
-    <div className="relative h-1.5 w-20 overflow-hidden rounded-full bg-muted">
+    <div className="relative h-1.5 w-20 overflow-hidden rounded-full bg-neutral-700">
       <div
         className={clsx(
           'h-full',
           equity >= 0.6
-            ? 'bg-green-400'
+            ? 'bg-emerald-400'
             : equity >= 0.4
               ? 'bg-yellow-400'
               : 'bg-red-400',
@@ -531,7 +535,7 @@ function ScoreBadge({ score }: { score: number }) {
       className={clsx(
         'inline-flex h-7 min-w-[2.25rem] items-center justify-center rounded-full px-2 text-xs font-bold',
         score >= 80
-          ? 'bg-green-500/15 text-green-400'
+          ? 'bg-emerald-500/15 text-emerald-400'
           : score >= 50
             ? 'bg-yellow-500/15 text-yellow-400'
             : 'bg-red-500/15 text-red-400',
@@ -552,25 +556,31 @@ function TakeAways({ hand }: { hand: CompletedHand }) {
   if (a.mistakes.length === 0 && a.strengths.length === 0) return null;
 
   return (
-    <section className="rounded-lg border border-border bg-card p-4">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+    <section className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
         이 핸드에서 배울 점
       </h2>
       <ul className="space-y-2 text-sm">
-        {a.mistakes.map((m, i) => (
-          <li key={`m-${i}`} className="rounded bg-red-950/30 px-3 py-2 text-red-200">
-            <div className="text-[11px] font-semibold uppercase tracking-wide">
-              {MISTAKE_LABEL[m.type]?.tag ?? m.type}
-            </div>
-            <div className="mt-0.5 text-xs">{m.description}</div>
-          </li>
-        ))}
         {a.strengths.map((s, i) => (
-          <li key={`s-${i}`} className="rounded bg-green-950/30 px-3 py-2 text-green-200">
-            <div className="text-[11px] font-semibold uppercase tracking-wide">
+          <li
+            key={`s-${i}`}
+            className="rounded border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-emerald-200"
+          >
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300">
               ✓ 잘한 플레이
             </div>
             <div className="mt-0.5 text-xs">{s}</div>
+          </li>
+        ))}
+        {a.mistakes.map((m, i) => (
+          <li
+            key={`m-${i}`}
+            className="rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-red-200"
+          >
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-red-300">
+              {MISTAKE_LABEL[m.type]?.tag ?? m.type}
+            </div>
+            <div className="mt-0.5 text-xs">{m.description}</div>
           </li>
         ))}
       </ul>
@@ -585,8 +595,8 @@ function TakeAways({ hand }: { hand: CompletedHand }) {
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-[10px] text-muted-foreground">{label}</div>
-      <div className="font-medium text-foreground text-sm">{value}</div>
+      <div className="text-[10px] text-neutral-500">{label}</div>
+      <div className="text-sm font-medium text-neutral-100">{value}</div>
     </div>
   );
 }
@@ -615,7 +625,7 @@ function groupByStreet(log: ActionLogEntry[]): Record<Street, IndexedEntry[]> {
 }
 
 function scoreColorClass(score: number): string {
-  if (score >= 80) return 'text-green-400';
+  if (score >= 80) return 'text-emerald-400';
   if (score >= 50) return 'text-yellow-400';
   return 'text-red-400';
 }

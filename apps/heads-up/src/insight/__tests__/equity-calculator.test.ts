@@ -45,6 +45,31 @@ describe('equity-calculator — inferOpponentRange', () => {
     const r = inferOpponentRange([{ action: 'call', street: 'preflop' }]);
     expect(r.percentile).toBe(0.6);
   });
+
+  it('postflop barrels narrow the range vs preflop-only (Bayesian update)', () => {
+    const preflopOnly = inferOpponentRange([{ action: 'call', street: 'preflop' }]);
+    const barreled = inferOpponentRange([
+      { action: 'call', street: 'preflop' },
+      { action: 'bet', street: 'flop' },
+      { action: 'bet', street: 'turn' },
+    ]);
+    // Caller who fires flop + turn must be treated as a much stronger range.
+    expect(barreled.percentile).toBeLessThan(preflopOnly.percentile);
+    expect(barreled.percentile).toBeCloseTo(0.6 * 0.6 * 0.6, 5);
+  });
+
+  it('a passive postflop line (check/call) stays wider than a barreling line', () => {
+    const passive = inferOpponentRange([
+      { action: 'raise', street: 'preflop' },
+      { action: 'check', street: 'flop' },
+    ]);
+    const aggressive = inferOpponentRange([
+      { action: 'raise', street: 'preflop' },
+      { action: 'bet', street: 'flop' },
+    ]);
+    expect(aggressive.percentile).toBeLessThan(passive.percentile);
+    expect(passive.percentile).toBe(0.15); // check leaves the prior unchanged
+  });
 });
 
 describe('equity-calculator — buildPercentileRange', () => {

@@ -1,5 +1,6 @@
 import type { Card } from '../engine/card';
 import type { HandValue } from '../engine/hand-evaluator';
+import type { AiPersonaId } from './ai';
 
 export type Street = 'preflop' | 'flop' | 'turn' | 'river';
 
@@ -120,6 +121,8 @@ export interface CompletedHand {
   handNumber: number;
   mode: GameMode;
   aiDifficulty?: string;
+  /** AI opponent persona (AI mode only) — enables persona-aware review comments. */
+  aiPersona?: AiPersonaId;
   opponentName: string;
   myPosition: Position;
   /** [me, opponent] at the start of the hand (post-blind is NOT subtracted here). */
