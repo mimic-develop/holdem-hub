@@ -79,17 +79,16 @@ const s: Record<string, React.CSSProperties> = {
     border: `1px solid ${COLORS.border}`, padding: 10, marginTop: 14,
   },
 
-  /* 페르소나 설명 + 난이도 (패널 내부, 구분선으로 그리드와 분리) */
+  /* 페르소나 설명 + 난이도 (패널 내부, 구분선으로 그리드와 분리, 중앙정렬 세로 흐름) */
   charInfo: {
     marginTop: 10, paddingTop: 10,
     borderTop: `1px solid ${COLORS.border}`,
-    display: 'flex', alignItems: 'center', gap: 12,
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
   },
-  charName: { fontSize: '14px', fontWeight: 700, color: COLORS.textPrimary, letterSpacing: '0.06em', marginBottom: 2 },
-  charDesc: { fontSize: '11px', color: COLORS.textSecondary, lineHeight: 1.45, letterSpacing: 0 },
+  charDesc: { fontSize: '11px', color: COLORS.textSecondary, lineHeight: 1.45, letterSpacing: 0, textAlign: 'center' },
 
-  // 난이도: 카드 우측 세로 3단 스택 (우측 여백 활용)
-  diffPills: { display: 'flex', flexDirection: 'column', gap: 4, padding: 3, background: 'rgba(0,0,0,0.35)', borderRadius: 8, flexShrink: 0, width: 96 },
+  // 난이도: 가로 3단 + 중앙정렬
+  diffPills: { display: 'flex', gap: 4, padding: 3, background: 'rgba(0,0,0,0.35)', borderRadius: 8, width: '100%', maxWidth: 260 },
 
   /* CTA */
   btnStart: {
@@ -403,9 +402,7 @@ export default function HomePage() {
 
               {/* 페르소나 설명 + 난이도 (아바타·이름은 VS 카드·그리드와 중복이라 생략) */}
               <div style={s.charInfo}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={s.charDesc}>{persona.description}</div>
-                </div>
+                <div style={s.charDesc}>{persona.description}</div>
                 <div style={s.diffPills}>
                   {/* 베타: Normal(MEDIUM) 만 활성. EASY/HARD 는 '곧 업데이트' 안내. */}
                   {ALL_LEVELS.map((lv) => {
@@ -420,7 +417,7 @@ export default function HomePage() {
                         title={enabled ? undefined : '곧 업데이트'}
                         aria-disabled={!enabled}
                         style={{
-                          width: '100%',
+                          flex: 1,
                           background: enabled
                             ? (active ? COLORS.red : 'transparent')
                             : 'rgba(255,255,255,0.05)',
