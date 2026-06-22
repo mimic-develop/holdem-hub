@@ -15,6 +15,7 @@ import { useToastStore } from './store/toast-store';
 const HomePage = lazy(() => import('./pages/HomePage'));
 const TablePage = lazy(() => import('./pages/TablePage'));
 const HistoryPage = lazy(() => import('./pages/HistoryPage'));
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 const AnalysisPage = lazy(() => import('./pages/AnalysisPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/table" element={<TablePage />} />
           <Route path="/history" element={<HistoryPage />} />
+          <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/analysis/:handId" element={<AnalysisPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/about" element={<AboutPage />} />

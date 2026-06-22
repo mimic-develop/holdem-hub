@@ -536,6 +536,20 @@ export default function HomePage() {
           </div>
           <div style={{ color: COLORS.textSecondary, fontSize: 18 }}>›</div>
         </button>
+
+        {/* ════════════════════════════════════════════
+            리더보드 카드
+            ════════════════════════════════════════════ */}
+        <button type="button" onClick={() => navigate('/leaderboard')} style={s.recordCard as React.CSSProperties}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={s.recordIcon}>🏆</div>
+            <div style={{ textAlign: 'left' }}>
+              <div style={s.recordT}>리더보드</div>
+              <div style={s.recordS}>판단 점수 랭킹</div>
+            </div>
+          </div>
+          <div style={{ color: COLORS.textSecondary, fontSize: 18 }}>›</div>
+        </button>
       </div>
 
       <CreateRoomDialog

@@ -98,6 +98,69 @@ export const headsUpHandlers = [
     });
   }),
 
+  // 리더보드 — 본인(저장된 핸드) 집계 + 시드 경쟁자로 보드 구성.
+  // (목은 단일 유저만 보관 → 프리뷰에서 보드가 비지 않도록 가상 경쟁자를 섞는다)
+  http.get("*/play-lab/heads-up/leaderboard", () => {
+    const MIN_QUALIFY = 50;
+    const WINDOW = 200;
+    const BIG_BLIND = 20;
+
+    const evaluated = [...hands.values()]
+      .filter(
+        (h) => h.mode === "AI" && typeof h.postHandInsight?.overallScore === "number",
+      )
+      .sort((a, b) => (b.playedAt ?? 0) - (a.playedAt ?? 0));
+    const win = evaluated.slice(0, WINDOW);
+    let scoreSum = 0;
+    let net = 0;
+    let wins = 0;
+    for (const h of win) {
+      scoreSum += h.postHandInsight!.overallScore!;
+      net += h.myWinLoss ?? 0;
+      if (h.result === "WIN") wins++;
+    }
+    const n = win.length;
+
+    const seeded = [
+      { nickname: "샤크K", avgScore: 88, bbPerHand: 3.2, winRate: 0.61, handsCounted: 180 },
+      { nickname: "GTO_라인", avgScore: 81, bbPerHand: 2.0, winRate: 0.54, handsCounted: 200 },
+      { nickname: "리버레이크", avgScore: 73, bbPerHand: 0.8, winRate: 0.5, handsCounted: 96 },
+      { nickname: "콜링스테이션", avgScore: 64, bbPerHand: -0.5, winRate: 0.46, handsCounted: 120 },
+      { nickname: "폴드마스터", avgScore: 57, bbPerHand: -1.2, winRate: 0.41, handsCounted: 58 },
+      { nickname: "뉴비짱", avgScore: 48, bbPerHand: -2.4, winRate: 0.37, handsCounted: 72 },
+    ].map((e) => ({ ...e, rank: 0, isMe: false }));
+
+    let myProgress: { handsCounted: number; needed: number } | null = null;
+    if (n >= MIN_QUALIFY) {
+      seeded.push({
+        rank: 0,
+        nickname: HEADS_UP_SETTINGS.nickname,
+        avgScore: Math.round(scoreSum / n),
+        bbPerHand: Math.round((net / BIG_BLIND / n) * 100) / 100,
+        winRate: wins / n,
+        handsCounted: n,
+        isMe: true,
+      });
+    } else {
+      myProgress = {
+        handsCounted: evaluated.length,
+        needed: Math.max(0, MIN_QUALIFY - evaluated.length),
+      };
+    }
+
+    seeded.sort((a, b) => b.avgScore - a.avgScore || b.handsCounted - a.handsCounted);
+    seeded.forEach((e, i) => (e.rank = i + 1));
+    const me = seeded.find((e) => e.isMe) ?? null;
+
+    return HttpResponse.json({
+      entries: seeded.slice(0, 100),
+      me,
+      myProgress,
+      minQualifyHands: MIN_QUALIFY,
+      window: WINDOW,
+    });
+  }),
+
   // 설정 조회 / 저장
   http.get("*/play-lab/heads-up/settings", () => {
     return HttpResponse.json(HEADS_UP_SETTINGS);
