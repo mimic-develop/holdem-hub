@@ -50,7 +50,7 @@ export default function LeaderboardPage() {
 
   return (
     <main className="min-h-screen bg-neutral-950 text-neutral-100">
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-800 bg-neutral-950/90 px-4 py-3 backdrop-blur">
+      <header className="sticky top-[52px] z-20 flex items-center justify-between border-b border-neutral-800 bg-neutral-950/90 px-4 py-3 backdrop-blur">
         <Link to="/" className="text-sm text-neutral-400 hover:text-neutral-100">
           ← 홈
         </Link>
