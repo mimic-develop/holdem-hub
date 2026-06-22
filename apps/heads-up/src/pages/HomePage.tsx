@@ -182,6 +182,12 @@ export default function HomePage() {
   const avatarInitials = nickname.slice(0, 2).toUpperCase();
   const isAiMode = mode === 'ai';
 
+  // 로그인/설정으로 정해진 닉네임을 입력칸에 표시 (사용자가 편집 중이 아닐 때만).
+  useEffect(() => {
+    if (document.activeElement === nameInputRef.current) return;
+    setNameInput(settings.nickname && settings.nickname !== '익명' ? settings.nickname : '');
+  }, [settings.nickname]);
+
   const commitName = () => {
     const trimmed = nameInput.trim();
     if (trimmed) setNickname(trimmed);

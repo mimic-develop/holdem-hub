@@ -23,6 +23,9 @@ interface StoredHand {
 /** 세션 메모리 — POST된 핸드를 그대로 보관. */
 const hands = new Map<string, StoredHand>();
 
+/** 세션 메모리 설정 — PUT으로 갱신해 GET/리더보드가 동일 닉네임을 쓰도록 한다. */
+let mockSettings = { ...HEADS_UP_SETTINGS };
+
 function sortedHands(): StoredHand[] {
   return [...hands.values()].sort(
     (a, b) => (b.playedAt ?? 0) - (a.playedAt ?? 0),
@@ -147,7 +150,7 @@ export const headsUpHandlers = [
     if (n >= MIN_QUALIFY) {
       seeded.push({
         rank: 0,
-        nickname: HEADS_UP_SETTINGS.nickname,
+        nickname: mockSettings.nickname,
         avgScore: Math.round(scoreSum / n),
         bbPerHand: Math.round((net / BIG_BLIND / n) * 100) / 100,
         winRate: wins / n,
@@ -175,11 +178,13 @@ export const headsUpHandlers = [
     });
   }),
 
-  // 설정 조회 / 저장
+  // 설정 조회 / 저장 (PUT을 세션 메모리에 반영)
   http.get("*/play-lab/heads-up/settings", () => {
-    return HttpResponse.json(HEADS_UP_SETTINGS);
+    return HttpResponse.json(mockSettings);
   }),
-  http.put("*/play-lab/heads-up/settings", () => {
+  http.put("*/play-lab/heads-up/settings", async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as Partial<typeof HEADS_UP_SETTINGS>;
+    mockSettings = { ...mockSettings, ...body };
     return HttpResponse.json({ success: true });
   }),
 
