@@ -78,12 +78,13 @@ const s: Record<string, React.CSSProperties> = {
     background: COLORS.cardBgInset, borderRadius: 12,
     border: `1px solid ${COLORS.border}`,
     padding: '12px 14px', marginTop: 10,
-    display: 'flex', alignItems: 'flex-start', gap: 12,
+    display: 'flex', alignItems: 'center', gap: 12,
   },
   charName: { fontSize: '14px', fontWeight: 700, color: COLORS.textPrimary, letterSpacing: '0.06em', marginBottom: 2 },
   charDesc: { fontSize: '11px', color: COLORS.textSecondary, lineHeight: 1.45, letterSpacing: 0 },
 
-  diffPills: { display: 'flex', gap: 4, padding: 3, background: 'rgba(0,0,0,0.35)', borderRadius: 8, width: '100%' },
+  // 난이도: 카드 우측 세로 3단 스택 (우측 여백 활용)
+  diffPills: { display: 'flex', flexDirection: 'column', gap: 4, padding: 3, background: 'rgba(0,0,0,0.35)', borderRadius: 8, flexShrink: 0, width: 96 },
 
   /* CTA */
   btnStart: {
@@ -405,12 +406,11 @@ export default function HomePage() {
                     border: `1px solid ${COLORS.red}`,
                   }}
                 />
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div>
-                    <div style={s.charName as React.CSSProperties}>{persona.displayName}</div>
-                    <div style={s.charDesc}>{persona.description}</div>
-                  </div>
-                  <div style={s.diffPills}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={s.charName as React.CSSProperties}>{persona.displayName}</div>
+                  <div style={s.charDesc}>{persona.description}</div>
+                </div>
+                <div style={s.diffPills}>
                   {/* 베타: Normal(MEDIUM) 만 활성. EASY/HARD 는 '곧 업데이트' 안내. */}
                   {ALL_LEVELS.map((lv) => {
                     const active = pickedLevel === lv;
@@ -424,7 +424,7 @@ export default function HomePage() {
                         title={enabled ? undefined : '곧 업데이트'}
                         aria-disabled={!enabled}
                         style={{
-                          flex: 1,
+                          width: '100%',
                           background: enabled
                             ? (active ? COLORS.red : 'transparent')
                             : 'rgba(255,255,255,0.05)',
@@ -451,7 +451,6 @@ export default function HomePage() {
                     );
                   })}
                   </div>
-                </div>
               </div>
 
               <button type="button" onClick={handleStart} style={s.btnStart as React.CSSProperties}>
