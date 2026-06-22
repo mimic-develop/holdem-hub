@@ -85,7 +85,7 @@ const s: Record<string, React.CSSProperties> = {
     borderTop: `1px solid ${COLORS.border}`,
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
   },
-  charDesc: { fontSize: '11px', color: COLORS.textSecondary, lineHeight: 1.45, letterSpacing: 0, textAlign: 'center' },
+  charDesc: { fontSize: '13px', fontWeight: 600, color: COLORS.textPrimary, lineHeight: 1.5, letterSpacing: 0, textAlign: 'center' },
 
   // 난이도: 가로 3단 + 중앙정렬
   diffPills: { display: 'flex', gap: 4, padding: 3, background: 'rgba(0,0,0,0.35)', borderRadius: 8, width: '100%', maxWidth: 260 },
