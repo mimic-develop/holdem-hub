@@ -1,15 +1,26 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { SubAppHeader, BackToHub } from '@hh/ui';
 import { CreateRoomDialog } from '../components/home/CreateRoomDialog';
 import { JoinRoomDialog } from '../components/home/JoinRoomDialog';
 import { useSettings } from '../hooks/useSettings';
 import { useGameStore } from '../store/game-store';
+import { getLeaderboard, type LeaderboardEntry } from '../storage/leaderboard';
 import { AI_PERSONAS, ALL_PERSONA_IDS } from '../bot/personas';
 import { ALL_LEVELS, LEVEL_LABEL } from '../bot/levels';
 import type { AiLevel, AiPersonaId } from '../types/ai';
 
 type RemoteDialog = 'none' | 'create' | 'join';
+
+/** 리더보드 미리보기용 — 순위 메달/판단 점수 색상. */
+function lbRankBadge(rank: number): string {
+  return rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : String(rank);
+}
+function lbScoreColor(score: number): string {
+  if (score >= 80) return '#34d399';
+  if (score >= 50) return '#fbbf24';
+  return '#fb7185';
+}
 
 /* ── 색상 토큰 (MIMIC PLAYLAB 톤앤매너) ─────────────────── */
 const COLORS = {
@@ -148,6 +159,18 @@ export default function HomePage() {
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const startAiGame = useGameStore((st) => st.startAiGame);
+
+  // 선택한 페르소나 리더보드 TOP3 — 메인에서 바로 노출.
+  const [topEntries, setTopEntries] = useState<LeaderboardEntry[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void getLeaderboard(pickedPersona).then((d) => {
+      if (alive) setTopEntries(d.entries.slice(0, 3));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [pickedPersona]);
 
   const handleStart = () => {
     startAiGame(pickedPersona, pickedLevel);
@@ -429,28 +452,73 @@ export default function HomePage() {
                 대결 시작 →
               </button>
 
-              {/* 선택한 페르소나의 리더보드로 이동 */}
-              <button
-                type="button"
+              {/* 선택 페르소나 리더보드 TOP3 — 바로 노출 (탭하면 전체 보드) */}
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() => navigate(`/leaderboard?persona=${pickedPersona}`)}
                 style={{
-                  width: '100%',
-                  marginTop: 8,
-                  padding: '12px',
-                  background: 'transparent',
+                  marginTop: 12,
+                  background: COLORS.cardBgInset,
                   border: `1px solid ${COLORS.border}`,
                   borderRadius: 12,
-                  color: COLORS.textSecondary,
-                  fontSize: 13,
-                  fontWeight: 700,
-                  fontFamily: 'inherit',
-                  letterSpacing: 0,
+                  padding: '10px 12px',
                   cursor: 'pointer',
-                  transition: 'all 0.15s',
                 }}
               >
-                🏆 {persona.displayName} 리더보드 보기
-              </button>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: topEntries.length ? 8 : 0,
+                  }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 700, color: COLORS.textPrimary }}>
+                    🏆 {persona.displayName} 리더보드
+                  </span>
+                  <span style={{ fontSize: 11, color: COLORS.textSecondary }}>전체 보기 ›</span>
+                </div>
+                {topEntries.length === 0 ? (
+                  <div style={{ fontSize: 11, color: COLORS.textMuted, textAlign: 'center', padding: '8px 0' }}>
+                    아직 순위에 오른 플레이어가 없습니다
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {topEntries.map((e) => (
+                      <div key={e.rank} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                        <span style={{ width: 20, textAlign: 'center', fontWeight: 700, color: COLORS.textSecondary }}>
+                          {lbRankBadge(e.rank)}
+                        </span>
+                        <span
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            color: e.isMe ? '#fbbf24' : COLORS.textPrimary,
+                            fontWeight: e.isMe ? 700 : 500,
+                          }}
+                        >
+                          {e.nickname}
+                          {e.isMe ? ' (나)' : ''}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 800,
+                            color: lbScoreColor(e.avgScore),
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          {e.avgScore}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </>
           )}
 
