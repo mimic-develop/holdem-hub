@@ -50,7 +50,7 @@ export function MatchEndOverlay({
         : '이번 매치는 흐름이 따라주지 않았습니다.';
 
   const colorClass = tied
-    ? 'text-foreground'
+    ? 'text-neutral-100'
     : won
       ? 'text-amber-400'
       : 'text-rose-400';
@@ -65,7 +65,7 @@ export function MatchEndOverlay({
         initial={{ scale: 0.9, y: 16 }}
         animate={{ scale: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 220, damping: 22 }}
-        className="flex w-full max-w-sm flex-col items-center gap-3 rounded-2xl border border-border bg-card px-5 py-6"
+        className="flex w-full max-w-sm flex-col items-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-900 px-5 py-6"
       >
         <div className={clsx('text-2xl font-bold', colorClass)}>{title}</div>
 
@@ -75,27 +75,27 @@ export function MatchEndOverlay({
             {netBB > 0 ? '+' : ''}
             {netBB}
           </span>
-          <span className="text-sm text-muted-foreground">BB</span>
+          <span className="text-sm text-neutral-400">BB</span>
         </div>
 
         {/* Match meta */}
-        <div className="text-center text-xs text-muted-foreground">
-          상대: <span className="font-semibold text-foreground">{personaName}</span>
+        <div className="text-center text-xs text-neutral-500">
+          상대: <span className="font-semibold text-neutral-100">{personaName}</span>
           <span className="mx-1.5">·</span>
           <span>{totalHands}핸드 매치</span>
         </div>
 
         {/* 감정 카피 */}
-        <p className="text-center text-sm leading-relaxed text-foreground">{copy}</p>
+        <p className="text-center text-sm leading-relaxed text-neutral-200">{copy}</p>
 
         {/* ── 핸드별 요약 리스트 ── */}
         {handHistory.length > 0 && (
           <div className="w-full">
-            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
               핸드 내역
             </div>
             <div
-              className="max-h-52 overflow-y-auto rounded-lg border border-border bg-background/50"
+              className="max-h-52 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-950/60"
               style={{ scrollbarWidth: 'thin' }}
             >
               {handHistory.map((hand) => (
@@ -124,7 +124,7 @@ export function MatchEndOverlay({
         <button
           type="button"
           onClick={onFindNew}
-          className="w-full rounded-lg border border-border bg-muted px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-secondary active:scale-95"
+          className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-4 py-2.5 text-sm font-semibold text-neutral-100 hover:bg-neutral-700 active:scale-95"
         >
           다른 상대 찾기
         </button>
@@ -132,7 +132,7 @@ export function MatchEndOverlay({
         {/* Tertiary */}
         <Link
           to="/history"
-          className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          className="text-xs text-neutral-400 underline-offset-2 hover:text-neutral-100 hover:underline"
         >
           전적 보기 →
         </Link>
@@ -177,9 +177,9 @@ function HandSummaryRow({ hand }: { hand: CompletedHand }) {
   const score = hand.postHandInsight?.overallScore;
 
   return (
-    <div className="flex items-center gap-2 border-b border-border/50 px-2.5 py-1.5 last:border-0 text-xs">
+    <div className="flex items-center gap-2 border-b border-neutral-800/70 px-2.5 py-1.5 last:border-0 text-xs">
       {/* 핸드 번호 */}
-      <span className="w-6 shrink-0 text-[10px] text-muted-foreground">
+      <span className="w-6 shrink-0 text-[10px] text-neutral-500">
         H{hand.handNumber}
       </span>
 
@@ -206,7 +206,7 @@ function HandSummaryRow({ hand }: { hand: CompletedHand }) {
       <div className="flex-1" />
 
       {/* 인사이트 점수 */}
-      <span className="w-7 text-right text-[10px] text-muted-foreground">
+      <span className="w-7 text-right text-[10px] text-neutral-500">
         {score !== undefined ? score : '—'}
       </span>
 
