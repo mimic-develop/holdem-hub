@@ -40,7 +40,10 @@ export interface HandStats {
   losses: number;
   splits: number;
   netChips: number;
+  /** Average overallScore across hands that have a postHandInsight. */
   avgGtoScore?: number;
+  /** Number of hands with a postHandInsight (denominator for avgGtoScore). */
+  evaluatedHands?: number;
   winRate: number;
 }
 
@@ -51,6 +54,7 @@ export async function getStats(): Promise<HandStats> {
     losses: 0,
     splits: 0,
     netChips: 0,
+    evaluatedHands: 0,
     winRate: 0,
   }));
 }

@@ -168,14 +168,23 @@ headsUpRouter.patch("/hands/:handId/insight", (req: Request, res: Response) => {
 
 // ── 통계 라우트 ─────────────────────────────────────────────────────────────
 
+/** postHandInsight(unknown 저장)에서 overallScore를 안전 추출. */
+function insightScore(insight: unknown): number | null {
+  if (insight && typeof insight === "object" && "overallScore" in insight) {
+    const s = (insight as { overallScore?: unknown }).overallScore;
+    return typeof s === "number" ? s : null;
+  }
+  return null;
+}
+
 /**
  * GET /api/play-lab/heads-up/stats
- * 응답: HandStats — 전체 통계 집계
+ * 응답: HandStats — 전체 통계 집계 (avgGtoScore·evaluatedHands 포함)
  */
 headsUpRouter.get("/stats", (req: Request, res: Response) => {
   const uid = decodeJwtPayload(req.headers.authorization);
   if (!uid) {
-    return void res.json({ total: 0, wins: 0, losses: 0, splits: 0, netChips: 0, winRate: 0 });
+    return void res.json({ total: 0, wins: 0, losses: 0, splits: 0, netChips: 0, evaluatedHands: 0, winRate: 0 });
   }
   const all = [...getHandsMap(uid).values()];
   const total = all.length;
@@ -183,7 +192,22 @@ headsUpRouter.get("/stats", (req: Request, res: Response) => {
   const losses = all.filter((h) => h.result === "LOSS").length;
   const splits = all.filter((h) => h.result === "SPLIT").length;
   const netChips = all.reduce((s, h) => s + h.myWinLoss, 0);
-  res.json({ total, wins, losses, splits, netChips, winRate: total > 0 ? wins / total : 0 });
+  const scores = all
+    .map((h) => insightScore(h.postHandInsight))
+    .filter((n): n is number => n !== null);
+  const evaluatedHands = scores.length;
+  const avgGtoScore =
+    evaluatedHands > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / evaluatedHands) : undefined;
+  res.json({
+    total,
+    wins,
+    losses,
+    splits,
+    netChips,
+    winRate: total > 0 ? wins / total : 0,
+    evaluatedHands,
+    ...(avgGtoScore !== undefined ? { avgGtoScore } : {}),
+  });
 });
 
 // ── 설정 라우트 ─────────────────────────────────────────────────────────────
