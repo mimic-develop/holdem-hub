@@ -263,6 +263,11 @@ function GameGroupCard({
           <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-400">
             <span className="font-semibold text-neutral-100">게임 #{index}</span>
             <span className="rounded bg-neutral-800 px-1.5 py-0.5">{modeBadge}</span>
+            {group.mode === 'AI' && group.opponentName && (
+              <span className="rounded bg-amber-500/15 px-1.5 py-0.5 font-medium text-amber-300">
+                {group.opponentName}
+              </span>
+            )}
             <span>{group.hands.length}핸드</span>
             {group.inferred && (
               <span
