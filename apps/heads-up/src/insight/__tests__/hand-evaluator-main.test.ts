@@ -232,6 +232,32 @@ describe('evaluateHand — toCall reconstruction across streets', () => {
   });
 });
 
+describe('evaluateHand — no donk-bet recommendation (OOP preflop caller)', () => {
+  it('recommends check (not a donk bet) for the OOP caller on the flop', () => {
+    // Me=BB. SB opens, I call → opponent is the preflop aggressor and I'm OOP.
+    // On the flop I act first with a free check. Even with strong top-pair
+    // equity, the standard line is to check to the aggressor — the engine must
+    // NOT recommend leading out (a donk bet).
+    const hand = makeHand({
+      myPosition: 'BB',
+      myCards: [c('Ah'), c('9h')],
+      board: [c('As'), c('7d'), c('2c')],
+      actionLog: [
+        { street: 'preflop', playerId: 'bot', playerLabel: 'B', action: 'raise', amount: 5, potAfter: 8 },
+        { street: 'preflop', playerId: 'me', playerLabel: '나', action: 'call', amount: 4, potAfter: 12 },
+        { street: 'flop', playerId: 'me', playerLabel: '나', action: 'check', amount: 0, potAfter: 12 },
+        { street: 'flop', playerId: 'bot', playerLabel: 'B', action: 'check', amount: 0, potAfter: 12 },
+      ],
+    });
+    const g = evaluateHand(hand, FAST);
+    const flopEval = g.actionEvaluations.find((e) => e.street === 'flop');
+    expect(flopEval).toBeDefined();
+    expect(flopEval!.recommended).toMatch(/^체크/);
+    // And checking it (the standard line) should score well, not be flagged.
+    expect(flopEval!.score).toBeGreaterThanOrEqual(70);
+  });
+});
+
 describe('evaluateHand — regression sample (10 varied hands)', () => {
   const cases: Array<{
     name: string;

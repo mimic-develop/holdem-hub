@@ -51,34 +51,72 @@ export interface OpponentRangeInference {
 }
 
 /**
- * Very coarse opponent-range inference from preflop action history.
+ * Sequential (Bayesian-flavored) opponent-range inference from the FULL action
+ * history — not just preflop. The opponent's range is updated street by street:
  *
- *  - Opponent 4bet (or more) → top 5%
- *  - Opponent 3bet (single raise over the open) → top 15%
- *  - Opponent open-raised first-in → top 25%
- *  - Opponent only called → top 60% (wide caller)
- *  - Opponent only checked (free BB option) → any hand
+ *  Prior (preflop):
+ *   - 4bet+ → top 5%   · single raise → top 15%   · call → top 60%   · check → any
+ *
+ *  Postflop update (per street the opponent acts):
+ *   - bet/raise (barrel) → range concentrates toward value/polar → ×0.6 (narrower)
+ *   - call               → continues but capped/passive            → ×0.9
+ *   - check              → range unchanged (uncapped)
+ *
+ * This is why a hand that called preflop then barreled flop+turn is treated as a
+ * far stronger range on the river than its preflop "top 60%" — the review now
+ * reflects the betting history instead of judging each street in isolation.
  */
 export function inferOpponentRange(
   opponentActions: ReadonlyArray<Pick<ActionRecord, 'action' | 'street'>>,
 ): OpponentRangeInference {
-  const preflopActions = opponentActions.filter((a) => a.street === 'preflop');
-  const raises = preflopActions.filter((a) => a.action === 'raise').length;
-  const calls = preflopActions.filter((a) => a.action === 'call').length;
+  // --- Prior from preflop.
+  const preflop = opponentActions.filter((a) => a.street === 'preflop');
+  const pfRaises = preflop.filter((a) => a.action === 'raise').length;
+  const pfCalls = preflop.filter((a) => a.action === 'call').length;
 
-  if (raises >= 2) {
-    return { percentile: 0.05, label: '4벳 레인지 (top 5%)' };
+  let percentile: number;
+  let prior: string;
+  if (pfRaises >= 2) {
+    percentile = 0.05;
+    prior = '4벳';
+  } else if (pfRaises === 1) {
+    percentile = 0.15;
+    prior = '레이즈';
+  } else if (pfCalls >= 1) {
+    percentile = 0.6;
+    prior = '콜';
+  } else {
+    percentile = 1;
+    prior = '';
   }
-  if (raises === 1) {
-    // Could be a first-in open or a 3bet — use ordering as a proxy.
-    // If there was a call before the raise, it's a 3bet; otherwise an open.
-    // For simplicity we lump both: a 3bettor is tighter than an opener.
-    return { percentile: 0.15, label: '레이즈 레인지 (top 15%)' };
+
+  // --- Bayesian update: fold each postflop action into the range.
+  const postflop = opponentActions.filter((a) => a.street !== 'preflop');
+  let barrels = 0;
+  for (const a of postflop) {
+    if (a.action === 'bet' || a.action === 'raise') {
+      barrels += 1;
+      percentile *= 0.6;
+    } else if (a.action === 'call') {
+      percentile *= 0.9;
+    }
+    // check → unchanged
   }
-  if (calls >= 1) {
-    return { percentile: 0.6, label: '콜 레인지 (top 60%)' };
+  percentile = Math.max(0.02, Math.min(1, percentile));
+
+  // --- Label communicates the inferred line so the review shows history is used.
+  const topPct = Math.round(percentile * 100);
+  let label: string;
+  if (!prior && barrels === 0) {
+    label = `임의 핸드 (top ${topPct}%)`;
+  } else {
+    const base = prior || '체크';
+    const aggro =
+      barrels >= 2 ? ` 후 ${barrels}스트리트 공격` : barrels === 1 ? ' 후 공격' : '';
+    label = `${base}${aggro} 레인지 (top ${topPct}%)`;
   }
-  return { percentile: 1, label: '임의 핸드' };
+
+  return { percentile, label };
 }
 
 /* ------------------------------------------------------------------ */

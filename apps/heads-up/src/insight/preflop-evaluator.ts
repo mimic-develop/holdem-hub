@@ -117,19 +117,28 @@ export function evaluatePreflopAction(
   const topFreq = recommended.frequency;
 
   let score: number;
-  let sizeOff = false;
+  let sizeIssue: 'none' | 'minor' | 'shove' = 'none';
 
   if (userFreq > 0 && Math.abs(userFreq - topFreq) < 1e-9) {
     // User picked the dominant action. Base 90–100 range.
     score = 90 + Math.round(userFreq * 10);
-    // Size penalty — only meaningful when raising.
+    // Size check — only meaningful when raising. An all-in is a distinct, much
+    // bigger commitment than a standard raise: even when the raise *direction*
+    // is correct, shoving when a small raise is standard is a clear sizing error
+    // and must NOT be scored as a recommended play.
     if (action === 'raise' && freq.raiseSize && context.bigBlindChips > 0) {
       const userBB = userAmount / context.bigBlindChips;
-      // Size tolerance ±30% of the recommended raise-to.
       const ratio = Math.abs(userBB - freq.raiseSize) / freq.raiseSize;
-      if (ratio > 0.3) {
+      // All-in: commits ~the whole (non-short) stack. Short stacks (<18bb) are
+      // excluded — shoving is standard there.
+      const isShove =
+        context.stackBB >= 18 && userBB >= context.stackBB * 0.9;
+      if (isShove) {
+        sizeIssue = 'shove';
+        score = 40;
+      } else if (ratio > 0.3) {
+        sizeIssue = 'minor';
         score = Math.max(80, score - 10);
-        sizeOff = true;
       }
     }
   } else if (userFreq >= 0.2) {
@@ -150,7 +159,7 @@ export function evaluatePreflopAction(
     recommendedAction: recommended,
     userFrequencyMatch: userFreq,
     handKey,
-    commentary: buildCommentary(handKey, action, score, recommended, sizeOff),
+    commentary: buildCommentary(handKey, action, score, recommended, sizeIssue),
   };
 }
 
@@ -166,16 +175,19 @@ function buildCommentary(
   action: GtoAction,
   score: number,
   rec: RecommendedAction,
-  sizeOff: boolean,
+  sizeIssue: 'none' | 'minor' | 'shove',
 ): string {
   const userLabel = ACTION_KO[action];
   const recLabel = ACTION_KO[rec.action];
+  if (sizeIssue === 'shove') {
+    return `${handKey}는 레이즈 방향은 맞지만, 올인은 권장 사이즈(${rec.sizeInBB}BB)를 크게 초과한 오버베팅입니다. 같은 핸드라도 표준 사이즈로 레이즈하는 게 맞습니다.`;
+  }
   if (score >= 95) {
     return `${handKey}로 ${userLabel}은 매우 표준적인 플레이입니다.`;
   }
   if (score >= 80) {
     const base = `${handKey}로 ${userLabel}은 권장되는 플레이입니다.`;
-    return sizeOff
+    return sizeIssue === 'minor'
       ? `${base} 다만 레이즈 사이즈는 ${rec.sizeInBB}BB 근처가 더 표준적입니다.`
       : base;
   }
