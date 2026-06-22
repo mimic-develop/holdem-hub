@@ -226,13 +226,13 @@ function NumpadModal({
 // BetSlider — redesigned panel
 //
 // Layout (top → bottom):
-//   1. 대형 금액 표시 + 상단 ± 버튼 (coarse step)
-//   2. 프리셋 칩 버튼 (수평 스크롤)
+//   1. 대형 금액 표시(탭 → 숫자패드 직접 입력) + ±1bb 버튼
+//   2. 프리셋 칩 버튼 (수평 스크롤) + All-In
 //   3. 수평 슬라이더 + Min / All-In 레이블
 //   4. 정보 그리드: 콜 금액 | 내 스택
-//   5. 하단 ± 버튼 (fine-tune) + 직접 입력 버튼
-//   6. 컨텍스트 레이블 + 금액 분해 수식
-//   7. 취소 / Raise·Bet 확정 버튼
+//   5. 취소 / Raise·Bet 확정 버튼
+//
+// 정밀 입력은 금액 표시 탭(숫자패드)으로 통합 — 중복되던 하단 ± 행/표시는 제거.
 // ─────────────────────────────────────────────────────────────────────────────
 export function BetSlider({
   min,
@@ -358,7 +358,12 @@ export function BetSlider({
         <div className="flex items-center gap-3">
           <PlusMinusBtn delta={-step} size="lg" disabled={value <= safeMin} ariaLabel="1bb 감소" />
 
-          <div className="flex flex-1 flex-col items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => setNumpadOpen(true)}
+            aria-label="금액 직접 입력"
+            className="flex flex-1 flex-col items-center gap-0.5 rounded-xl px-2 py-1 transition-all active:scale-[0.98] hover:bg-white/[0.06]"
+          >
             <span
               className={clsx(
                 'text-[30px] font-black leading-none tabular-nums tracking-tight',
@@ -367,10 +372,12 @@ export function BetSlider({
             >
               {isAllIn ? 'ALL-IN' : bbDisplay}
             </span>
-            {!isAllIn && potAfterCall > 0 && (
-              <span className="text-[11px] text-white/40">팟의 {potPct}%</span>
-            )}
-          </div>
+            <span className="text-[11px] text-white/40">
+              {!isAllIn && potAfterCall > 0
+                ? `팟의 ${potPct}% · 탭하여 입력`
+                : '탭하여 직접 입력'}
+            </span>
+          </button>
 
           <PlusMinusBtn delta={step} size="lg" disabled={value >= safeMax} ariaLabel="1bb 증가" />
         </div>
@@ -476,50 +483,7 @@ export function BetSlider({
           </div>
         </div>
 
-        {/* ── 5. Fine-tune row + 직접 입력 ─────────────────────────── */}
-        <div className="flex items-center gap-2">
-          <PlusMinusBtn delta={-step} size="sm" disabled={value <= safeMin} ariaLabel="1bb 감소 (정밀)" />
-
-          <div
-            className="flex flex-1 items-center justify-center rounded-xl py-1.5"
-            style={{
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.08)',
-            }}
-          >
-            <span className={clsx('text-[17px] font-black tabular-nums', isAllIn ? 'text-amber-400' : 'text-white')}>
-              {isAllIn ? 'ALL-IN' : bbDisplay}
-            </span>
-          </div>
-
-          <PlusMinusBtn delta={step} size="sm" disabled={value >= safeMax} ariaLabel="1bb 증가 (정밀)" />
-
-          <button
-            type="button"
-            onClick={() => setNumpadOpen(true)}
-            className="flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-bold text-orange-400 transition-all active:scale-95 hover:brightness-110"
-            style={{
-              border: '1px solid rgba(249,115,22,0.45)',
-              background: 'rgba(249,115,22,0.08)',
-            }}
-          >
-            {/* 3×3 grid icon */}
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-              <rect x="0"   y="0"   width="3" height="3" rx="0.4" />
-              <rect x="4.5" y="0"   width="3" height="3" rx="0.4" />
-              <rect x="9"   y="0"   width="3" height="3" rx="0.4" />
-              <rect x="0"   y="4.5" width="3" height="3" rx="0.4" />
-              <rect x="4.5" y="4.5" width="3" height="3" rx="0.4" />
-              <rect x="9"   y="4.5" width="3" height="3" rx="0.4" />
-              <rect x="0"   y="9"   width="3" height="3" rx="0.4" />
-              <rect x="4.5" y="9"   width="3" height="3" rx="0.4" />
-              <rect x="9"   y="9"   width="3" height="3" rx="0.4" />
-            </svg>
-            직접 입력
-          </button>
-        </div>
-
-        {/* ── 6. Cancel + Confirm ──────────────────────────────────── */}
+        {/* ── 5. Cancel + Confirm ──────────────────────────────────── */}
         <div className="grid grid-cols-5 gap-2">
           <button
             type="button"

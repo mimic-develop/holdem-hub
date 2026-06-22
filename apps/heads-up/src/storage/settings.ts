@@ -6,7 +6,8 @@ export interface Settings {
   soundEnabled: boolean;
   /** Haptic feedback on supported mobile devices. Default: true. */
   hapticEnabled: boolean;
-  /** Bet/raise sizing preset fractions (multipliers of pot). e.g. [0.5, 0.67, 1.0] = 50%/67%/Pot. */
+  /** Bet/raise sizing preset fractions (multipliers of pot).
+   *  e.g. [0.33, 0.5, 0.67, 0.75, 1.0] = 1/3·1/2·2/3·3/4·Pot (+All-In always shown). */
   betPresets: number[];
   /** Hands per match. 마스터 스펙 v2 §8.3 — 기본 12, 범위 10–15. */
   matchLength: number;
@@ -14,7 +15,7 @@ export interface Settings {
   displayUnit: 'bb' | 'chips';
 }
 
-export const DEFAULT_BET_PRESETS: number[] = [0.5, 0.67, 1.0];
+export const DEFAULT_BET_PRESETS: number[] = [0.33, 0.5, 0.67, 0.75, 1.0];
 export const MAX_BET_PRESETS = 5;
 export const DEFAULT_MATCH_LENGTH = 12;
 export const MIN_MATCH_LENGTH = 10;

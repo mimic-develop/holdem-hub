@@ -106,7 +106,7 @@ export function BetPresetsEditor({ value, onChange }: BetPresetsEditorProps) {
         onClick={reset}
         className="text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
       >
-        기본값(1/2 · 2/3 · Pot)으로 되돌리기
+        기본값(1/3 · 1/2 · 2/3 · 3/4 · Pot)으로 되돌리기
       </button>
     </div>
   );

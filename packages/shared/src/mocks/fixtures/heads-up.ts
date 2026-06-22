@@ -8,7 +8,7 @@ export const HEADS_UP_SETTINGS = {
   nickname: "테스트 유저",
   soundEnabled: true,
   hapticEnabled: true,
-  betPresets: [0.5, 0.67, 1.0],
+  betPresets: [0.33, 0.5, 0.67, 0.75, 1.0],
   matchLength: 12,
   displayUnit: "bb" as const,
 };
