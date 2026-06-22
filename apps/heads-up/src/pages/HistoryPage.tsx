@@ -45,6 +45,14 @@ export default function HistoryPage() {
     return Math.round(stats.winRate * 100);
   }, [stats]);
 
+  // 누적 순이익은 25BB 고정 매치에서 ±스윙에 지배되어 비교 의미가 약하다.
+  // bb/hand 평균으로 정규화해 보여준다 (누적값은 보조 텍스트로 유지).
+  const avgBBPerHand = useMemo(() => {
+    const t = stats?.total ?? 0;
+    if (t === 0) return 0;
+    return Math.round(((stats?.netChips ?? 0) / BB / t) * 10) / 10;
+  }, [stats]);
+
   return (
     <main className="min-h-screen bg-neutral-950 text-neutral-100">
       {/* Top bar */}
@@ -67,21 +75,38 @@ export default function HistoryPage() {
         {/* Stats summary */}
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard title="총 핸드" value={String(stats?.total ?? 0)} />
-          <StatCard title="승률" value={`${winRatePct}%`} />
           <StatCard
-            title="순이익"
-            value={`${formatChips(stats?.netChips ?? 0)} (${fmtBB(stats?.netChips ?? 0)}bb)`}
+            title="승률"
+            value={`${winRatePct}%`}
+            sub={`${stats?.wins ?? 0}승 ${stats?.losses ?? 0}패${
+              (stats?.splits ?? 0) > 0 ? ` ${stats?.splits}무` : ''
+            }`}
+          />
+          <StatCard
+            title="평균 손익"
+            value={`${avgBBPerHand > 0 ? '+' : ''}${avgBBPerHand} bb/h`}
             valueClass={
-              (stats?.netChips ?? 0) > 0
+              avgBBPerHand > 0
                 ? 'text-emerald-400'
-                : (stats?.netChips ?? 0) < 0
+                : avgBBPerHand < 0
                   ? 'text-red-400'
                   : 'text-neutral-100'
             }
+            sub={`누적 ${formatChips(stats?.netChips ?? 0)} (${fmtBB(stats?.netChips ?? 0)}bb)`}
           />
           <StatCard
-            title="승 / 패 / 무"
-            value={`${stats?.wins ?? 0} / ${stats?.losses ?? 0} / ${stats?.splits ?? 0}`}
+            title="평균 판단 점수"
+            value={
+              stats?.evaluatedHands && stats.evaluatedHands > 0 && stats.avgGtoScore !== undefined
+                ? String(stats.avgGtoScore)
+                : '—'
+            }
+            valueClass={scoreColor(stats?.avgGtoScore)}
+            sub={
+              stats?.evaluatedHands && stats.evaluatedHands > 0
+                ? `${stats.evaluatedHands}핸드 평가`
+                : '평가 핸드 없음'
+            }
           />
         </section>
 
@@ -174,17 +199,28 @@ function StatCard({
   title,
   value,
   valueClass,
+  sub,
 }: {
   title: string;
   value: string;
   valueClass?: string;
+  sub?: string;
 }) {
   return (
     <div className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2">
       <div className="text-xs text-neutral-500">{title}</div>
       <div className={clsx('text-base font-bold text-neutral-100', valueClass)}>{value}</div>
+      {sub && <div className="mt-0.5 text-[10px] text-neutral-500">{sub}</div>}
     </div>
   );
+}
+
+/** 판단 점수(0–100) → 색상. GrowthStats와 동일 기준(80/50). */
+function scoreColor(score: number | undefined): string {
+  if (score === undefined) return 'text-neutral-100';
+  if (score >= 80) return 'text-emerald-400';
+  if (score >= 50) return 'text-amber-400';
+  return 'text-rose-400';
 }
 
 function GameGroupCard({

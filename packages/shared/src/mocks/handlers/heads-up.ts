@@ -94,6 +94,7 @@ export const headsUpHandlers = [
       splits,
       netChips,
       winRate: total > 0 ? wins / total : 0,
+      evaluatedHands: scores.length,
       ...(avgGtoScore !== undefined ? { avgGtoScore } : {}),
     });
   }),
