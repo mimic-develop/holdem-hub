@@ -474,8 +474,18 @@ export default function HomePage() {
                     marginBottom: topEntries.length ? 8 : 0,
                   }}
                 >
-                  <span style={{ fontSize: 12, fontWeight: 700, color: COLORS.textPrimary }}>
-                    🏆 {persona.displayName} 리더보드
+                  <span
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: COLORS.textPrimary,
+                    }}
+                  >
+                    <span style={{ width: 20, textAlign: 'center' }}>🏆</span>
+                    {persona.displayName} 리더보드
                   </span>
                   <span style={{ fontSize: 11, color: COLORS.textSecondary }}>전체 보기 ›</span>
                 </div>
@@ -506,6 +516,8 @@ export default function HomePage() {
                         </span>
                         <span
                           style={{
+                            minWidth: 28,
+                            textAlign: 'right',
                             fontSize: 14,
                             fontWeight: 800,
                             color: lbScoreColor(e.avgScore),
