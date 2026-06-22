@@ -428,6 +428,29 @@ export default function HomePage() {
               <button type="button" onClick={handleStart} style={s.btnStart as React.CSSProperties}>
                 대결 시작 →
               </button>
+
+              {/* 선택한 페르소나의 리더보드로 이동 */}
+              <button
+                type="button"
+                onClick={() => navigate(`/leaderboard?persona=${pickedPersona}`)}
+                style={{
+                  width: '100%',
+                  marginTop: 8,
+                  padding: '12px',
+                  background: 'transparent',
+                  border: `1px solid ${COLORS.border}`,
+                  borderRadius: 12,
+                  color: COLORS.textSecondary,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  fontFamily: 'inherit',
+                  letterSpacing: 0,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >
+                🏆 {persona.displayName} 리더보드 보기
+              </button>
             </>
           )}
 
