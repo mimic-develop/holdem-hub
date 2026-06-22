@@ -11,7 +11,7 @@ import type { AiPersonaId } from '../types/ai';
 
 type TabKey = 'ALL' | AiPersonaId;
 
-/** 판단 점수(0–100) → 색상. GrowthStats/히스토리와 동일 기준(80/50). */
+/** 판단 점수(0–100) → 색상. 히스토리와 동일 기준(80/50). */
 function scoreColor(score: number): string {
   if (score >= 80) return 'text-emerald-400';
   if (score >= 50) return 'text-amber-400';

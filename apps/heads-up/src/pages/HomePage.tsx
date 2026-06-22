@@ -4,20 +4,12 @@ import { SubAppHeader, BackToHub } from '@hh/ui';
 import { CreateRoomDialog } from '../components/home/CreateRoomDialog';
 import { JoinRoomDialog } from '../components/home/JoinRoomDialog';
 import { useSettings } from '../hooks/useSettings';
-import { useStats } from '../hooks/useStats';
 import { useGameStore } from '../store/game-store';
 import { AI_PERSONAS, ALL_PERSONA_IDS } from '../bot/personas';
 import { ALL_LEVELS, LEVEL_LABEL } from '../bot/levels';
 import type { AiLevel, AiPersonaId } from '../types/ai';
 
 type RemoteDialog = 'none' | 'create' | 'join';
-
-const RANGE_LABELS: Record<string, string> = {
-  today: '오늘',
-  week: '주간',
-  month: '월간',
-  all: '전체',
-};
 
 /* ── 색상 토큰 (MIMIC PLAYLAB 톤앤매너) ─────────────────── */
 const COLORS = {
@@ -156,7 +148,6 @@ export default function HomePage() {
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const startAiGame = useGameStore((st) => st.startAiGame);
-  const { stats, isLoading: statsLoading, range, setRange } = useStats('today');
 
   const handleStart = () => {
     startAiGame(pickedPersona, pickedLevel);
@@ -459,67 +450,6 @@ export default function HomePage() {
                 입장하기 →
               </button>
             </>
-          )}
-        </div>
-
-        {/* ════════════════════════════════════════════
-            성장 지표
-            ════════════════════════════════════════════ */}
-        <div style={s.statsCard}>
-          <div style={s.secLabel}>📈 내 성장 지표</div>
-
-          <div style={s.statsTabs}>
-            {(['today', 'week', 'month', 'all'] as const).map((r) => {
-              const active = range === r;
-              return (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setRange(r)}
-                  style={{
-                    padding: '7px',
-                    textAlign: 'center',
-                    fontSize: 11,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    border: 'none',
-                    fontFamily: 'inherit',
-                    letterSpacing: 0,
-                    background: active ? COLORS.red : 'transparent',
-                    color: active ? COLORS.textPrimary : COLORS.textSecondary,
-                    borderRadius: 6,
-                    boxShadow: active ? `0 2px 8px ${COLORS.redGlow}` : 'none',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {RANGE_LABELS[r]}
-                </button>
-              );
-            })}
-          </div>
-
-          {statsLoading || !stats || stats.totalHands === 0 ? (
-            <div style={s.statsEmpty}>
-              <div style={s.statsEmptyT}>{RANGE_LABELS[range]} 플레이한 핸드가 없습니다</div>
-              <div style={s.statsEmptyS}>첫 대결을 시작해보세요</div>
-            </div>
-          ) : (
-            <div style={s.statsRow}>
-              <div style={s.statsItem}>
-                <div style={s.statsVal}>{stats.totalHands}</div>
-                <div style={s.statsLbl}>핸드</div>
-              </div>
-              <div style={s.statsItem}>
-                <div style={s.statsVal}>{Math.round(stats.winRate * 100)}%</div>
-                <div style={s.statsLbl}>승률</div>
-              </div>
-              <div style={s.statsItemLast}>
-                <div style={{ ...s.statsVal, color: stats.winStreak >= 2 ? '#EF9F27' : COLORS.red }}>
-                  {stats.winStreak >= 2 ? `${stats.winStreak}연승` : '-'}
-                </div>
-                <div style={s.statsLbl}>연승</div>
-              </div>
-            </div>
           )}
         </div>
 
