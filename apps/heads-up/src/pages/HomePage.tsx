@@ -71,13 +71,18 @@ const s: Record<string, React.CSSProperties> = {
   },
 
   /* 페르소나 그리드 */
-  charGrid: { display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6, marginTop: 14 },
+  charGrid: { display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6 },
 
-  /* 페르소나 정보 카드 */
-  charInfo: {
+  /* 페르소나 선택 패널 — 그리드 + 설명/난이도 통합 */
+  personaPanel: {
     background: COLORS.cardBgInset, borderRadius: 12,
-    border: `1px solid ${COLORS.border}`,
-    padding: '12px 14px', marginTop: 10,
+    border: `1px solid ${COLORS.border}`, padding: 10, marginTop: 14,
+  },
+
+  /* 페르소나 설명 + 난이도 (패널 내부, 구분선으로 그리드와 분리) */
+  charInfo: {
+    marginTop: 10, paddingTop: 10,
+    borderTop: `1px solid ${COLORS.border}`,
     display: 'flex', alignItems: 'center', gap: 12,
   },
   charName: { fontSize: '14px', fontWeight: 700, color: COLORS.textPrimary, letterSpacing: '0.06em', marginBottom: 2 },
@@ -351,8 +356,9 @@ export default function HomePage() {
           {/* ── AI ZONE ── */}
           {isAiMode && (
             <>
-              {/* 페르소나 그리드 */}
-              <div style={s.charGrid}>
+              {/* 페르소나 선택 패널 (그리드 + 설명/난이도 통합) */}
+              <div style={s.personaPanel}>
+                <div style={s.charGrid}>
                 {ALL_PERSONA_IDS.map((id) => {
                   const p = AI_PERSONAS[id];
                   const selected = pickedPersona === id;
@@ -363,8 +369,8 @@ export default function HomePage() {
                       onClick={() => setPickedPersona(id)}
                       style={{
                         position: 'relative', overflow: 'hidden',
-                        background: COLORS.cardBgInset,
-                        border: selected ? `1.5px solid ${COLORS.red}` : `1px solid ${COLORS.border}`,
+                        background: 'transparent',
+                        border: selected ? `1.5px solid ${COLORS.red}` : '1px solid transparent',
                         borderRadius: 10,
                         padding: '10px 6px 8px', cursor: 'pointer',
                         textAlign: 'center', fontFamily: 'inherit',
@@ -441,6 +447,7 @@ export default function HomePage() {
                     );
                   })}
                   </div>
+              </div>
               </div>
 
               <button type="button" onClick={handleStart} style={s.btnStart as React.CSSProperties}>
