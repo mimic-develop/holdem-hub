@@ -6,6 +6,10 @@ import {
   type LeaderboardEntry,
   type LeaderboardResult,
 } from '../storage/leaderboard';
+import { ALL_PERSONA_IDS, AI_PERSONAS } from '../bot/personas';
+import type { AiPersonaId } from '../types/ai';
+
+type TabKey = 'ALL' | AiPersonaId;
 
 /** 판단 점수(0–100) → 색상. GrowthStats/히스토리와 동일 기준(80/50). */
 function scoreColor(score: number): string {
@@ -22,13 +26,14 @@ function rankBadge(rank: number): string {
 }
 
 export default function LeaderboardPage() {
+  const [tab, setTab] = useState<TabKey>('ALL');
   const [data, setData] = useState<LeaderboardResult | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    void getLeaderboard().then((d) => {
+    void getLeaderboard(tab === 'ALL' ? undefined : tab).then((d) => {
       if (!alive) return;
       setData(d);
       setLoading(false);
@@ -36,11 +41,12 @@ export default function LeaderboardPage() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [tab]);
 
   const entries = data?.entries ?? [];
   const window = data?.window ?? 200;
   const minQualify = data?.minQualifyHands ?? 50;
+  const scopeLabel = tab === 'ALL' ? '전체 페르소나 합산' : `${AI_PERSONAS[tab].displayName} 상대`;
 
   return (
     <main className="min-h-screen bg-neutral-950 text-neutral-100">
@@ -55,9 +61,29 @@ export default function LeaderboardPage() {
       </header>
 
       <div className="mx-auto max-w-3xl px-4 py-4">
+        {/* 페르소나 탭 — 페르소나별 보드 분리 */}
+        <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+          {(['ALL', ...ALL_PERSONA_IDS] as TabKey[]).map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setTab(k)}
+              className={clsx(
+                'whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                tab === k
+                  ? 'border-amber-500/60 bg-amber-500/10 text-amber-300'
+                  : 'border-neutral-700 bg-neutral-900 text-neutral-400 hover:bg-neutral-800',
+              )}
+            >
+              {k === 'ALL' ? '전체' : AI_PERSONAS[k].displayName}
+            </button>
+          ))}
+        </div>
+
         <p className="mb-3 text-xs leading-relaxed text-neutral-500">
-          순위는 <span className="text-neutral-300">평균 판단 점수</span>(AI 매치 · 최근 {window}핸드)
-          기준입니다. 결과(운)가 아니라 의사결정의 질로 겨룹니다. 등록 자격: 평가 {minQualify}핸드 이상.
+          <span className="text-neutral-300">{scopeLabel}</span> · 순위는 평균 판단 점수(AI 매치 ·
+          최근 {window}핸드) 기준. 결과(운)가 아니라 의사결정의 질로 겨룹니다. 등록 자격: 평가{' '}
+          {minQualify}핸드 이상.
         </p>
 
         {/* 내 순위 / 진행 상황 */}

@@ -100,14 +100,20 @@ export const headsUpHandlers = [
 
   // 리더보드 — 본인(저장된 핸드) 집계 + 시드 경쟁자로 보드 구성.
   // (목은 단일 유저만 보관 → 프리뷰에서 보드가 비지 않도록 가상 경쟁자를 섞는다)
-  http.get("*/play-lab/heads-up/leaderboard", () => {
+  // ?persona= 가 오면 해당 페르소나 핸드만 집계하고, 시드 점수도 페르소나별로 흔들어
+  // 탭마다 보드가 구분돼 보이게 한다.
+  http.get("*/play-lab/heads-up/leaderboard", ({ request }) => {
     const MIN_QUALIFY = 50;
     const WINDOW = 200;
     const BIG_BLIND = 20;
+    const persona = new URL(request.url).searchParams.get("persona") || undefined;
 
     const evaluated = [...hands.values()]
       .filter(
-        (h) => h.mode === "AI" && typeof h.postHandInsight?.overallScore === "number",
+        (h) =>
+          h.mode === "AI" &&
+          typeof h.postHandInsight?.overallScore === "number" &&
+          (persona ? h.aiPersona === persona : true),
       )
       .sort((a, b) => (b.playedAt ?? 0) - (a.playedAt ?? 0));
     const win = evaluated.slice(0, WINDOW);
@@ -121,6 +127,8 @@ export const headsUpHandlers = [
     }
     const n = win.length;
 
+    const pLen = persona?.length ?? 0;
+    const delta = persona ? ((pLen * 5) % 13) - 6 : 0; // 페르소나별 점수 이동
     const seeded = [
       { nickname: "샤크K", avgScore: 88, bbPerHand: 3.2, winRate: 0.61, handsCounted: 180 },
       { nickname: "GTO_라인", avgScore: 81, bbPerHand: 2.0, winRate: 0.54, handsCounted: 200 },
@@ -128,7 +136,12 @@ export const headsUpHandlers = [
       { nickname: "콜링스테이션", avgScore: 64, bbPerHand: -0.5, winRate: 0.46, handsCounted: 120 },
       { nickname: "폴드마스터", avgScore: 57, bbPerHand: -1.2, winRate: 0.41, handsCounted: 58 },
       { nickname: "뉴비짱", avgScore: 48, bbPerHand: -2.4, winRate: 0.37, handsCounted: 72 },
-    ].map((e) => ({ ...e, rank: 0, isMe: false }));
+    ].map((e, i) => ({
+      ...e,
+      avgScore: Math.max(30, Math.min(96, e.avgScore + delta + ((i * pLen) % 5) - 2)),
+      rank: 0,
+      isMe: false,
+    }));
 
     let myProgress: { handsCounted: number; needed: number } | null = null;
     if (n >= MIN_QUALIFY) {
@@ -153,6 +166,7 @@ export const headsUpHandlers = [
     const me = seeded.find((e) => e.isMe) ?? null;
 
     return HttpResponse.json({
+      persona: persona ?? null,
       entries: seeded.slice(0, 100),
       me,
       myProgress,

@@ -32,6 +32,7 @@ interface CompletedHand {
   handNumber: number;
   mode: GameMode;
   aiDifficulty?: string;
+  aiPersona?: string;
   opponentName: string;
   myPosition: "SB" | "BB";
   initialStacks: [number, number];
@@ -223,10 +224,18 @@ interface UserAgg {
   evaluatedTotal: number;
 }
 
-/** uid의 AI 모드 평가 핸드(최근 WINDOW개)를 집계. 자격 미달이어도 evaluatedTotal은 채운다. */
-function aggregateUser(uid: string): UserAgg {
+/**
+ * uid의 AI 모드 평가 핸드(최근 WINDOW개)를 집계. 자격 미달이어도 evaluatedTotal은 채운다.
+ * persona가 주어지면 해당 페르소나 상대 핸드만 집계한다(페르소나별 보드).
+ */
+function aggregateUser(uid: string, persona?: string): UserAgg {
   const evaluated = [...(handsStore.get(uid)?.values() ?? [])]
-    .filter((h) => h.mode === "AI" && lbScore(h.postHandInsight) !== null)
+    .filter(
+      (h) =>
+        h.mode === "AI" &&
+        lbScore(h.postHandInsight) !== null &&
+        (persona ? h.aiPersona === persona : true),
+    )
     .sort((a, b) => b.playedAt - a.playedAt);
   const window = evaluated.slice(0, LB_WINDOW);
   let scoreSum = 0;
@@ -248,15 +257,17 @@ function aggregateUser(uid: string): UserAgg {
 }
 
 /**
- * GET /api/play-lab/heads-up/leaderboard
- * 응답: { entries, me, myProgress, minQualifyHands, window }
+ * GET /api/play-lab/heads-up/leaderboard?persona=STANDARD|NIT|LAG|CALLING|MANIAC
+ * persona 생략 시 전체(모든 AI 페르소나 합산) 보드.
+ * 응답: { persona, entries, me, myProgress, minQualifyHands, window }
  */
 headsUpRouter.get("/leaderboard", (req: Request, res: Response) => {
   const callerUid = decodeJwtPayload(req.headers.authorization);
+  const persona = typeof req.query.persona === "string" ? req.query.persona : undefined;
 
   const ranked: LeaderboardEntry[] = [];
   for (const uid of handsStore.keys()) {
-    const agg = aggregateUser(uid);
+    const agg = aggregateUser(uid, persona);
     if (agg.handsCounted < LB_MIN_QUALIFY) continue;
     ranked.push({
       rank: 0,
@@ -272,10 +283,10 @@ headsUpRouter.get("/leaderboard", (req: Request, res: Response) => {
   ranked.forEach((e, i) => (e.rank = i + 1));
 
   const me = ranked.find((e) => e.isMe) ?? null;
-  // 자격 미달 시 진행 상황
+  // 자격 미달 시 진행 상황 (선택된 페르소나 기준)
   let myProgress: { handsCounted: number; needed: number } | null = null;
   if (callerUid && !me) {
-    const evaluatedTotal = aggregateUser(callerUid).evaluatedTotal;
+    const evaluatedTotal = aggregateUser(callerUid, persona).evaluatedTotal;
     myProgress = {
       handsCounted: evaluatedTotal,
       needed: Math.max(0, LB_MIN_QUALIFY - evaluatedTotal),
@@ -283,6 +294,7 @@ headsUpRouter.get("/leaderboard", (req: Request, res: Response) => {
   }
 
   res.json({
+    persona: persona ?? null,
     entries: ranked.slice(0, 100),
     me,
     myProgress,
