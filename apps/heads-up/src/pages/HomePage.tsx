@@ -395,19 +395,9 @@ export default function HomePage() {
                 })}
               </div>
 
-              {/* 페르소나 정보 + 난이도 */}
+              {/* 페르소나 설명 + 난이도 (아바타·이름은 VS 카드·그리드와 중복이라 생략) */}
               <div style={s.charInfo}>
-                <img
-                  src={persona.avatarSrc}
-                  alt={persona.displayName}
-                  style={{
-                    width: 46, height: 46, borderRadius: '50%',
-                    objectFit: 'cover', flexShrink: 0,
-                    border: `1px solid ${COLORS.red}`,
-                  }}
-                />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={s.charName as React.CSSProperties}>{persona.displayName}</div>
                   <div style={s.charDesc}>{persona.description}</div>
                 </div>
                 <div style={s.diffPills}>
