@@ -167,16 +167,14 @@ function CardText({ card }: { card: Card }) {
   );
 }
 
-function HandSummaryRow({ hand }: { hand: CompletedHand }) {
-  const bbDelta = Math.round(hand.myWinLoss / 2);
-  const score = hand.postHandInsight?.overallScore;
+/** 헤즈업 빅블라인드(칩). myWinLoss는 칩 단위라 bb 환산에 사용. */
+const HAND_BIG_BLIND = 20;
 
-  const resultBadge =
-    hand.result === 'WIN'
-      ? { label: 'W', cls: 'bg-amber-500/20 text-amber-400 border-amber-500/30' }
-      : hand.result === 'LOSS'
-        ? { label: 'L', cls: 'bg-rose-500/20 text-rose-400 border-rose-500/30' }
-        : { label: 'D', cls: 'bg-white/10 text-white/60 border-white/20' };
+function HandSummaryRow({ hand }: { hand: CompletedHand }) {
+  // myWinLoss는 칩 단위 → 실제 BB(20칩)로 환산. (과거엔 /2로 나눠 10배로 표시되던 버그)
+  const bbRaw = hand.myWinLoss / HAND_BIG_BLIND;
+  const bbDelta = Number.isInteger(bbRaw) ? bbRaw : Math.round(bbRaw * 10) / 10;
+  const score = hand.postHandInsight?.overallScore;
 
   return (
     <div className="flex items-center gap-2 border-b border-border/50 px-2.5 py-1.5 last:border-0 text-xs">
@@ -212,24 +210,14 @@ function HandSummaryRow({ hand }: { hand: CompletedHand }) {
         {score !== undefined ? score : '—'}
       </span>
 
-      {/* BB 델타 */}
+      {/* BB 델타 — 부호·색으로 승패까지 표현 (별도 W/L 배지는 중복이라 제거) */}
       <span
         className={clsx(
-          'w-10 text-right font-semibold tabular-nums',
+          'w-16 text-right font-semibold tabular-nums',
           bbDelta > 0 ? 'text-green-400' : bbDelta < 0 ? 'text-rose-400' : 'text-white/40',
         )}
       >
         {bbDelta > 0 ? '+' : ''}{bbDelta}BB
-      </span>
-
-      {/* 결과 배지 */}
-      <span
-        className={clsx(
-          'w-5 shrink-0 rounded border text-center text-[10px] font-bold',
-          resultBadge.cls,
-        )}
-      >
-        {resultBadge.label}
       </span>
     </div>
   );
