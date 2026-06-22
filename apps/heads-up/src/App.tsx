@@ -5,7 +5,6 @@ import { CompatBanner } from './components/common/CompatBanner';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { MilestoneToast } from './components/common/MilestoneToast';
 import { useSettingsStore } from './store/settings-store';
-import { useSettings } from './hooks/useSettings';
 import { initChipDisplayFromSettings } from './hooks/useChipDisplay';
 import { useToastStore } from './store/toast-store';
 
@@ -15,6 +14,7 @@ import { useToastStore } from './store/toast-store';
 const HomePage = lazy(() => import('./pages/HomePage'));
 const TablePage = lazy(() => import('./pages/TablePage'));
 const HistoryPage = lazy(() => import('./pages/HistoryPage'));
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 const AnalysisPage = lazy(() => import('./pages/AnalysisPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
@@ -27,16 +27,19 @@ function RouteFallback() {
   );
 }
 
-/** 구글 로그인 displayName → 헤즈업 닉네임 자동 동기화 */
+/** 로그인 닉네임 → 헤즈업 게임 닉네임 자동 동기화. */
 function AuthNicknameSyncer() {
   const { user } = useAuthState();
-  const { setNickname } = useSettings();
+  const isLoaded = useSettingsStore((s) => s.isLoaded);
+  const setNickname = useSettingsStore((s) => s.setNickname);
+  // 게임 내 닉네임(nickname)을 우선 사용하고, 없으면 displayName으로 폴백.
+  const authNickname = (user?.nickname ?? user?.displayName)?.trim() || null;
 
   useEffect(() => {
-    if (user?.displayName) {
-      setNickname(user.displayName);
-    }
-  }, [user?.displayName, setNickname]);
+    // 설정 init(getSettings)이 끝난 뒤 적용해야 로드된 settings에 덮어쓰여지지 않는다.
+    if (!isLoaded || !authNickname) return;
+    setNickname(authNickname);
+  }, [authNickname, isLoaded, setNickname]);
 
   return null;
 }
@@ -62,6 +65,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/table" element={<TablePage />} />
           <Route path="/history" element={<HistoryPage />} />
+          <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/analysis/:handId" element={<AnalysisPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/about" element={<AboutPage />} />

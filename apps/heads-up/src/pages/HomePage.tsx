@@ -1,23 +1,26 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { SubAppHeader, BackToHub } from '@hh/ui';
 import { CreateRoomDialog } from '../components/home/CreateRoomDialog';
 import { JoinRoomDialog } from '../components/home/JoinRoomDialog';
 import { useSettings } from '../hooks/useSettings';
-import { useStats } from '../hooks/useStats';
 import { useGameStore } from '../store/game-store';
+import { getLeaderboard, type LeaderboardEntry } from '../storage/leaderboard';
 import { AI_PERSONAS, ALL_PERSONA_IDS } from '../bot/personas';
 import { ALL_LEVELS, LEVEL_LABEL } from '../bot/levels';
 import type { AiLevel, AiPersonaId } from '../types/ai';
 
 type RemoteDialog = 'none' | 'create' | 'join';
 
-const RANGE_LABELS: Record<string, string> = {
-  today: '오늘',
-  week: '주간',
-  month: '월간',
-  all: '전체',
-};
+/** 리더보드 미리보기용 — 순위 메달/판단 점수 색상. */
+function lbRankBadge(rank: number): string {
+  return rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : String(rank);
+}
+function lbScoreColor(score: number): string {
+  if (score >= 80) return '#34d399';
+  if (score >= 50) return '#fbbf24';
+  return '#fb7185';
+}
 
 /* ── 색상 토큰 (MIMIC PLAYLAB 톤앤매너) ─────────────────── */
 const COLORS = {
@@ -156,7 +159,18 @@ export default function HomePage() {
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const startAiGame = useGameStore((st) => st.startAiGame);
-  const { stats, isLoading: statsLoading, range, setRange } = useStats('today');
+
+  // 선택한 페르소나 리더보드 TOP3 — 메인에서 바로 노출.
+  const [topEntries, setTopEntries] = useState<LeaderboardEntry[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void getLeaderboard(pickedPersona).then((d) => {
+      if (alive) setTopEntries(d.entries.slice(0, 3));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [pickedPersona]);
 
   const handleStart = () => {
     startAiGame(pickedPersona, pickedLevel);
@@ -167,6 +181,12 @@ export default function HomePage() {
   const nickname = settings.nickname || '익명';
   const avatarInitials = nickname.slice(0, 2).toUpperCase();
   const isAiMode = mode === 'ai';
+
+  // 로그인/설정으로 정해진 닉네임을 입력칸에 표시 (사용자가 편집 중이 아닐 때만).
+  useEffect(() => {
+    if (document.activeElement === nameInputRef.current) return;
+    setNameInput(settings.nickname && settings.nickname !== '익명' ? settings.nickname : '');
+  }, [settings.nickname]);
 
   const commitName = () => {
     const trimmed = nameInput.trim();
@@ -437,6 +457,86 @@ export default function HomePage() {
               <button type="button" onClick={handleStart} style={s.btnStart as React.CSSProperties}>
                 대결 시작 →
               </button>
+
+              {/* 선택 페르소나 리더보드 TOP3 — 바로 노출 (탭하면 전체 보드) */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/leaderboard?persona=${pickedPersona}`)}
+                style={{
+                  marginTop: 12,
+                  background: COLORS.cardBgInset,
+                  border: `1px solid ${COLORS.border}`,
+                  borderRadius: 12,
+                  padding: '10px 12px',
+                  cursor: 'pointer',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: topEntries.length ? 8 : 0,
+                  }}
+                >
+                  <span
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: COLORS.textPrimary,
+                    }}
+                  >
+                    <span style={{ width: 20, textAlign: 'center' }}>🏆</span>
+                    {persona.displayName} 리더보드
+                  </span>
+                  <span style={{ fontSize: 11, color: COLORS.textSecondary }}>전체 보기 ›</span>
+                </div>
+                {topEntries.length === 0 ? (
+                  <div style={{ fontSize: 11, color: COLORS.textMuted, textAlign: 'center', padding: '8px 0' }}>
+                    아직 순위에 오른 플레이어가 없습니다
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {topEntries.map((e) => (
+                      <div key={e.rank} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                        <span style={{ width: 20, textAlign: 'center', fontWeight: 700, color: COLORS.textSecondary }}>
+                          {lbRankBadge(e.rank)}
+                        </span>
+                        <span
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            color: e.isMe ? '#fbbf24' : COLORS.textPrimary,
+                            fontWeight: e.isMe ? 700 : 500,
+                          }}
+                        >
+                          {e.nickname}
+                          {e.isMe ? ' (나)' : ''}
+                        </span>
+                        <span
+                          style={{
+                            minWidth: 28,
+                            textAlign: 'right',
+                            fontSize: 14,
+                            fontWeight: 800,
+                            color: lbScoreColor(e.avgScore),
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          {e.avgScore}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </>
           )}
 
@@ -459,67 +559,6 @@ export default function HomePage() {
                 입장하기 →
               </button>
             </>
-          )}
-        </div>
-
-        {/* ════════════════════════════════════════════
-            성장 지표
-            ════════════════════════════════════════════ */}
-        <div style={s.statsCard}>
-          <div style={s.secLabel}>📈 내 성장 지표</div>
-
-          <div style={s.statsTabs}>
-            {(['today', 'week', 'month', 'all'] as const).map((r) => {
-              const active = range === r;
-              return (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setRange(r)}
-                  style={{
-                    padding: '7px',
-                    textAlign: 'center',
-                    fontSize: 11,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    border: 'none',
-                    fontFamily: 'inherit',
-                    letterSpacing: 0,
-                    background: active ? COLORS.red : 'transparent',
-                    color: active ? COLORS.textPrimary : COLORS.textSecondary,
-                    borderRadius: 6,
-                    boxShadow: active ? `0 2px 8px ${COLORS.redGlow}` : 'none',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {RANGE_LABELS[r]}
-                </button>
-              );
-            })}
-          </div>
-
-          {statsLoading || !stats || stats.totalHands === 0 ? (
-            <div style={s.statsEmpty}>
-              <div style={s.statsEmptyT}>{RANGE_LABELS[range]} 플레이한 핸드가 없습니다</div>
-              <div style={s.statsEmptyS}>첫 대결을 시작해보세요</div>
-            </div>
-          ) : (
-            <div style={s.statsRow}>
-              <div style={s.statsItem}>
-                <div style={s.statsVal}>{stats.totalHands}</div>
-                <div style={s.statsLbl}>핸드</div>
-              </div>
-              <div style={s.statsItem}>
-                <div style={s.statsVal}>{Math.round(stats.winRate * 100)}%</div>
-                <div style={s.statsLbl}>승률</div>
-              </div>
-              <div style={s.statsItemLast}>
-                <div style={{ ...s.statsVal, color: stats.winStreak >= 2 ? '#EF9F27' : COLORS.red }}>
-                  {stats.winStreak >= 2 ? `${stats.winStreak}연승` : '-'}
-                </div>
-                <div style={s.statsLbl}>연승</div>
-              </div>
-            </div>
           )}
         </div>
 

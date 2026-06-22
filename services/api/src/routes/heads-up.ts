@@ -32,6 +32,7 @@ interface CompletedHand {
   handNumber: number;
   mode: GameMode;
   aiDifficulty?: string;
+  aiPersona?: string;
   opponentName: string;
   myPosition: "SB" | "BB";
   initialStacks: [number, number];
@@ -207,6 +208,122 @@ headsUpRouter.get("/stats", (req: Request, res: Response) => {
     winRate: total > 0 ? wins / total : 0,
     evaluatedHands,
     ...(avgGtoScore !== undefined ? { avgGtoScore } : {}),
+  });
+});
+
+// ── 리더보드 라우트 ───────────────────────────────────────────────────────────
+//
+// 순위 축은 "평균 판단 점수"(postHandInsight.overallScore 평균). 25BB 고정 매치에선
+// bb 결과가 운으로 ±25에 고정되므로, 결과가 아닌 의사결정 품질로 줄을 세운다.
+// 자격: 최근 WINDOW개 평가 핸드 중 MIN_QUALIFY개 이상(소표본 방지). AI 모드만.
+
+const LB_BIG_BLIND = 20;
+const LB_MIN_QUALIFY = 50; // 자격: 평가 핸드 최소 수
+const LB_WINDOW = 200; // 최근 N개 평가 핸드만 집계 (신선도)
+
+interface LeaderboardEntry {
+  rank: number;
+  nickname: string;
+  avgScore: number;
+  bbPerHand: number;
+  winRate: number;
+  handsCounted: number;
+  isMe: boolean;
+}
+
+/** postHandInsight(unknown 저장)에서 overallScore 안전 추출. */
+function lbScore(insight: unknown): number | null {
+  if (insight && typeof insight === "object" && "overallScore" in insight) {
+    const s = (insight as { overallScore?: unknown }).overallScore;
+    return typeof s === "number" ? s : null;
+  }
+  return null;
+}
+
+interface UserAgg {
+  avgScore: number;
+  bbPerHand: number;
+  winRate: number;
+  handsCounted: number;
+  evaluatedTotal: number;
+}
+
+/**
+ * uid의 AI 모드 평가 핸드(최근 WINDOW개)를 집계. 자격 미달이어도 evaluatedTotal은 채운다.
+ * persona가 주어지면 해당 페르소나 상대 핸드만 집계한다(페르소나별 보드).
+ */
+function aggregateUser(uid: string, persona?: string): UserAgg {
+  const evaluated = [...(handsStore.get(uid)?.values() ?? [])]
+    .filter(
+      (h) =>
+        h.mode === "AI" &&
+        lbScore(h.postHandInsight) !== null &&
+        (persona ? h.aiPersona === persona : true),
+    )
+    .sort((a, b) => b.playedAt - a.playedAt);
+  const window = evaluated.slice(0, LB_WINDOW);
+  let scoreSum = 0;
+  let net = 0;
+  let wins = 0;
+  for (const h of window) {
+    scoreSum += lbScore(h.postHandInsight)!;
+    net += h.myWinLoss;
+    if (h.result === "WIN") wins++;
+  }
+  const n = window.length;
+  return {
+    avgScore: n > 0 ? Math.round(scoreSum / n) : 0,
+    bbPerHand: n > 0 ? Math.round((net / LB_BIG_BLIND / n) * 100) / 100 : 0,
+    winRate: n > 0 ? wins / n : 0,
+    handsCounted: n,
+    evaluatedTotal: evaluated.length,
+  };
+}
+
+/**
+ * GET /api/play-lab/heads-up/leaderboard?persona=STANDARD|NIT|LAG|CALLING|MANIAC
+ * persona 생략 시 전체(모든 AI 페르소나 합산) 보드.
+ * 응답: { persona, entries, me, myProgress, minQualifyHands, window }
+ */
+headsUpRouter.get("/leaderboard", (req: Request, res: Response) => {
+  const callerUid = decodeJwtPayload(req.headers.authorization);
+  const persona = typeof req.query.persona === "string" ? req.query.persona : undefined;
+
+  const ranked: LeaderboardEntry[] = [];
+  for (const uid of handsStore.keys()) {
+    const agg = aggregateUser(uid, persona);
+    if (agg.handsCounted < LB_MIN_QUALIFY) continue;
+    ranked.push({
+      rank: 0,
+      nickname: settingsStore.get(uid)?.nickname || "익명",
+      avgScore: agg.avgScore,
+      bbPerHand: agg.bbPerHand,
+      winRate: agg.winRate,
+      handsCounted: agg.handsCounted,
+      isMe: uid === callerUid,
+    });
+  }
+  ranked.sort((a, b) => b.avgScore - a.avgScore || b.handsCounted - a.handsCounted);
+  ranked.forEach((e, i) => (e.rank = i + 1));
+
+  const me = ranked.find((e) => e.isMe) ?? null;
+  // 자격 미달 시 진행 상황 (선택된 페르소나 기준)
+  let myProgress: { handsCounted: number; needed: number } | null = null;
+  if (callerUid && !me) {
+    const evaluatedTotal = aggregateUser(callerUid, persona).evaluatedTotal;
+    myProgress = {
+      handsCounted: evaluatedTotal,
+      needed: Math.max(0, LB_MIN_QUALIFY - evaluatedTotal),
+    };
+  }
+
+  res.json({
+    persona: persona ?? null,
+    entries: ranked.slice(0, 100),
+    me,
+    myProgress,
+    minQualifyHands: LB_MIN_QUALIFY,
+    window: LB_WINDOW,
   });
 });
 

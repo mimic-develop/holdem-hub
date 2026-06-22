@@ -23,6 +23,9 @@ interface StoredHand {
 /** 세션 메모리 — POST된 핸드를 그대로 보관. */
 const hands = new Map<string, StoredHand>();
 
+/** 세션 메모리 설정 — PUT으로 갱신해 GET/리더보드가 동일 닉네임을 쓰도록 한다. */
+let mockSettings = { ...HEADS_UP_SETTINGS };
+
 function sortedHands(): StoredHand[] {
   return [...hands.values()].sort(
     (a, b) => (b.playedAt ?? 0) - (a.playedAt ?? 0),
@@ -99,11 +102,90 @@ export const headsUpHandlers = [
     });
   }),
 
-  // 설정 조회 / 저장
-  http.get("*/play-lab/heads-up/settings", () => {
-    return HttpResponse.json(HEADS_UP_SETTINGS);
+  // 리더보드 — 본인(저장된 핸드) 집계 + 시드 경쟁자로 보드 구성.
+  // (목은 단일 유저만 보관 → 프리뷰에서 보드가 비지 않도록 가상 경쟁자를 섞는다)
+  // ?persona= 가 오면 해당 페르소나 핸드만 집계하고, 시드 점수도 페르소나별로 흔들어
+  // 탭마다 보드가 구분돼 보이게 한다.
+  http.get("*/play-lab/heads-up/leaderboard", ({ request }) => {
+    const MIN_QUALIFY = 50;
+    const WINDOW = 200;
+    const BIG_BLIND = 20;
+    const persona = new URL(request.url).searchParams.get("persona") || undefined;
+
+    const evaluated = [...hands.values()]
+      .filter(
+        (h) =>
+          h.mode === "AI" &&
+          typeof h.postHandInsight?.overallScore === "number" &&
+          (persona ? h.aiPersona === persona : true),
+      )
+      .sort((a, b) => (b.playedAt ?? 0) - (a.playedAt ?? 0));
+    const win = evaluated.slice(0, WINDOW);
+    let scoreSum = 0;
+    let net = 0;
+    let wins = 0;
+    for (const h of win) {
+      scoreSum += h.postHandInsight!.overallScore!;
+      net += h.myWinLoss ?? 0;
+      if (h.result === "WIN") wins++;
+    }
+    const n = win.length;
+
+    const pLen = persona?.length ?? 0;
+    const delta = persona ? ((pLen * 5) % 13) - 6 : 0; // 페르소나별 점수 이동
+    const seeded = [
+      { nickname: "샤크K", avgScore: 88, bbPerHand: 3.2, winRate: 0.61, handsCounted: 180 },
+      { nickname: "GTO_라인", avgScore: 81, bbPerHand: 2.0, winRate: 0.54, handsCounted: 200 },
+      { nickname: "리버레이크", avgScore: 73, bbPerHand: 0.8, winRate: 0.5, handsCounted: 96 },
+      { nickname: "콜링스테이션", avgScore: 64, bbPerHand: -0.5, winRate: 0.46, handsCounted: 120 },
+      { nickname: "폴드마스터", avgScore: 57, bbPerHand: -1.2, winRate: 0.41, handsCounted: 58 },
+      { nickname: "뉴비짱", avgScore: 48, bbPerHand: -2.4, winRate: 0.37, handsCounted: 72 },
+    ].map((e, i) => ({
+      ...e,
+      avgScore: Math.max(30, Math.min(96, e.avgScore + delta + ((i * pLen) % 5) - 2)),
+      rank: 0,
+      isMe: false,
+    }));
+
+    let myProgress: { handsCounted: number; needed: number } | null = null;
+    if (n >= MIN_QUALIFY) {
+      seeded.push({
+        rank: 0,
+        nickname: mockSettings.nickname,
+        avgScore: Math.round(scoreSum / n),
+        bbPerHand: Math.round((net / BIG_BLIND / n) * 100) / 100,
+        winRate: wins / n,
+        handsCounted: n,
+        isMe: true,
+      });
+    } else {
+      myProgress = {
+        handsCounted: evaluated.length,
+        needed: Math.max(0, MIN_QUALIFY - evaluated.length),
+      };
+    }
+
+    seeded.sort((a, b) => b.avgScore - a.avgScore || b.handsCounted - a.handsCounted);
+    seeded.forEach((e, i) => (e.rank = i + 1));
+    const me = seeded.find((e) => e.isMe) ?? null;
+
+    return HttpResponse.json({
+      persona: persona ?? null,
+      entries: seeded.slice(0, 100),
+      me,
+      myProgress,
+      minQualifyHands: MIN_QUALIFY,
+      window: WINDOW,
+    });
   }),
-  http.put("*/play-lab/heads-up/settings", () => {
+
+  // 설정 조회 / 저장 (PUT을 세션 메모리에 반영)
+  http.get("*/play-lab/heads-up/settings", () => {
+    return HttpResponse.json(mockSettings);
+  }),
+  http.put("*/play-lab/heads-up/settings", async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as Partial<typeof HEADS_UP_SETTINGS>;
+    mockSettings = { ...mockSettings, ...body };
     return HttpResponse.json({ success: true });
   }),
 
