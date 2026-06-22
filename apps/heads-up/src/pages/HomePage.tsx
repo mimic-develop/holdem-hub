@@ -71,19 +71,24 @@ const s: Record<string, React.CSSProperties> = {
   },
 
   /* 페르소나 그리드 */
-  charGrid: { display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6, marginTop: 14 },
+  charGrid: { display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6 },
 
-  /* 페르소나 정보 카드 */
-  charInfo: {
+  /* 페르소나 선택 패널 — 그리드 + 설명/난이도 통합 */
+  personaPanel: {
     background: COLORS.cardBgInset, borderRadius: 12,
-    border: `1px solid ${COLORS.border}`,
-    padding: '12px 14px', marginTop: 10,
-    display: 'flex', alignItems: 'flex-start', gap: 12,
+    border: `1px solid ${COLORS.border}`, padding: 10, marginTop: 14,
   },
-  charName: { fontSize: '14px', fontWeight: 700, color: COLORS.textPrimary, letterSpacing: '0.06em', marginBottom: 2 },
-  charDesc: { fontSize: '11px', color: COLORS.textSecondary, lineHeight: 1.45, letterSpacing: 0 },
 
-  diffPills: { display: 'flex', gap: 4, padding: 3, background: 'rgba(0,0,0,0.35)', borderRadius: 8, width: '100%' },
+  /* 페르소나 설명 + 난이도 (패널 내부, 구분선으로 그리드와 분리, 중앙정렬 세로 흐름) */
+  charInfo: {
+    marginTop: 10, paddingTop: 10,
+    borderTop: `1px solid ${COLORS.border}`,
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+  },
+  charDesc: { fontSize: '13px', fontWeight: 600, color: COLORS.textPrimary, lineHeight: 1.5, letterSpacing: 0, textAlign: 'center' },
+
+  // 난이도: 가로 3단 + 중앙정렬
+  diffPills: { display: 'flex', gap: 4, padding: 3, background: 'rgba(0,0,0,0.35)', borderRadius: 8, width: '100%', maxWidth: 260 },
 
   /* CTA */
   btnStart: {
@@ -350,8 +355,9 @@ export default function HomePage() {
           {/* ── AI ZONE ── */}
           {isAiMode && (
             <>
-              {/* 페르소나 그리드 */}
-              <div style={s.charGrid}>
+              {/* 페르소나 선택 패널 (그리드 + 설명/난이도 통합) */}
+              <div style={s.personaPanel}>
+                <div style={s.charGrid}>
                 {ALL_PERSONA_IDS.map((id) => {
                   const p = AI_PERSONAS[id];
                   const selected = pickedPersona === id;
@@ -362,8 +368,8 @@ export default function HomePage() {
                       onClick={() => setPickedPersona(id)}
                       style={{
                         position: 'relative', overflow: 'hidden',
-                        background: COLORS.cardBgInset,
-                        border: selected ? `1.5px solid ${COLORS.red}` : `1px solid ${COLORS.border}`,
+                        background: 'transparent',
+                        border: selected ? `1.5px solid ${COLORS.red}` : '1px solid transparent',
                         borderRadius: 10,
                         padding: '10px 6px 8px', cursor: 'pointer',
                         textAlign: 'center', fontFamily: 'inherit',
@@ -394,23 +400,10 @@ export default function HomePage() {
                 })}
               </div>
 
-              {/* 페르소나 정보 + 난이도 */}
+              {/* 페르소나 설명 + 난이도 (아바타·이름은 VS 카드·그리드와 중복이라 생략) */}
               <div style={s.charInfo}>
-                <img
-                  src={persona.avatarSrc}
-                  alt={persona.displayName}
-                  style={{
-                    width: 46, height: 46, borderRadius: '50%',
-                    objectFit: 'cover', flexShrink: 0,
-                    border: `1px solid ${COLORS.red}`,
-                  }}
-                />
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div>
-                    <div style={s.charName as React.CSSProperties}>{persona.displayName}</div>
-                    <div style={s.charDesc}>{persona.description}</div>
-                  </div>
-                  <div style={s.diffPills}>
+                <div style={s.charDesc}>{persona.description}</div>
+                <div style={s.diffPills}>
                   {/* 베타: Normal(MEDIUM) 만 활성. EASY/HARD 는 '곧 업데이트' 안내. */}
                   {ALL_LEVELS.map((lv) => {
                     const active = pickedLevel === lv;
@@ -451,7 +444,7 @@ export default function HomePage() {
                     );
                   })}
                   </div>
-                </div>
+              </div>
               </div>
 
               <button type="button" onClick={handleStart} style={s.btnStart as React.CSSProperties}>
