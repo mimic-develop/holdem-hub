@@ -167,6 +167,20 @@ headsUpRouter.patch("/hands/:handId/insight", (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
+/**
+ * DELETE /api/play-lab/heads-up/hands
+ * 해당 유저의 모든 핸드 삭제 (히스토리 "모두 삭제").
+ * 응답: { success: true, deleted: number }
+ */
+headsUpRouter.delete("/hands", (req: Request, res: Response) => {
+  const uid = decodeJwtPayload(req.headers.authorization);
+  if (!uid) return void res.status(401).json({ error: "Unauthorized" });
+  const map = getHandsMap(uid);
+  const deleted = map.size;
+  map.clear();
+  res.json({ success: true, deleted });
+});
+
 // ── 통계 라우트 ─────────────────────────────────────────────────────────────
 
 /** postHandInsight(unknown 저장)에서 overallScore를 안전 추출. */
