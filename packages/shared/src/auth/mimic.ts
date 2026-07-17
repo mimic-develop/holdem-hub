@@ -1,6 +1,5 @@
 import Cookies from "js-cookie";
 import type { AuthProvider, AuthUser } from "./types.js";
-import { AuthError } from "./types.js";
 
 const COOKIE_ACCESS  = "accessToken";
 const COOKIE_REFRESH = "refresh_token";
@@ -66,14 +65,10 @@ function payloadToUser(payload: Record<string, unknown>): AuthUser {
  * MIMIC 서버 인증 provider.
  *
  * VITE_AUTH_PROVIDER=mimic 설정 시 활성화.
- * POST /v1/auth/login API를 호출하고 accessToken/refreshToken을 Cookie에 저장한다.
+ * 로그인 자체는 통합 로그인 페이지(리다이렉트 + code 플로우)가 전담하고,
+ * 이 provider는 쿠키에 저장된 토큰을 읽어 세션 상태만 관리한다.
  */
 export function createMimicAuthStub(): AuthProvider {
-  const env = (import.meta as unknown as { env?: Record<string, unknown> }).env;
-  const apiUrl = String(env?.VITE_MIMIC_API_URL ?? "");
-  const clientId = String(env?.VITE_MIMIC_CLIENT_ID ?? "");
-  const clientSecret = String(env?.VITE_MIMIC_CLIENT_SECRET ?? "");
-
   const listeners = new Set<(user: AuthUser | null) => void>();
 
   function readUser(): AuthUser | null {
@@ -88,28 +83,6 @@ export function createMimicAuthStub(): AuthProvider {
 
   function notify(user: AuthUser | null) {
     listeners.forEach((cb) => cb(user));
-  }
-
-  async function callLoginApi(body: Record<string, unknown>): Promise<AuthUser> {
-    const res = await fetch(`${apiUrl}/v1/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({})) as Record<string, unknown>;
-      const code = String(data.code ?? res.status);
-      throw new AuthError(code);
-    }
-
-    const data = await res.json() as { accessToken: string; refreshToken?: string };
-
-    // 쿠키 저장 — setTokens가 mimic:token-set 이벤트 dispatch까지 처리
-    setTokens(data.accessToken, data.refreshToken ?? null);
-    const user = payloadToUser(decodeJwtPayload(data.accessToken));
-    notify(user);
-    return user;
   }
 
   return {
@@ -132,7 +105,7 @@ export function createMimicAuthStub(): AuthProvider {
       listeners.add(cb);
       cb(readUser());
 
-      // SnsCallback/OAuthCallback 등 외부에서 토큰 저장 후 dispatch하는 이벤트
+      // OAuthCallback 등 외부에서 토큰 저장 후 dispatch하는 이벤트
       const handleTokenSet = () => notify(readUser());
       window.addEventListener("mimic:token-set", handleTokenSet);
 
@@ -146,40 +119,5 @@ export function createMimicAuthStub(): AuthProvider {
         window.removeEventListener("mimic:signed-out", handleSignedOut);
       };
     },
-
-    async signInWithEmail(email: string, password: string): Promise<AuthUser> {
-      return callLoginApi({
-        email,
-        password,
-        client_id: clientId,
-        client_secret: clientSecret,
-        remember_me: true,
-      });
-    },
-
-    async signInWithGoogle(): Promise<AuthUser> {
-      const redirectUri = encodeURIComponent(window.location.origin + "/oauth/redirect");
-      window.location.href = `${apiUrl}/oauth2/authorization/google-web?redirect_uri=${redirectUri}`;
-      return new Promise(() => {});
-    },
-
-    async signInWithNaver(): Promise<AuthUser> {
-      const redirectUri = encodeURIComponent(window.location.origin + "/oauth/redirect");
-      window.location.href = `${apiUrl}/oauth2/authorization/naver?redirect_uri=${redirectUri}`;
-      return new Promise(() => {});
-    },
-
-    async signInWithApple(): Promise<AuthUser> {
-      const redirectUri = encodeURIComponent(window.location.origin + "/oauth/redirect");
-      // window.location.href = `https://gore-ravioli-alkaline.ngrok-free.dev/api/oauth2/authorization/apple-web?redirect_uri=${redirectUri}`;      
-      window.location.href = `${apiUrl}/oauth2/authorization/apple-web?redirect_uri=${redirectUri}`;
-      return new Promise(() => {});
-    },
-
-    // async signInWithApple(): Promise<AuthUser> {
-    //   const redirectUri = encodeURIComponent(window.location.origin + "/oauth/redirect");
-    //   window.location.href = `${apiUrl}/oauth2/authorization/apple?redirect_uri=${redirectUri}`;
-    //   return new Promise(() => {});
-    // },
   };
 }

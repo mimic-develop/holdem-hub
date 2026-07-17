@@ -1,11 +1,19 @@
 import { useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { setTokens } from "@hh/shared";
+import { apiFetch, setTokens } from "@hh/shared";
+
+const OAUTH_STATE_KEY = "hh:oauth-state";
+
+interface TokenResponse {
+  accessToken: string;
+  refreshToken?: string;
+}
 
 /**
- * MIMIC 서버 OAuth2 콜백 핸들러.
- * /oauth/redirect?token=xxx&refreshToken=xxx 형태로 리다이렉트된다.
- * 토큰을 Cookie에 저장 후 홈으로 이동.
+ * 통합 로그인 페이지 콜백 핸들러.
+ * /oauth/callback?code=xxx&state=xxx 형태로 리다이렉트된다.
+ * code를 브라우저가 직접 교환하지 않고 @hh/api(/api/auth/token)에 전달해
+ * server-to-server로 토큰을 받아온다 (client_secret은 서버에만 존재).
  */
 export function OAuthCallback() {
   const [, navigate] = useLocation();
@@ -15,20 +23,34 @@ export function OAuthCallback() {
     if (done.current) return;
     done.current = true;
 
+    const controller = new AbortController();
     const params = new URLSearchParams(window.location.search);
-    const accessToken = params.get("token");
-    const refreshToken = params.get("refreshToken");
-    const error = params.get("error");
+    const code = params.get("code");
+    const state = params.get("state");
+    const savedState = sessionStorage.getItem(OAUTH_STATE_KEY);
+    sessionStorage.removeItem(OAUTH_STATE_KEY);
 
-    if (error || !accessToken) {
-      const msg = error ? encodeURIComponent(error) : "oauth_failed";
-      navigate(`/login?error=${msg}`);
+    if (!code || !state || state !== savedState) {
+      navigate("/login?error=oauth_failed");
       return;
     }
 
-    // Cookie 저장 + mimic:token-set 이벤트 dispatch (onAuthChange 갱신)
-    setTokens(accessToken, refreshToken ?? undefined);
-    navigate("/");
+    apiFetch<TokenResponse>("/auth/token", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+      signal: controller.signal,
+    })
+      .then(({ accessToken, refreshToken }) => {
+        setTokens(accessToken, refreshToken);
+        navigate("/");
+      })
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        const msg = err instanceof Error ? encodeURIComponent(err.message) : "oauth_failed";
+        navigate(`/login?error=${msg}`);
+      });
+
+    return () => controller.abort();
   }, [navigate]);
 
   return (

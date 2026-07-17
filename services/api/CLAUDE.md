@@ -17,6 +17,7 @@
 // app.ts
 app.use("/api/health", healthRouter);
 app.use("/api/nut-to-3", nutTo3Router);
+app.use("/api/auth", authRouter);
 app.use((_req, res) => res.status(404).json({ error: "Not Found" }));
 ```
 
@@ -29,7 +30,8 @@ services/api/
 │   ├── app.ts                      # createApp factory
 │   ├── routes/
 │   │   ├── health.ts               # GET /api/health
-│   │   └── nut-to-3.ts             # GET /api/nut-to-3/game/new
+│   │   ├── nut-to-3.ts             # GET /api/nut-to-3/game/new
+│   │   └── auth.ts                 # POST /api/auth/token — 통합 로그인 code→token 교환
 │   └── lib/
 │       └── poker-engine.ts         # 너트 티어 평가 (pokersolver 기반, Node 전용)
 ├── package.json
@@ -61,6 +63,14 @@ nut-to-3 앱이 새 게임 시작 시 호출.
 ```
 
 `NutTier`는 클라이언트 zod schema(`apps/nut-to-3/src/lib/api-schema.ts`)와 일치해야 함.
+
+### `POST /api/auth/token`
+통합 로그인 페이지에서 발급받은 1회용 `code`를 토큰으로 교환 (server-to-server). Hub `OAuthCallback.tsx`가 호출.
+
+**요청**: `{ code: string }`
+**응답**: `{ accessToken: string, refreshToken?: string }` (MIMIC 서버 `/v1/auth/token` 응답 그대로 전달)
+
+`MIMIC_API_URL`, `MIMIC_CLIENT_ID`, `MIMIC_CLIENT_SECRET` env로 MIMIC 서버와 통신. **`client_secret`은 이 서버에만 존재 — 브라우저에 노출 금지.**
 
 ## 실행
 
@@ -105,7 +115,8 @@ pnpm dev:all
 - ❌ CORS 설정은 dev 전용 (`cors()` 전체 허용). production 배포 시 origin allowlist 필수.
 - ❌ JSON body limit 1MB — 파일 업로드 라우트 추가 시 별도 라우터에서 limit 상향 또는 multer 도입.
 - ❌ 에러 핸들러 없음 — 새 라우트에서 throw하면 default Express 핸들러로 500. 명시적 try/catch 권장.
-- ❌ 장기적으로 `services/api`는 인증 미들웨어가 추가될 자리 — 현재는 인증 비활성. `apiFetch`의 `authToken` hook은 클라이언트 측에서만 동작.
+- ❌ `services/api` 자체 라우트에는 아직 인증 미들웨어가 없음(요청 검증 없이 전부 공개) — `/api/auth/token`은 code 자체가 1회용·2분 TTL이라 별도 인증 없이도 안전. `apiFetch`의 `authToken` hook은 클라이언트 측에서만 동작.
+- ❌ `MIMIC_CLIENT_SECRET`(서버 전용)과 프런트의 `VITE_MIMIC_CLIENT_ID`를 혼동하지 말 것 — `VITE_` 접두사가 붙으면 클라이언트 번들에 포함되므로 secret에는 절대 사용 금지.
 
 ## 검증
 
