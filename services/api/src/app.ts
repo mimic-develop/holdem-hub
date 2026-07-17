@@ -4,6 +4,7 @@ import { healthRouter } from "./routes/health.js";
 import { nutTo3Router } from "./routes/nut-to-3.js";
 import { nutToRouter } from "./routes/nut-to.js";
 import { headsUpRouter } from "./routes/heads-up.js";
+import { authRouter } from "./routes/auth.js";
 
 export function createApp(): Express {
   const app = express();
@@ -25,6 +26,7 @@ export function createApp(): Express {
   app.use("/api/nut-to", nutTo3Router);
   app.use("/api/nut-to", nutToRouter);
   app.use("/api/play-lab/heads-up", headsUpRouter);
+  app.use("/api/auth", authRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: "Not Found" });
