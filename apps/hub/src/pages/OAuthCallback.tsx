@@ -23,21 +23,25 @@ export function OAuthCallback() {
     if (done.current) return;
     done.current = true;
 
+  const env = (import.meta as unknown as { env?: Record<string, unknown> }).env;
+
     const controller = new AbortController();
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
     const state = params.get("state");
     const savedState = sessionStorage.getItem(OAUTH_STATE_KEY);
     sessionStorage.removeItem(OAUTH_STATE_KEY);
+    const clientId = String(env?.VITE_MIMIC_CLIENT_ID ?? "mimic-web");
+    const clientSecret = String(env?.VITE_MIMIC_CLIENT_SECRET ?? "");
 
     if (!code || !state || state !== savedState) {
       navigate("/login?error=oauth_failed");
       return;
     }
 
-    apiFetch<TokenResponse>("/auth/token", {
+    apiFetch<TokenResponse>("/v1/auth/token", {
       method: "POST",
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ code, clientId, clientSecret }),
       signal: controller.signal,
     })
       .then(({ accessToken, refreshToken }) => {

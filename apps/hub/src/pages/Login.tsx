@@ -39,7 +39,7 @@ function redirectToUnifiedLogin() {
   sessionStorage.setItem(OAUTH_STATE_KEY, state);
 
   const redirectUri = window.location.origin + "/oauth/callback";
-  const params = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, state, cancel_url: window.location.origin, service_name: "플레이랩" });
+  const params = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, state, cancel_url: window.location.origin + "/login", service_name: "플레이랩" });
   window.location.href = `${unifiedLoginUrl}?${params.toString()}`;
 }
 
