@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -51,11 +51,6 @@ export function Login() {
     return raw ? resolveError(raw) : null;
   });
 
-  // 에러 없이 진입했다면 바로 통합 로그인 페이지로 리다이렉트
-  useEffect(() => {
-    if (!error) redirectToUnifiedLogin();
-  }, [error]);
-
   return (
     <div className="flex min-h-screen items-center justify-center px-4" style={{ backgroundColor: "#000", color: "#fff" }}>
       <div className="w-full max-w-sm space-y-6 rounded-xl p-8 text-center" style={{ background: "rgb(0, 0, 0)", border: "1px solid rgba(255,255,255,0.08)" }}>
@@ -66,22 +61,19 @@ export function Login() {
           <h1 className="text-xl font-bold tracking-tight">로그인</h1>
         </div>
 
-        {error ? (
-          <>
-            <p role="alert" className="text-xs text-rose-400">
-              {error}
-            </p>
-            <button
-              type="button"
-              onClick={redirectToUnifiedLogin}
-              className="w-full rounded-md bg-[#E53935] py-2.5 text-sm font-semibold tracking-wide text-white transition-opacity hover:opacity-90 cursor-pointer"
-            >
-              다시 로그인
-            </button>
-          </>
-        ) : (
-          <p className="text-sm text-[rgba(255,252,243,0.4)] animate-pulse">로그인 페이지로 이동 중…</p>
+        {error && (
+          <p role="alert" className="text-xs text-rose-400">
+            {error}
+          </p>
         )}
+
+        <button
+          type="button"
+          onClick={redirectToUnifiedLogin}
+          className="w-full rounded-md bg-[#E53935] py-2.5 text-sm font-semibold tracking-wide text-white transition-opacity hover:opacity-90 cursor-pointer"
+        >
+          MIMIC 계정으로 로그인
+        </button>
 
         <button
           type="button"
