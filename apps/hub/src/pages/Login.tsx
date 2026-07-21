@@ -7,6 +7,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   "400025": "정지된 계정입니다. 관리자에게 문의해주세요.",
   "400026": "차단된 계정입니다. 관리자에게 문의해주세요.",
   "400000": "가입된 계정이 없습니다.",
+  "400119": "스태프 계정만 로그인할 수 있는 애플리케이션입니다.",
   "None registered account": "가입된 계정이 없습니다.",
   oauth_failed: "로그인에 실패했습니다. 다시 시도해주세요.",
 };
@@ -20,6 +21,7 @@ function resolveError(raw: string): string {
       const parsed = JSON.parse(decoded);
       const code = parsed.code || parsed.message;
       if (ERROR_MESSAGES[code]) return ERROR_MESSAGES[code];
+      if (parsed.failReason) return parsed.failReason;
     }
   } catch {
     // decoded가 JSON이 아니면 그대로 표시

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { apiFetch, setTokens } from "@hh/shared";
+import { apiFetch, setTokens, ApiError } from "@hh/shared";
 
 const OAUTH_STATE_KEY = "hh:oauth-state";
 
@@ -50,7 +50,17 @@ export function OAuthCallback() {
       })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        const msg = err instanceof Error ? encodeURIComponent(err.message) : "oauth_failed";
+        let msg = "oauth_failed";
+        if (err instanceof ApiError) {
+          const data = err.data as { code?: string; failReason?: string } | null;
+          if (data?.code || data?.failReason) {
+            msg = encodeURIComponent(JSON.stringify({ code: data.code, failReason: data.failReason }));
+          } else {
+            msg = encodeURIComponent(err.message);
+          }
+        } else if (err instanceof Error) {
+          msg = encodeURIComponent(err.message);
+        }
         navigate(`/login?error=${msg}`);
       });
 
