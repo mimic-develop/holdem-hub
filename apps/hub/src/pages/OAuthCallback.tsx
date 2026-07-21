@@ -1,8 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { apiFetch, setTokens, ApiError } from "@hh/shared";
-
-const OAUTH_STATE_KEY = "hh:oauth-state";
+import { OAUTH_STATE_KEY, redirectToUnifiedLogin, resolveErrorMessage } from "../lib/unifiedLogin";
 
 interface TokenResponse {
   accessToken: string;
@@ -12,8 +11,8 @@ interface TokenResponse {
 /**
  * 통합 로그인 페이지 콜백 핸들러.
  * /oauth/callback?code=xxx&state=xxx 형태로 리다이렉트된다.
- * code를 브라우저가 직접 교환하지 않고 @hh/api(/api/auth/token)에 전달해
- * server-to-server로 토큰을 받아온다 (client_secret은 서버에만 존재).
+ * state 검증 후 MIMIC 서버 /v1/auth/token으로 code를 교환해 토큰을 받는다.
+ * 실패 시 우리 앱 화면에 표시하지 않고 통합 로그인 페이지로 에러와 함께 되돌린다.
  */
 export function OAuthCallback() {
   const [, navigate] = useLocation();
@@ -35,7 +34,7 @@ export function OAuthCallback() {
     const clientSecret = String(env?.VITE_MIMIC_CLIENT_SECRET ?? "");
 
     if (!code || !state || state !== savedState) {
-      navigate("/login?error=oauth_failed");
+      redirectToUnifiedLogin(resolveErrorMessage("oauth_failed"));
       return;
     }
 
@@ -50,18 +49,15 @@ export function OAuthCallback() {
       })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
-        let msg = "oauth_failed";
+        // 실패 시 우리 앱 화면에 표시하지 않고, 통합 로그인 페이지로 에러와 함께 리다이렉트한다.
+        let message: string;
         if (err instanceof ApiError) {
           const data = err.data as { code?: string; failReason?: string } | null;
-          if (data?.code || data?.failReason) {
-            msg = encodeURIComponent(JSON.stringify({ code: data.code, failReason: data.failReason }));
-          } else {
-            msg = encodeURIComponent(err.message);
-          }
-        } else if (err instanceof Error) {
-          msg = encodeURIComponent(err.message);
+          message = resolveErrorMessage(data?.code, data?.failReason);
+        } else {
+          message = resolveErrorMessage("oauth_failed");
         }
-        navigate(`/login?error=${msg}`);
+        redirectToUnifiedLogin(message);
       });
 
     return () => controller.abort();
