@@ -99,12 +99,18 @@ interface AuthProvider {
 ```
 
 **`getActiveAuthProvider()`** — `VITE_AUTH_PROVIDER` env 기반 lazy singleton:
-- `mimic` → `createMimicAuthStub()` (throw "아직 구현되지 않았습니다")
+- `mimic` → `createMimicAuthStub()` — 쿠키의 JWT를 읽어 세션 상태만 관리 (로그인 자체는 통합 로그인 페이지가 전담, `signIn()`은 안내 메시지 throw)
 - 기타 → `createNoneAuthStub()` (throw "VITE_AUTH_PROVIDER 미설정")
 - Firebase는 현재 stub 없음 — concept-quiz가 자체 내부에서 Firebase Auth 사용. Hub 레벨 통합은 Mimic 도입 시 함께 작업 예정.
 
 **`useAuthState()`** — React 훅, Hub navbar에서 사용.
 - 반환: `{ user, busy, error, signIn, signOut, providerName }`
+
+**통합 로그인 code 플로우** (Hub `Login.tsx` / `OAuthCallback.tsx`에서 사용):
+- Hub는 로그인 UI를 자체 구현하지 않고 `VITE_UNIFIED_LOGIN_URL`(통합 로그인 페이지)로 `client_id`/`redirect_uri`/`state`와 함께 리다이렉트한다.
+- 통합 로그인 페이지가 인증 후 1회용 `code`를 `redirect_uri`(`/oauth/callback`)로 되돌려준다.
+- **`code`→토큰 교환은 브라우저가 아니라 `@hh/api`의 `POST /api/auth/token`이 server-to-server로 수행** — `client_secret`은 서버 env(`MIMIC_CLIENT_SECRET`, `VITE_` 접두사 없음)에만 존재하고 프런트 번들에는 절대 포함되지 않는다.
+- 받은 `{accessToken, refreshToken}`은 `setTokens()`로 쿠키에 저장.
 
 ## ★ Vite + import.meta.env 함정
 

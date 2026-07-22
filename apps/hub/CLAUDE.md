@@ -110,7 +110,8 @@ heads-up 만 `react-router-dom` v6 사용하지만, Hub `<Route nest>` 안에서
 
 **Auth 동작**:
 
-- `VITE_AUTH_PROVIDER` env 값에 따라 `mimic` / `none` provider stub. 둘 다 throw로 응답.
+- `VITE_AUTH_PROVIDER` env 값에 따라 `mimic` / `none` provider stub.
+- **로그인은 통합 로그인 페이지(code 플로우)로 위임**: `Login.tsx`가 `VITE_UNIFIED_LOGIN_URL`로 `client_id=mimic-web` + `redirect_uri=/oauth/callback` + `state`와 함께 리다이렉트 → 통합 로그인 페이지가 인증 후 1회용 `code`를 `/oauth/callback`으로 되돌림 → `OAuthCallback.tsx`가 `state` 검증 후 `@hh/api`의 `POST /api/auth/token`에 code를 전달 (브라우저는 `client_secret`을 절대 다루지 않음, server-to-server 교환은 `@hh/api`가 수행) → 받은 토큰을 `setTokens()`로 쿠키 저장.
 - 실제 Firebase 로그인은 `concept-quiz` 내부에서 자체 처리 — Hub navbar는 아직 통합되지 않음.
 
 ## 테마 (`src/index.css`)
@@ -151,6 +152,7 @@ HSL 변수와 별도. 토큰 정의는 `@hh/tailwind-config/base.css`.
 
 - `HUB_PORT`, `API_PORT` — 포트 override (기본값 5175/3002와 동일하면 생략 가능)
 - `VITE_AUTH_PROVIDER` — `mimic` / `firebase` / 기본 `none`
+- `VITE_UNIFIED_LOGIN_URL` — 통합 로그인 페이지 URL (로컬 테스트: `http://localhost:3000`). `client_secret`은 여기서 다루지 않음 — `services/api`의 `MIMIC_CLIENT_SECRET` 참고.
 
 기본값들은 vite.config.ts에 하드코딩되어 있어 `.env.local` 없이도 dev 정상 동작.
 
