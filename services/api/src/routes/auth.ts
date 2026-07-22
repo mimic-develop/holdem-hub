@@ -12,12 +12,11 @@ authRouter.post("/token", async (req, res) => {
   try {
     const apiUrl = process.env.MIMIC_API_URL;
     const clientId = process.env.MIMIC_CLIENT_ID ?? "mimic-web";
-    const clientSecret = process.env.MIMIC_CLIENT_SECRET;
 
     const upstream = await fetch(`${apiUrl}/v1/auth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId, clientSecret, code }),
+      body: JSON.stringify({ clientId, code }),
     });
     const data = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {

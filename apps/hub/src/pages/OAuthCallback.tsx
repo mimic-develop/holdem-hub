@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { apiFetch, setTokens, ApiError } from "@hh/shared";
-import { OAUTH_STATE_KEY, redirectToUnifiedLogin, resolveErrorMessage } from "../lib/unifiedLogin";
+import { OAUTH_STATE_KEY, redirectToUnifiedLogin } from "../lib/unifiedLogin";
 
 interface TokenResponse {
   accessToken: string;
@@ -40,7 +40,7 @@ export function OAuthCallback() {
 
     apiFetch<TokenResponse>("/v1/auth/token", {
       method: "POST",
-      body: JSON.stringify({ code, clientId, clientSecret }),
+      body: JSON.stringify({ code, clientId }),
       signal: controller.signal,
     })
       .then(({ accessToken, refreshToken }) => {
