@@ -12,7 +12,9 @@
     "predeploy:stage": "vite build --mode staging && node -e \"const fs=require('fs');fs.copyFileSync('dist/index.html','dist/404.html');fs.writeFileSync('dist/.nojekyll','')\"",
     "deploy:stage": "gh-pages -d dist -r https://github.com/mimic-develop/play-lab-stage.git --dotfiles",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "preview:stage": "vite build --mode staging --base / && vite preview",
+    "preview:prod":  "vite build --mode production && vite preview"
   },
   "dependencies": {
     "@hh/concept-quiz": "workspace:*",
