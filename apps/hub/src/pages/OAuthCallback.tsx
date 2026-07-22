@@ -34,7 +34,7 @@ export function OAuthCallback() {
     const clientSecret = String(env?.VITE_MIMIC_CLIENT_SECRET ?? "");
 
     if (!code || !state || state !== savedState) {
-      redirectToUnifiedLogin(resolveErrorMessage("oauth_failed"));
+      redirectToUnifiedLogin("400");
       return;
     }
 
@@ -50,12 +50,12 @@ export function OAuthCallback() {
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         // 실패 시 우리 앱 화면에 표시하지 않고, 통합 로그인 페이지로 에러와 함께 리다이렉트한다.
-        let message: string;
+        let message: string | undefined;
         if (err instanceof ApiError) {
           const data = err.data as { code?: string; failReason?: string } | null;
-          message = resolveErrorMessage(data?.code, data?.failReason);
+          message = data?.code;
         } else {
-          message = resolveErrorMessage("oauth_failed");
+          message = "400";
         }
         redirectToUnifiedLogin(message);
       });
