@@ -170,13 +170,18 @@ export function redirectToUnifiedLogin(error?: string): void {
   const state = crypto.randomUUID();
   sessionStorage.setItem(OAUTH_STATE_KEY, state);
 
-  const redirectUri = window.location.origin + "/oauth/callback";
+  // base: 이 앱이 배포된 sub-path (예: GitHub Pages project page면 "/repo-이름/").
+  // 도메인 루트에 배포되면 "/" — window.location.origin은 path를 포함하지 않으므로
+  // sub-path 배포 시 반드시 BASE_URL을 함께 붙여야 한다 (자세한 설명은 4.2.1 참고).
+  const base = new URL(import.meta.env.BASE_URL, window.location.origin);
+  const redirectUri = new URL("oauth/callback", base).href;
+  const cancelUrl = new URL("login", base).href; // 사용자가 취소 시 돌아올 곳
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     state,
-    cancel_url: window.location.origin + "/login", // 사용자가 취소 시 돌아올 곳
-    service_name: "플레이랩",                        // 로그인 페이지에 표시될 서비스명
+    cancel_url: cancelUrl,
+    service_name: "플레이랩", // 로그인 페이지에 표시될 서비스명
   });
   if (error) params.set("error", error); // ← 실패 메시지를 통합 로그인 페이지로 전달
   window.location.href = `${unifiedLoginUrl}?${params.toString()}`;
@@ -185,6 +190,34 @@ export function redirectToUnifiedLogin(error?: string): void {
 
 > 새 에러 코드를 만나면 `ERROR_MESSAGES`에 `"코드": "문구"` 한 줄만 추가하면 된다.
 > ⚠️ `error` 파라미터 이름(`error`)은 **통합 로그인 페이지가 읽어 표시하는 규약에 맞춰야 한다.** 페이지 규약이 다르면 이름만 바꾸면 된다.
+
+### 4.2.1 배포 sub-path(base) 대응 — **비개발자 프로젝트는 Claude가 이 판단을 대신 해줄 것**
+
+`redirect_uri`/`cancel_url`은 항상 실제 서빙되는 경로와 정확히 일치해야 한다. 문제는 `window.location.origin`이
+도메인까지만 알려주고, 그 앱이 도메인의 루트(`/`)에 있는지 서브패스(`/repo-이름/`) 아래에 있는지는 알려주지 못한다는 점이다.
+이 서브패스 값은 **빌드 도구(Vite면 `base` 설정)에서 가져와야** 하고, `base` 값 자체는 "어디에 배포하는지"에 따라 결정된다.
+
+**Claude가 새 프로젝트에 이 가이드를 적용할 때 반드시 다음을 판단할 것:**
+
+1. **배포 대상이 GitHub Pages의 "project repo"인가?**
+   (예: `<org>.github.io` 이외의 일반 저장소를 gh-pages 브랜치로 배포하는 경우 — CI 설정의 `external_repository`/저장소 이름을 확인)
+   → 그렇다면 GitHub Pages 규칙상 실제 URL은 항상 `https://<org>.github.io/<repo-이름>/` 형태이므로,
+     `vite.config.ts`에 아래처럼 **repo 이름을 그대로 반영해 자동으로 설정**한다:
+     ```ts
+     base: mode === "staging" ? "/<repo-이름>/" : "/"
+     ```
+   저장소 이름이 `<org-or-user>.github.io` 자체(유저/조직 전용 page repo)라면 서브패스가 없으므로 `base: "/"`.
+
+2. **그 외 호스팅(Vercel, Netlify, Cloudflare Pages, 커스텀 서버 등)인가?**
+   → 대부분 도메인 루트에 그대로 배포되므로 기본값은 `base: "/"`. 별도 판단 없이 바로 이 값으로 두면 된다.
+   (리버스 프록시로 특정 서브패스 뒤에 물리는 특수 배포는 저장소 코드만으로는 알 수 없으므로, 이 경우에만 사용자에게 실제 서빙 경로를 직접 물어본다.)
+
+이 판단은 **한 프로젝트당 한 번, `vite.config.ts`의 `base` 값을 정하는 순간에만** 필요하다.
+일단 정해지면 `unifiedLogin.ts`의 `import.meta.env.BASE_URL` 기반 코드(4.2)는 그대로 재사용되며,
+프로젝트마다 로그인 헬퍼 코드를 다시 고칠 필요가 없다.
+
+> 참고: wouter를 쓴다면 `Router base={import.meta.env.BASE_URL.replace(/\/$/, "")}` 로 라우터에도 같은 값을 전달해야
+> `/login`, `/oauth/callback` 라우트가 서브패스 아래에서도 정상 매칭된다.
 
 ### 4.3 로그인 페이지 — `Login.tsx`
 
@@ -323,6 +356,7 @@ export function getCurrentUser() {
 
 ## 6. 체크리스트 (Definition of Done)
 
+- [ ] 배포 대상에 맞게 `vite.config.ts`의 `base` 값 설정 확인 (GitHub Pages project repo면 `/repo-이름/`, 그 외 대부분 `/` — 4.2.1 참고)
 - [ ] `.env`에 4개 값(`VITE_UNIFIED_LOGIN_URL`, `VITE_MIMIC_API_URL`, `VITE_MIMIC_CLIENT_ID`, `VITE_MIMIC_CLIENT_SECRET`) 채움
 - [ ] 프로젝트 성격(직원용/유저용)에 맞는 clientId/clientSecret 발급받아 입력
 - [ ] `/login`, `/oauth/callback` 라우트 등록
@@ -344,6 +378,7 @@ export function getCurrentUser() {
 | 콜백에서 토큰 교환이 두 번 실행됨 | React StrictMode. `useRef(done)` 가드로 1회만 실행 (4.4). |
 | `import.meta.env` 값이 런타임에 `undefined` | **옵셔널 체이닝(`import.meta?.env`) 금지.** Vite의 env 주입이 텍스트 패턴 매칭이라 깨진다. `(import.meta as unknown as { env?: … }).env` 형태로 직접 접근. |
 | 토큰 교환 요청이 엉뚱한 곳(404)으로 감 | 요청 base URL 확인. 이 흐름은 **MIMIC 서버(`VITE_MIMIC_API_URL`)의 `/v1/auth/token`을 직접** 호출한다. 공통 fetch 래퍼가 다른 baseUrl(예: 로컬 API 서버)을 붙이고 있으면 경로가 어긋난다 — 콜백에선 `VITE_MIMIC_API_URL`을 명시적으로 붙일 것. |
+| `redirect_uri`로 콜백됐는데 그 페이지가 404 (특히 GitHub Pages 서브패스 배포) | `window.location.origin`만으로 `redirect_uri`를 만들면 서브패스(`/repo-이름/`)가 빠진다. `import.meta.env.BASE_URL`을 함께 반영해야 함 (4.2.1 참고). wouter 등 라우터의 `base`도 같은 값으로 맞춰져 있는지 함께 확인. |
 | 성공했는데 `accessToken`이 `undefined` | 성공 응답이 `{accessToken, refreshToken}` 평면 구조가 아니라 `{result, data:{accessToken}}` 봉투 구조일 수 있음. 그렇다면 `.then` 에서 `data.data`를 언래핑. 실제 응답을 네트워크 탭에서 먼저 확인. |
 | JWT의 한글 닉네임이 깨짐 | `atob`만 쓰면 Latin-1로 깨진다. `Uint8Array` + `TextDecoder` 사용 (5번 코드). |
 
