@@ -31,7 +31,6 @@ export function OAuthCallback() {
     const savedState = sessionStorage.getItem(OAUTH_STATE_KEY);
     sessionStorage.removeItem(OAUTH_STATE_KEY);
     const clientId = String(env?.VITE_MIMIC_CLIENT_ID ?? "mimic-web");
-    const clientSecret = String(env?.VITE_MIMIC_CLIENT_SECRET ?? "");
 
     if (!code || !state || state !== savedState) {
       redirectToUnifiedLogin("400");
