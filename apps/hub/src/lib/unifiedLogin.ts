@@ -21,12 +21,15 @@ export function redirectToUnifiedLogin(error?: string): void {
   const state = crypto.randomUUID();
   sessionStorage.setItem(OAUTH_STATE_KEY, state);
 
-  const redirectUri = window.location.origin + "/oauth/callback";
+  // BASE_URL은 vite.config.ts의 base 설정값(예: staging은 "/play-lab-stage/") — 배포 sub-path를 반영.
+  const base = new URL(import.meta.env.BASE_URL, window.location.origin);
+  const redirectUri = new URL("oauth/callback", base).href;
+  const cancelUrl = new URL("login", base).href;
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     state,
-    cancel_url: window.location.origin + "/login",
+    cancel_url: cancelUrl,
     service_name: "플레이랩",
   });
   if (error) params.set("error_code", error);
