@@ -28,9 +28,11 @@
 | 항목                   | 설명                                                                 |
 | ---------------------- | -------------------------------------------------------------------- |
 | `clientId`             | 이 애플리케이션 식별자. **프로젝트마다 다름**                        |
-| `clientSecret`         | 위 clientId와 짝인 시크릿. **프로젝트마다 다름**                     |
 | 통합 로그인 페이지 URL | 사용자를 리다이렉트할 로그인 페이지 (환경별로 다름)                  |
 | MIMIC API base URL     | 토큰 교환을 요청할 MIMIC 서버 주소 (환경별로 다름)                  |
+
+> `clientSecret`은 필요 없다. 이 흐름은 공개 클라이언트(브라우저 SPA) 전제이며, 코드 탈취 방어는
+> `clientSecret` 대신 **PKCE**(3번 참고)가 담당한다.
 
 ### ★ 핵심: 직원용 vs 유저용은 clientId/clientSecret로 갈린다
 
@@ -53,12 +55,11 @@ VITE_MIMIC_API_URL=https://mimic-stage.r-e.kr/api
 
 # 이 프로젝트용 자격 (직원용/유저용에 맞는 값을 발급받아 입력)
 VITE_MIMIC_CLIENT_ID=mimic-web
-VITE_MIMIC_CLIENT_SECRET=발급받은_시크릿
 ```
 
-> ⚠️ **보안 주의**: 이 방식은 `clientSecret`을 프론트에서 MIMIC로 직접 전송하므로 **JS 번들에 노출된다.**
-> MIMIC 사내 인증 흐름의 기존 관행(파라미터로 전달)과 동일하며, 사내 도구 기준으로 감수한 선택이다.
-> 외부 공개 서비스에서 진짜 기밀이 필요하다면 백엔드 경유(server-to-server) 방식으로 바꿔야 한다.
+> `/v1/auth/token`은 `clientSecret`을 요구하지 않는다 (공개 클라이언트 전제). 대신 **PKCE**로
+> 코드 탈취를 방어한다 — 자세한 내용은 3번/4.2번 참고. `clientSecret`을 프론트 번들에 넣는
+> 과거 관행은 폐기됐으니 새 프로젝트에 이식할 때 `VITE_MIMIC_CLIENT_SECRET`을 추가하지 않는다.
 
 ---
 
@@ -67,16 +68,22 @@ VITE_MIMIC_CLIENT_SECRET=발급받은_시크릿
 ```
 [로그인 버튼 클릭]
       │  state 생성 → sessionStorage 저장
+      │  PKCE: code_verifier(비밀) 생성 → sessionStorage 저장
+      │        code_challenge = base64url(SHA-256(code_verifier))
       ▼
 [통합 로그인 페이지로 리다이렉트]
       │  ?client_id=...&redirect_uri=/oauth/callback&state=...
+      │  &code_challenge=...&code_challenge_method=S256
+      │  (verifier는 리다이렉트 URL에 절대 포함하지 않는다 — 여기(클라이언트)에만 보관)
       ▼
 [사용자가 MIMIC 계정으로 인증]
       │
       ▼
 [/oauth/callback?code=xxx&state=xxx 로 되돌아옴]
       │  ① state 일치 검증 (CSRF 방지)
-      │  ② POST {MIMIC_API_URL}/v1/auth/token  { code, clientId, clientSecret }
+      │  ② sessionStorage에서 code_verifier 꺼내기 (1회성 — 꺼내며 바로 제거)
+      │     없으면 ①과 동일하게 실패 처리
+      │  ③ POST {MIMIC_API_URL}/v1/auth/token  { code, clientId, codeVerifier }
       ▼
    ┌──성공──────────────┐        ┌──실패──────────────────────────────────┐
    │ 토큰을 쿠키에 저장  │        │ 응답 { code, failReason }               │
@@ -89,6 +96,12 @@ VITE_MIMIC_CLIENT_SECRET=발급받은_시크릿
 > **실패 처리 정책**: 로그인 실패 메시지를 우리 앱 화면에 렌더링하지 않는다.
 > 대신 통합 로그인 페이지로 되돌리며 `error` 파라미터로 메시지를 함께 넘긴다 —
 > 에러 표시는 통합 로그인 페이지가 담당한다.
+
+> **PKCE(RFC 7636)를 쓰는 이유**: `code`는 1회용이지만 URL(redirect_uri)에 평문으로 노출된다.
+> 코드만 가로채면 만료 전(보통 2분 TTL) 누구든 `/v1/auth/token`으로 교환할 수 있다.
+> `code_verifier`는 절대 URL에 실리지 않고 클라이언트(이 앱)에만 보관되므로, 코드를 가로채도
+> verifier 없이는 토큰 교환이 실패한다. `code_challenge` 검증(저장/대조)은 MIMIC 인증 서버
+> 책임이며 이 문서는 클라이언트 측 구현만 다룬다.
 
 ---
 
@@ -141,6 +154,7 @@ export function clearTokens(): void {
 
 ```ts
 export const OAUTH_STATE_KEY = "hh:oauth-state";
+export const OAUTH_PKCE_VERIFIER_KEY = "hh:oauth-pkce-verifier";
 
 export const ERROR_MESSAGES: Record<string, string> = {
   "40101": "존재하지 않는 계정입니다.",
@@ -160,8 +174,34 @@ export function resolveErrorMessage(code?: string | null, failReason?: string | 
   return ERROR_MESSAGES.oauth_failed;
 }
 
+function base64UrlEncode(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/** PKCE code_verifier 생성 (32바이트 난수 → base64url, 43자 — RFC 7636 조건 만족). */
+function generateCodeVerifier(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return base64UrlEncode(bytes);
+}
+
+/** PKCE code_challenge = base64url(SHA-256(verifier)). */
+async function sha256Base64Url(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return base64UrlEncode(new Uint8Array(digest));
+}
+
+/** 저장해둔 PKCE verifier를 1회성으로 꺼낸다 (읽는 즉시 제거). 콜백에서 사용. */
+export function consumePkceVerifier(): string | null {
+  const verifier = sessionStorage.getItem(OAUTH_PKCE_VERIFIER_KEY);
+  sessionStorage.removeItem(OAUTH_PKCE_VERIFIER_KEY);
+  return verifier;
+}
+
 /** 통합 로그인 페이지로 리다이렉트. error를 주면 ?error=로 함께 전달한다. */
-export function redirectToUnifiedLogin(error?: string): void {
+export async function redirectToUnifiedLogin(error?: string): Promise<void> {
   const env = (import.meta as unknown as { env?: Record<string, unknown> }).env;
   const unifiedLoginUrl = String(env?.VITE_UNIFIED_LOGIN_URL ?? "");
   const clientId = String(env?.VITE_MIMIC_CLIENT_ID ?? "");
@@ -169,6 +209,11 @@ export function redirectToUnifiedLogin(error?: string): void {
   // state = CSRF 방지용 1회성 난수. sessionStorage에 저장했다가 콜백에서 대조.
   const state = crypto.randomUUID();
   sessionStorage.setItem(OAUTH_STATE_KEY, state);
+
+  // PKCE: verifier는 여기(클라이언트)에만 보관하고 challenge만 로그인 페이지에 전달.
+  const verifier = generateCodeVerifier();
+  sessionStorage.setItem(OAUTH_PKCE_VERIFIER_KEY, verifier);
+  const challenge = await sha256Base64Url(verifier);
 
   // base: 이 앱이 배포된 sub-path (예: GitHub Pages project page면 "/repo-이름/").
   // 도메인 루트에 배포되면 "/" — window.location.origin은 path를 포함하지 않으므로
@@ -182,6 +227,8 @@ export function redirectToUnifiedLogin(error?: string): void {
     state,
     cancel_url: cancelUrl,
     service_name: "플레이랩", // 로그인 페이지에 표시될 서비스명
+    code_challenge: challenge,
+    code_challenge_method: "S256",
   });
   if (error) params.set("error", error); // ← 실패 메시지를 통합 로그인 페이지로 전달
   window.location.href = `${unifiedLoginUrl}?${params.toString()}`;
@@ -190,6 +237,9 @@ export function redirectToUnifiedLogin(error?: string): void {
 
 > 새 에러 코드를 만나면 `ERROR_MESSAGES`에 `"코드": "문구"` 한 줄만 추가하면 된다.
 > ⚠️ `error` 파라미터 이름(`error`)은 **통합 로그인 페이지가 읽어 표시하는 규약에 맞춰야 한다.** 페이지 규약이 다르면 이름만 바꾸면 된다.
+> ⚠️ `code_challenge`/`code_challenge_method`, 토큰 교환 body의 `codeVerifier` 필드명은
+> **MIMIC 인증 서버와 맞춰야 하는 계약이다.** 서버가 다른 이름을 쓴다면 이 파일의 `params`
+> 키와 `OAuthCallback`의 body 키만 바꾸면 된다 (4.4 참고).
 
 ### 4.2.1 배포 sub-path(base) 대응 — **비개발자 프로젝트는 Claude가 이 판단을 대신 해줄 것**
 
@@ -251,7 +301,12 @@ export function Login() {
 import { useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { setTokens } from "./auth";
-import { OAUTH_STATE_KEY, redirectToUnifiedLogin, resolveErrorMessage } from "../lib/unifiedLogin";
+import {
+  OAUTH_STATE_KEY,
+  consumePkceVerifier,
+  redirectToUnifiedLogin,
+  resolveErrorMessage,
+} from "../lib/unifiedLogin";
 
 interface TokenResponse {
   accessToken: string;
@@ -269,7 +324,6 @@ export function OAuthCallback() {
     const env = (import.meta as unknown as { env?: Record<string, unknown> }).env;
     const apiBase = String(env?.VITE_MIMIC_API_URL ?? "");
     const clientId = String(env?.VITE_MIMIC_CLIENT_ID ?? "");
-    const clientSecret = String(env?.VITE_MIMIC_CLIENT_SECRET ?? "");
 
     const controller = new AbortController();
     const params = new URLSearchParams(window.location.search);
@@ -277,18 +331,20 @@ export function OAuthCallback() {
     const state = params.get("state");
     const savedState = sessionStorage.getItem(OAUTH_STATE_KEY);
     sessionStorage.removeItem(OAUTH_STATE_KEY);
+    const codeVerifier = consumePkceVerifier(); // PKCE: 1회성으로 꺼내며 즉시 제거
 
-    // ① state 검증 — 불일치면 CSRF 의심. 통합 로그인 페이지로 되돌려 재시도.
-    if (!code || !state || state !== savedState) {
+    // ① state 검증 — 불일치면 CSRF 의심. verifier가 없어도(세션 만료 등) 동일하게 취급.
+    //    통합 로그인 페이지로 되돌려 재시도.
+    if (!code || !state || state !== savedState || !codeVerifier) {
       redirectToUnifiedLogin(resolveErrorMessage("oauth_failed"));
       return;
     }
 
-    // ② 토큰 교환
+    // ② 토큰 교환 — codeVerifier로 이 코드가 진짜 이 브라우저가 시작한 로그인인지 증명한다.
     fetch(`${apiBase}/v1/auth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, clientId, clientSecret }),
+      body: JSON.stringify({ code, clientId, codeVerifier }),
       signal: controller.signal,
     })
       .then(async (res) => {
@@ -357,11 +413,13 @@ export function getCurrentUser() {
 ## 6. 체크리스트 (Definition of Done)
 
 - [ ] 배포 대상에 맞게 `vite.config.ts`의 `base` 값 설정 확인 (GitHub Pages project repo면 `/repo-이름/`, 그 외 대부분 `/` — 4.2.1 참고)
-- [ ] `.env`에 4개 값(`VITE_UNIFIED_LOGIN_URL`, `VITE_MIMIC_API_URL`, `VITE_MIMIC_CLIENT_ID`, `VITE_MIMIC_CLIENT_SECRET`) 채움
-- [ ] 프로젝트 성격(직원용/유저용)에 맞는 clientId/clientSecret 발급받아 입력
+- [ ] `.env`에 3개 값(`VITE_UNIFIED_LOGIN_URL`, `VITE_MIMIC_API_URL`, `VITE_MIMIC_CLIENT_ID`) 채움 — `clientSecret`은 필요 없음
+- [ ] 프로젝트 성격(직원용/유저용)에 맞는 clientId 발급받아 입력
 - [ ] `/login`, `/oauth/callback` 라우트 등록
-- [ ] 로그인 버튼 클릭 → 통합 로그인 페이지로 이동
-- [ ] 인증 후 `/oauth/callback` 복귀 → 홈으로 이동 + 쿠키에 `accessToken` 저장 확인
+- [ ] 로그인 버튼 클릭 → 통합 로그인 페이지로 이동, 리다이렉트 URL에 `code_challenge`/`code_challenge_method=S256`이 포함됨
+- [ ] 로그인 버튼 클릭 직후 sessionStorage에 `code_verifier`(43자 base64url)가 저장됨
+- [ ] 인증 후 `/oauth/callback` 복귀 → 토큰 교환 요청 body에 `codeVerifier`가 포함됨 (Network 탭 확인) → 홈으로 이동 + 쿠키에 `accessToken` 저장 확인
+- [ ] sessionStorage에 verifier가 없는 상태로 `/oauth/callback?code=...&state=...`에 직접 진입 시 토큰 교환을 시도하지 않고 통합 로그인 페이지로 되돌아감
 - [ ] 실패 케이스에서 통합 로그인 페이지로 `error` 파라미터와 함께 리다이렉트됨 (우리 앱에 에러 UI 없음)
 - [ ] 직원 전용 앱에 일반 계정으로 로그인 시 `400119` 메시지가 통합 로그인 페이지에 전달됨
 - [ ] 통합 로그인 페이지가 `error`를 받으면 **자동 재로그인하지 않고 멈춰서 표시**하는지 확인 (무한 리다이렉트 방지)
@@ -381,6 +439,8 @@ export function getCurrentUser() {
 | `redirect_uri`로 콜백됐는데 그 페이지가 404 (특히 GitHub Pages 서브패스 배포) | `window.location.origin`만으로 `redirect_uri`를 만들면 서브패스(`/repo-이름/`)가 빠진다. `import.meta.env.BASE_URL`을 함께 반영해야 함 (4.2.1 참고). wouter 등 라우터의 `base`도 같은 값으로 맞춰져 있는지 함께 확인. |
 | 성공했는데 `accessToken`이 `undefined` | 성공 응답이 `{accessToken, refreshToken}` 평면 구조가 아니라 `{result, data:{accessToken}}` 봉투 구조일 수 있음. 그렇다면 `.then` 에서 `data.data`를 언래핑. 실제 응답을 네트워크 탭에서 먼저 확인. |
 | JWT의 한글 닉네임이 깨짐 | `atob`만 쓰면 Latin-1로 깨진다. `Uint8Array` + `TextDecoder` 사용 (5번 코드). |
+| 토큰 교환 시 `INVALID_LOGIN_CODE`/verifier 관련 에러 | 서버가 기대하는 PKCE 필드명이 이 문서의 가정(`code_challenge`/`code_challenge_method`/`codeVerifier`)과 다를 수 있다. MIMIC 인증 서버 스펙(Swagger 등)에서 실제 필드명을 확인해 4.2/4.4의 키 이름만 맞추면 된다. |
+| `crypto.subtle`가 `undefined` | Web Crypto의 `subtle`은 secure context(HTTPS 또는 `localhost`)에서만 동작한다. HTTP로 배포된 non-localhost 환경에서 테스트하면 발생 — HTTPS로 접속해 확인. |
 
 ---
 
