@@ -12,14 +12,47 @@
 
 ```
 이 프로젝트에 MIMIC 통합 로그인을 붙여줘. 방식은 docs/MIMIC_LOGIN_INTEGRATION.md 가이드를 그대로 따르면 돼.
-- 로그인 버튼 → 통합 로그인 페이지로 리다이렉트
-- 돌아온 code로 토큰 교환 → 쿠키 저장 → 홈으로 이동
-- 실패하면 에러 code를 한국어 메시지로 매핑해서 로그인 화면에 보여줘
-환경변수(VITE_UNIFIED_LOGIN_URL / VITE_MIMIC_API_URL / VITE_MIMIC_CLIENT_ID / VITE_MIMIC_CLIENT_SECRET)는
-내가 값을 줄 테니 .env에 자리만 만들어줘. 이 프로젝트가 "직원 전용"인지 "일반 유저용"인지는 아래에서 알려줄게.
+시작하기 전에 0.1 섹션을 먼저 읽고, 거기 나온 대로 나한테 딱 필요한 것만 물어봐줘.
 ```
 
-값을 채울 때 필요한 정보는 **1. 사전 준비물**을 참고.
+**비개발자는 이 프롬프트만 붙여넣으면 된다.** 그 다음은 Claude가 아래 **0.1**을 보고
+알아서 필요한 질문만 하고, 나머지는 스스로 판단해서 구현한다.
+
+---
+
+## 0.1 (Claude 전용) 구현 전 판단 체크리스트
+
+이 가이드로 작업을 시작하기 전에 아래 세 그룹으로 나눠서 처리한다. **혼동하지 말 것: 아래
+목록에 없는 건 전부 Claude가 스스로 판단하고, 사용자에게 되묻지 않는다.**
+
+**A. 지금 바로 사용자에게 물어볼 것 (딱 이 2개, 구현 시작 전에 필요)**
+
+1. 서비스 이름 — 로그인 페이지에 표시될 이름 (예: "플레이랩"). → `VITE_SERVICE_NAME`에 들어감.
+2. 이 프로젝트가 **일반 유저용**인지 **직원(관리자) 전용**인지. → 코드 분기는 없지만, 사용자가
+   MIMIC 인증팀에 clientId를 요청할 때 필요한 정보이므로 미리 확인해둔다 (1번 참고).
+
+이 2개를 받으면 **바로 구현을 시작한다.** 아래 B는 실행/배포 직전에만 필요하므로 구현을 막지 않는다.
+
+**B. 구현은 먼저 하되, 실행 전에 사용자가 채워야 할 것 (Claude가 대신 만들어낼 수 없음)**
+
+- `VITE_UNIFIED_LOGIN_URL`, `VITE_MIMIC_API_URL`, `VITE_MIMIC_CLIENT_ID` — MIMIC 인증팀이
+  A-2 답변(유저용/직원용)에 맞춰 발급하는 값. `.env.example`에 자리만 만들어두고, "이 3개 값을
+  MIMIC 인증팀에서 받으면 `.env`에 채워주세요"라고 안내한 뒤 구현을 계속 진행한다.
+- `clientSecret`은 어떤 경우에도 요청하지 않는다 — 이 흐름은 필요 없음(1번 참고).
+
+**C. Claude가 스스로 판단하고, 절대 사용자에게 묻지 않는 것**
+
+- **프레임워크/라우터**: `package.json`을 읽어서 자동 판단 (React/Vue/Next 등, wouter/RR6/next-router 등).
+- **`redirect_uri`/`cancel_url` 값 자체**: 사람에게 물어볼 대상이 아니다. 코드가 항상
+  `origin + BASE_URL + "/oauth/callback"`, `"/login"` 공식으로 계산한다 (4.2 참고).
+- **배포 sub-path(`BASE_URL`/`base`)**: 위 공식의 유일한 입력값이지만, 이것도 리포의 배포
+  설정 파일(GitHub Actions workflow, `vercel.json`, `netlify.toml` 등)을 읽어서 자동 판단한다.
+  **판단 기준은 4.2.1 참고.** 설정 파일에서 서빙 경로를 전혀 알 수 없는 커스텀 리버스프록시
+  배포일 때만, 예외적으로 그때 가서 사용자에게 실제 서빙 경로를 묻는다.
+- **로그인 실패 시 UI**: 이 앱 화면에 렌더링하지 않고 통합 로그인 페이지로 리다이렉트하는 게
+  고정 정책이다 (3번 "실패 처리 정책" 참고). "에러 화면을 만들어 달라"는 요청이 없어도 만들지 않는다.
+- **PKCE 적용 여부**: 항상 적용한다 (보안 기본값, 3번 참고). 사용자가 빼달라고 명시적으로
+  요청하지 않는 한 생략하지 않는다.
 
 ---
 
@@ -30,15 +63,18 @@
 | `clientId`             | 이 애플리케이션 식별자. **프로젝트마다 다름**                        |
 | 통합 로그인 페이지 URL | 사용자를 리다이렉트할 로그인 페이지 (환경별로 다름)                  |
 | MIMIC API base URL     | 토큰 교환을 요청할 MIMIC 서버 주소 (환경별로 다름)                  |
+| `redirect_uri` 등록    | 이 앱의 콜백 주소를 인증 서버 허용 목록에 등록 요청 (값은 Claude가 계산해줌 — 4.2.1 참고) |
 
 > `clientSecret`은 필요 없다. 이 흐름은 공개 클라이언트(브라우저 SPA) 전제이며, 코드 탈취 방어는
 > `clientSecret` 대신 **PKCE**(3번 참고)가 담당한다.
 
-### ★ 핵심: 직원용 vs 유저용은 clientId/clientSecret로 갈린다
+### ★ 핵심: 직원용 vs 유저용은 clientId로 갈린다 (코드 분기 없음)
 
 - MIMIC 인증 서버는 **애플리케이션(clientId)마다 "직원 전용 / 일반 유저 허용"을 서버 측에 등록**한다.
 - **"직원 전용" 앱**에 일반 유저가 로그인하면 서버가 `code 400119`로 거부한다.
-- 따라서 새 프로젝트를 시작할 때 **그 프로젝트가 직원용인지 유저용인지에 맞는 clientId/clientSecret 쌍을 발급받아 넣는 것**이 전부다. 코드 분기는 필요 없다 — 자격이 맞지 않으면 서버가 알아서 거부하고, 우리는 그 에러 코드를 메시지로 보여준다.
+- 따라서 새 프로젝트를 시작할 때 **그 프로젝트가 직원용인지 유저용인지에 맞는 clientId를 발급받아 넣는 것**이 전부다. 코드 분기는 필요 없다 — 자격이 맞지 않으면 서버가 알아서 거부하고, 우리는 그 에러 코드를 메시지로 보여준다.
+- 그래서 Claude는 이 질문(0.1의 A-2)의 답으로 **코드를 바꾸지 않는다.** 사용자가 인증팀에
+  올바른 clientId를 요청할 수 있도록 확인해두는 용도다.
 
 ---
 
@@ -55,6 +91,9 @@ VITE_MIMIC_API_URL=https://mimic-stage.r-e.kr/api
 
 # 이 프로젝트용 자격 (직원용/유저용에 맞는 값을 발급받아 입력)
 VITE_MIMIC_CLIENT_ID=mimic-web
+
+# 로그인 페이지에 표시될 서비스 이름 (사용자에게 물어본 값 — 0.1의 A-1)
+VITE_SERVICE_NAME=플레이랩
 ```
 
 > `/v1/auth/token`은 `clientSecret`을 요구하지 않는다 (공개 클라이언트 전제). 대신 **PKCE**로
@@ -205,6 +244,7 @@ export async function redirectToUnifiedLogin(error?: string): Promise<void> {
   const env = (import.meta as unknown as { env?: Record<string, unknown> }).env;
   const unifiedLoginUrl = String(env?.VITE_UNIFIED_LOGIN_URL ?? "");
   const clientId = String(env?.VITE_MIMIC_CLIENT_ID ?? "");
+  const serviceName = String(env?.VITE_SERVICE_NAME ?? "");
 
   // state = CSRF 방지용 1회성 난수. sessionStorage에 저장했다가 콜백에서 대조.
   const state = crypto.randomUUID();
@@ -215,6 +255,8 @@ export async function redirectToUnifiedLogin(error?: string): Promise<void> {
   sessionStorage.setItem(OAUTH_PKCE_VERIFIER_KEY, verifier);
   const challenge = await sha256Base64Url(verifier);
 
+  // redirect_uri / cancel_url은 항상 이 공식으로 계산한다 (프로젝트마다 커스터마이징하지 않는다):
+  //   origin(도메인) + BASE_URL(배포 sub-path) + "oauth/callback" | "login"
   // base: 이 앱이 배포된 sub-path (예: GitHub Pages project page면 "/repo-이름/").
   // 도메인 루트에 배포되면 "/" — window.location.origin은 path를 포함하지 않으므로
   // sub-path 배포 시 반드시 BASE_URL을 함께 붙여야 한다 (자세한 설명은 4.2.1 참고).
@@ -226,7 +268,7 @@ export async function redirectToUnifiedLogin(error?: string): Promise<void> {
     redirect_uri: redirectUri,
     state,
     cancel_url: cancelUrl,
-    service_name: "플레이랩", // 로그인 페이지에 표시될 서비스명
+    service_name: serviceName, // 로그인 페이지에 표시될 서비스명 (env로 주입 — 하드코딩 금지)
     code_challenge: challenge,
     code_challenge_method: "S256",
   });
@@ -241,30 +283,45 @@ export async function redirectToUnifiedLogin(error?: string): Promise<void> {
 > **MIMIC 인증 서버와 맞춰야 하는 계약이다.** 서버가 다른 이름을 쓴다면 이 파일의 `params`
 > 키와 `OAuthCallback`의 body 키만 바꾸면 된다 (4.4 참고).
 
-### 4.2.1 배포 sub-path(base) 대응 — **비개발자 프로젝트는 Claude가 이 판단을 대신 해줄 것**
+### 4.2.1 배포 sub-path(base) 대응 — **Claude가 스스로 판단할 것 (사용자에게 묻지 않는다)**
 
 `redirect_uri`/`cancel_url`은 항상 실제 서빙되는 경로와 정확히 일치해야 한다. 문제는 `window.location.origin`이
 도메인까지만 알려주고, 그 앱이 도메인의 루트(`/`)에 있는지 서브패스(`/repo-이름/`) 아래에 있는지는 알려주지 못한다는 점이다.
 이 서브패스 값은 **빌드 도구(Vite면 `base` 설정)에서 가져와야** 하고, `base` 값 자체는 "어디에 배포하는지"에 따라 결정된다.
 
-**Claude가 새 프로젝트에 이 가이드를 적용할 때 반드시 다음을 판단할 것:**
+> **즉, 사용자에게 물어봐야 하는 건 `redirect_uri`/`cancel_url`이 아니라 (그건 4.2의 공식으로
+> 자동 계산됨), 그 입력값인 배포 sub-path 하나뿐이다. 그리고 그것마저 아래 판단으로 거의 항상
+> 자동 결정되므로, 실제로 물어볼 일은 3번 케이스뿐이다.**
 
-1. **배포 대상이 GitHub Pages의 "project repo"인가?**
-   (예: `<org>.github.io` 이외의 일반 저장소를 gh-pages 브랜치로 배포하는 경우 — CI 설정의 `external_repository`/저장소 이름을 확인)
-   → 그렇다면 GitHub Pages 규칙상 실제 URL은 항상 `https://<org>.github.io/<repo-이름>/` 형태이므로,
-     `vite.config.ts`에 아래처럼 **repo 이름을 그대로 반영해 자동으로 설정**한다:
+**판단 순서 (배포 설정 파일을 읽어서 결정):**
+
+1. **GitHub Pages의 "project repo"로 배포하는가?**
+   (`.github/workflows/*.yml`에서 `gh-pages` 브랜치 배포 / `external_repository` 설정 확인.
+   `<org>.github.io` 이외의 일반 저장소면 여기 해당)
+   → GitHub Pages 규칙상 실제 URL이 항상 `https://<org>.github.io/<repo-이름>/` 형태이므로,
+     `vite.config.ts`에 **repo 이름을 그대로 반영**한다:
      ```ts
      base: mode === "staging" ? "/<repo-이름>/" : "/"
      ```
    저장소 이름이 `<org-or-user>.github.io` 자체(유저/조직 전용 page repo)라면 서브패스가 없으므로 `base: "/"`.
 
-2. **그 외 호스팅(Vercel, Netlify, Cloudflare Pages, 커스텀 서버 등)인가?**
-   → 대부분 도메인 루트에 그대로 배포되므로 기본값은 `base: "/"`. 별도 판단 없이 바로 이 값으로 두면 된다.
-   (리버스 프록시로 특정 서브패스 뒤에 물리는 특수 배포는 저장소 코드만으로는 알 수 없으므로, 이 경우에만 사용자에게 실제 서빙 경로를 직접 물어본다.)
+2. **그 외 호스팅(Vercel, Netlify, Cloudflare Pages, 일반 서버 등)인가?**
+   (`vercel.json`, `netlify.toml`, Dockerfile, nginx 설정 등 확인)
+   → 대부분 도메인 루트에 그대로 배포되므로 **묻지 말고 `base: "/"`로 둔다.**
+
+3. **위 파일들을 다 확인해도 서빙 경로를 알 수 없는가?**
+   (리버스 프록시로 특정 서브패스 뒤에 물리는 특수 배포 — 저장소 코드만으로는 판별 불가)
+   → **이 경우에만** 사용자에게 "이 앱이 실제로 서비스될 주소가 `https://도메인/` 인지,
+     `https://도메인/어떤-경로/` 아래인지" 물어본다. 그 답의 경로 부분을 `base`에 넣는다.
 
 이 판단은 **한 프로젝트당 한 번, `vite.config.ts`의 `base` 값을 정하는 순간에만** 필요하다.
 일단 정해지면 `unifiedLogin.ts`의 `import.meta.env.BASE_URL` 기반 코드(4.2)는 그대로 재사용되며,
 프로젝트마다 로그인 헬퍼 코드를 다시 고칠 필요가 없다.
+
+> ⚠️ 여기서 정한 최종 `redirect_uri`(예: `https://org.github.io/repo/oauth/callback`)는
+> **MIMIC 인증 서버에 허용 목록으로 등록돼 있어야 한다.** 등록된 값과 다르면 로그인 페이지가
+> 리다이렉트를 거부한다. `base`를 정한 뒤 사용자에게 "이 redirect_uri를 MIMIC 인증팀에
+> 등록 요청해주세요"라고 최종 값을 알려줄 것.
 
 > 참고: wouter를 쓴다면 `Router base={import.meta.env.BASE_URL.replace(/\/$/, "")}` 로 라우터에도 같은 값을 전달해야
 > `/login`, `/oauth/callback` 라우트가 서브패스 아래에서도 정상 매칭된다.
@@ -413,8 +470,10 @@ export function getCurrentUser() {
 ## 6. 체크리스트 (Definition of Done)
 
 - [ ] 배포 대상에 맞게 `vite.config.ts`의 `base` 값 설정 확인 (GitHub Pages project repo면 `/repo-이름/`, 그 외 대부분 `/` — 4.2.1 참고)
-- [ ] `.env`에 3개 값(`VITE_UNIFIED_LOGIN_URL`, `VITE_MIMIC_API_URL`, `VITE_MIMIC_CLIENT_ID`) 채움 — `clientSecret`은 필요 없음
+- [ ] `.env`에 4개 값(`VITE_UNIFIED_LOGIN_URL`, `VITE_MIMIC_API_URL`, `VITE_MIMIC_CLIENT_ID`, `VITE_SERVICE_NAME`) 채움 — `clientSecret`은 필요 없음
 - [ ] 프로젝트 성격(직원용/유저용)에 맞는 clientId 발급받아 입력
+- [ ] `service_name`이 하드코딩이 아니라 `VITE_SERVICE_NAME`에서 오는지 확인 (다른 프로젝트 이름이 남아있으면 안 됨)
+- [ ] 최종 `redirect_uri`(= `origin + base + /oauth/callback`)를 MIMIC 인증팀에 등록 요청 완료
 - [ ] `/login`, `/oauth/callback` 라우트 등록
 - [ ] 로그인 버튼 클릭 → 통합 로그인 페이지로 이동, 리다이렉트 URL에 `code_challenge`/`code_challenge_method=S256`이 포함됨
 - [ ] 로그인 버튼 클릭 직후 sessionStorage에 `code_verifier`(43자 base64url)가 저장됨
@@ -441,6 +500,8 @@ export function getCurrentUser() {
 | JWT의 한글 닉네임이 깨짐 | `atob`만 쓰면 Latin-1로 깨진다. `Uint8Array` + `TextDecoder` 사용 (5번 코드). |
 | 토큰 교환 시 `INVALID_LOGIN_CODE`/verifier 관련 에러 | 서버가 기대하는 PKCE 필드명이 이 문서의 가정(`code_challenge`/`code_challenge_method`/`codeVerifier`)과 다를 수 있다. MIMIC 인증 서버 스펙(Swagger 등)에서 실제 필드명을 확인해 4.2/4.4의 키 이름만 맞추면 된다. |
 | `crypto.subtle`가 `undefined` | Web Crypto의 `subtle`은 secure context(HTTPS 또는 `localhost`)에서만 동작한다. HTTP로 배포된 non-localhost 환경에서 테스트하면 발생 — HTTPS로 접속해 확인. |
+| 로그인 페이지가 리다이렉트를 거부 / `redirect_uri` 관련 에러 | 우리가 보낸 `redirect_uri`가 MIMIC 인증 서버 허용 목록에 없음. 4.2.1의 최종 값을 인증팀에 등록 요청. 로컬 개발용 `http://localhost:<포트>/oauth/callback`도 별도로 등록해야 할 수 있다. |
+| 로그인 페이지에 다른 서비스 이름이 표시됨 | `service_name`을 하드코딩한 채로 복붙한 것. `VITE_SERVICE_NAME`에서 읽도록 수정 (4.2). |
 
 ---
 
@@ -453,3 +514,5 @@ export function getCurrentUser() {
 - 통합 로그인 헬퍼 + 에러 매핑 (`redirectToUnifiedLogin` / `resolveErrorMessage` / `ERROR_MESSAGES`) → `apps/hub/src/lib/unifiedLogin.ts`
 - 로그인/콜백 페이지 → `apps/hub/src/pages/Login.tsx`, `OAuthCallback.tsx`
 - 이 레포의 `apiFetch`는 baseUrl을 자동 결정하므로, 토큰 교환은 `apiFetch<TokenResponse>("/v1/auth/token", …)`로 호출하고 실패 시 `err instanceof ApiError`로 분기해 `ApiError.data`의 `code`/`failReason`을 `resolveErrorMessage`에 넘긴다.
+- `VITE_SERVICE_NAME`은 `.env.example`에 정의돼 있고, hub는 미설정 시 `"플레이랩"`으로 폴백한다
+  (`VITE_MIMIC_CLIENT_ID`가 `"mimic-web"`으로 폴백하는 것과 같은 패턴).
