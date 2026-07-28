@@ -99,7 +99,10 @@ clientId는 특히 관례로 유추하면 안 된다 (`mimic-web` / `mimic-admin
 **C. Claude가 스스로 판단하고, 절대 사용자에게 묻지 않는 것**
 
 - **프레임워크/라우터**: `package.json`을 읽어서 자동 판단 (React/Vue/Next 등, wouter/RR6/next-router 등).
-- **기존 로그인 경로를 옮길지**: 옮기지 않는다. `LOGIN_PATH` 상수만 그 경로로 맞춘다 (4.3 참고).
+- **로그인/콜백 페이지 경로**: **항상** `BASE_URL + /login`, `BASE_URL + /oauth/callback`으로
+  고정한다 (프로젝트마다 다르게 두지 않고, 앞에 다른 세그먼트도 붙이지 않는다). 기존 로그인
+  페이지가 `/signin` 등에 있었다면 MIMIC 로그인은 `/login`에 두고 옛 경로는 `/login`으로
+  리다이렉트를 남긴다 — 4.3의 "경로 규약" 참고.
 - **`redirect_uri`/`cancel_url` 값 자체**: 사람에게 물어볼 대상이 아니다. 코드가 항상
   `origin + BASE_URL + "/oauth/callback"`, `"/login"` 공식으로 계산한다 (4.2 참고).
   프로젝트마다 이 공식을 커스터마이징하지 않는다.
@@ -263,13 +266,11 @@ export function clearTokens(): void {
 export const OAUTH_STATE_KEY = "hh:oauth-state";
 export const OAUTH_PKCE_VERIFIER_KEY = "hh:oauth-pkce-verifier";
 
-/**
- * 이 프로젝트의 로그인 페이지 경로 (맨 앞 슬래시 없이).
- * 기존 로그인 페이지가 다른 경로에 있으면 이 값만 바꾼다 (예: "signin") — 4.3 참고.
- */
+// ★ 아래 두 경로는 모든 프로젝트에서 동일한 고정 규약이다. 절대 바꾸지 말 것 (4.3 참고).
+//   로그인 페이지  = BASE_URL + "login"
+//   콜백 페이지    = BASE_URL + "oauth/callback"
+// 프로젝트마다 다르게 두면 이 파일을 매번 수정해야 하고, 담당자에게 등록한 redirect_uri와도 어긋난다.
 const LOGIN_PATH = "login";
-
-/** 콜백 경로. 담당자에게 등록 요청한 redirect_uri와 일치해야 하므로 바꾸지 않는다. */
 const CALLBACK_PATH = "oauth/callback";
 
 export const ERROR_MESSAGES: Record<string, string> = {
@@ -461,22 +462,29 @@ export function Login() {
 "MIMIC 계정으로 로그인" 버튼을 **하나 더 추가**한다. ②와 ③ 중 어느 쪽인지 애매하면
 **사용자에게 물어본다** — 이건 코드로 판단할 수 없는 정책 결정이다.
 
-#### ★ 기존 로그인 경로가 `/login`이 아닐 때
+#### ★ 경로 규약 (고정) — 로그인 페이지는 **항상** `BASE_URL + /login`
 
-기존 페이지가 `/signin`, `/auth/login` 등에 있다면 **그 경로를 `/login`으로 옮기지 않는다.**
-기존 링크·북마크·다른 코드의 참조가 깨진다. 대신 4.2에 이미 있는 `LOGIN_PATH` 상수 한 줄만
-그 경로로 맞춘다:
+| 페이지 | 경로 | 비고 |
+| --- | --- | --- |
+| 로그인 | `BASE_URL` + `/login` | **모든 프로젝트 동일. 예외 없음** |
+| 콜백 | `BASE_URL` + `/oauth/callback` | 담당자에게 등록한 `redirect_uri`와 일치 |
 
-```ts
-const LOGIN_PATH = "signin"; // 기존 라우트가 /signin 이었던 경우
+**앞에 다른 세그먼트를 붙이지 않는다** (`/auth/login`, `/users/signin` 금지). 프로젝트마다
+경로가 다르면 `unifiedLogin.ts`를 매번 고쳐야 하고, 담당자에게 등록한 `redirect_uri` 규약도
+흐트러진다. 경로를 고정해두면 로그인 코드를 **무수정으로** 재사용할 수 있다.
+
+**기존 로그인 페이지가 다른 경로(`/signin` 등)에 있었다면** — MIMIC 로그인 페이지는 `/login`에
+두고, **옛 경로는 `/login`으로 리다이렉트만 남긴다.** 기존 링크·북마크가 살아있으면서 경로 규약도
+지켜진다.
+
+```tsx
+// 예: 기존 /signin 을 쓰던 프로젝트 (wouter)
+<Route path="/login"><Login /></Route>
+<Route path="/signin">{() => { navigate("/login", { replace: true }); return null; }}</Route>
 ```
 
-이 상수는 `cancel_url` 계산에만 쓰이므로, 값을 맞춰두면 "로그인 취소" 시 사용자가 원래
-로그인 화면으로 정확히 돌아온다.
-
-- **경우 ①(새로 만들 때)은 `"login"`을 그대로 쓴다** — `auth/login`처럼 경로를 임의로 깊게
-  만들지 않는다. 새로 만드는 판에 굳이 층을 더할 이유가 없고, 얕을수록 규약이 단순하다.
-- `redirect_uri`(`CALLBACK_PATH`)는 **바꾸지 않는다.** 담당자에게 등록 요청한 값과 어긋난다.
+> 옛 경로를 참조하는 코드(헤더 링크, 리다이렉트, 가드 등)가 여러 곳이면 **그것들도 `/login`으로
+> 바꾸는 편이 낫다.** 리다이렉트는 외부에서 들어오는 링크(북마크·메일 등)를 위한 안전망이다.
 
 ### 4.4 콜백 페이지 — `OAuthCallback.tsx`
 
@@ -558,16 +566,18 @@ export function OAuthCallback() {
 ### 4.5 라우팅 등록
 
 ```tsx
-<Route path="/login"><Login /></Route>            {/* 기존 로그인 라우트가 있으면 그걸 그대로 쓴다 */}
-<Route path="/oauth/callback"><OAuthCallback /></Route>  {/* 항상 새로 추가 */}
+<Route path="/login"><Login /></Route>                   {/* 경로 고정 — 예외 없음 */}
+<Route path="/oauth/callback"><OAuthCallback /></Route>   {/* 경로 고정 — 항상 새로 추가 */}
 ```
 
-`redirect_uri`(`/oauth/callback`)와 `cancel_url`이 **실제 라우트와 정확히 일치해야 한다.**
+`redirect_uri`(`/oauth/callback`)와 `cancel_url`(`/login`)이 **실제 라우트와 정확히 일치해야 한다.**
 
-- 기존 로그인 라우트가 `/signin` 등이면 **라우트를 옮기지 말고** `LOGIN_PATH`를 `"signin"`으로
-  맞춘다 (4.3 참고). 로그인 라우트를 새로 추가하지도 않는다 — 중복 페이지가 생긴다.
+- 기존 로그인 라우트가 `/signin` 등이었다면 로그인 페이지를 `/login`으로 옮기고, 옛 경로에는
+  `/login`으로 가는 리다이렉트를 남긴다 (4.3의 "경로 규약"). **로그인 화면이 두 경로에 각각
+  살아있게 두지 않는다** — 중복 페이지가 된다.
 - `/oauth/callback`은 이 흐름에만 쓰는 새 라우트라 항상 추가한다. 같은 경로가 이미 있으면
   (드물지만) 사용자에게 알리고 어떻게 할지 확인한다.
+- 라우터의 base도 `BASE_URL`과 맞춰야 서브패스 배포에서 이 라우트들이 매칭된다 (4.2.1 각주 참고).
 
 ---
 
@@ -609,8 +619,9 @@ export function getCurrentUser() {
 - [ ] `service_name`이 하드코딩이 아니라 `VITE_SERVICE_NAME`에서 오는지 확인 (다른 프로젝트 이름이 남아있으면 안 됨)
 - [ ] 최종 `redirect_uri`(= `origin + base + /oauth/callback`)를 MIMIC 인증팀에 등록 요청 완료
 - [ ] 로그인 페이지 처리 확인 — 없으면 새로 만들고 **진입점(헤더 로그인 버튼)까지** 추가했는지 / 있으면 교체·추가 여부를 사용자에게 확인받았는지 (4.3)
-- [ ] 기존 로그인 경로가 `/login`이 아니면 `LOGIN_PATH` 상수를 그 경로로 맞췄는지 (라우트를 옮기지 않았는지)
-- [ ] 로그인 라우트 + `/oauth/callback` 라우트 등록 (로그인 페이지가 중복 생성되지 않았는지 확인)
+- [ ] 로그인 페이지가 **`BASE_URL + /login`** 에 있는지 (`/auth/login` 같은 추가 세그먼트 없음, `LOGIN_PATH`/`CALLBACK_PATH` 상수를 수정하지 않았음)
+- [ ] 기존 로그인 경로가 있었다면 옛 경로 → `/login` 리다이렉트를 남겼는지 (로그인 화면이 두 곳에 중복되지 않았는지)
+- [ ] `/login` + `/oauth/callback` 라우트 등록
 - [ ] 로그인 버튼 클릭 → 통합 로그인 페이지로 이동, 리다이렉트 URL에 `code_challenge`/`code_challenge_method=S256`이 포함됨
 - [ ] 로그인 버튼 클릭 직후 sessionStorage에 `code_verifier`(43자 base64url)가 저장됨
 - [ ] 인증 후 `/oauth/callback` 복귀 → 토큰 교환 요청 body에 `codeVerifier`가 포함됨 (Network 탭 확인) → 홈으로 이동 + 쿠키에 `accessToken` 저장 확인
