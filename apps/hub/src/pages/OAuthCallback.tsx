@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { apiFetch, setTokens, ApiError } from "@hh/shared";
-import { OAUTH_STATE_KEY, redirectToUnifiedLogin } from "../lib/unifiedLogin";
+import { OAUTH_STATE_KEY, consumePkceVerifier, redirectToUnifiedLogin } from "../lib/unifiedLogin";
 
 interface TokenResponse {
   accessToken: string;
@@ -11,7 +11,7 @@ interface TokenResponse {
 /**
  * 통합 로그인 페이지 콜백 핸들러.
  * /oauth/callback?code=xxx&state=xxx 형태로 리다이렉트된다.
- * state 검증 후 MIMIC 서버 /v1/auth/token으로 code를 교환해 토큰을 받는다.
+ * state 검증 + PKCE verifier 동봉 후 MIMIC 서버 /v1/auth/token으로 code를 교환해 토큰을 받는다.
  * 실패 시 우리 앱 화면에 표시하지 않고 통합 로그인 페이지로 에러와 함께 되돌린다.
  */
 export function OAuthCallback() {
@@ -30,16 +30,17 @@ export function OAuthCallback() {
     const state = params.get("state");
     const savedState = sessionStorage.getItem(OAUTH_STATE_KEY);
     sessionStorage.removeItem(OAUTH_STATE_KEY);
+    const codeVerifier = consumePkceVerifier();
     const clientId = String(env?.VITE_MIMIC_CLIENT_ID ?? "mimic-web");
 
-    if (!code || !state || state !== savedState) {
+    if (!code || !state || state !== savedState || !codeVerifier) {
       redirectToUnifiedLogin("400");
       return;
     }
 
     apiFetch<TokenResponse>("/v1/auth/token", {
       method: "POST",
-      body: JSON.stringify({ code, clientId }),
+      body: JSON.stringify({ code, clientId, codeVerifier }),
       signal: controller.signal,
     })
       .then(({ accessToken, refreshToken }) => {
