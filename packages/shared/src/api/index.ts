@@ -1,4 +1,4 @@
-export { apiFetch, apiUrl, ApiError } from "./client.js";
+export { apiFetch, apiUrl, ApiError, refreshAccessToken } from "./client.js";
 export {
   prefetchPlayLapHome,
   getPlayLapHomeCache,

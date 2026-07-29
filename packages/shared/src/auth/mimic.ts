@@ -50,6 +50,14 @@ function decodeJwtPayload(token: string): Record<string, unknown> {
   }
 }
 
+/** accessToken JWT의 exp claim(ms epoch). 토큰이 없거나 exp가 없으면 null. */
+export function getAccessTokenExpiryMs(): number | null {
+  const token = Cookies.get(COOKIE_ACCESS);
+  if (!token) return null;
+  const exp = decodeJwtPayload(token).exp;
+  return typeof exp === "number" ? exp * 1000 : null;
+}
+
 function payloadToUser(payload: Record<string, unknown>): AuthUser {
   const nick = typeof payload.nick === "string" ? payload.nick : null;
   return {
@@ -109,7 +117,7 @@ export function createMimicAuthStub(): AuthProvider {
       const handleTokenSet = () => notify(readUser());
       window.addEventListener("mimic:token-set", handleTokenSet);
 
-      // apiFetch 401 refresh 실패 시 dispatch — 강제 로그아웃 처리
+      // apiFetch의 401 refresh 실패, 또는 세션 heartbeat의 밴 감지 시 dispatch — 강제 로그아웃 처리
       const handleSignedOut = () => notify(null);
       window.addEventListener("mimic:signed-out", handleSignedOut);
 

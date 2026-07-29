@@ -14,6 +14,7 @@ import type { AuthProvider, AuthProviderName } from "./types.js";
 import { createMimicAuthStub } from "./mimic.js";
 import { createNoneAuthStub } from "./none.js";
 import { createMockAuthStub } from "./mock.js";
+import { startSessionKeepAlive } from "./session.js";
 
 let cached: AuthProvider | null = null;
 
@@ -118,6 +119,7 @@ export function getActiveAuthProvider(): AuthProvider {
     cached = registered ?? createFirebasePendingProxy();
   } else if (name === "mimic") {
     cached = createMimicAuthStub();
+    startSessionKeepAlive();
   } else {
     cached = createNoneAuthStub();
   }
