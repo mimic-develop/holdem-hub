@@ -46,6 +46,7 @@ export async function redirectToUnifiedLogin(error?: string): Promise<void> {
   const env = (import.meta as unknown as { env?: Record<string, unknown> }).env;
   const unifiedLoginUrl = String(env?.VITE_UNIFIED_LOGIN_URL ?? "");
   const clientId = String(env?.VITE_MIMIC_CLIENT_ID ?? "mimic-web");
+  const serviceName = String(env?.VITE_SERVICE_NAME ?? "플레이랩");
 
   // state = CSRF 방지용 1회성 난수. sessionStorage에 저장했다가 콜백에서 대조.
   const state = crypto.randomUUID();
@@ -65,7 +66,7 @@ export async function redirectToUnifiedLogin(error?: string): Promise<void> {
     redirect_uri: redirectUri,
     state,
     cancel_url: cancelUrl,
-    service_name: "플레이랩",
+    service_name: serviceName,
     code_challenge: challenge,
     code_challenge_method: "S256",
   });

@@ -109,7 +109,7 @@ export function createMimicAuthStub(): AuthProvider {
       const handleTokenSet = () => notify(readUser());
       window.addEventListener("mimic:token-set", handleTokenSet);
 
-      // apiFetch 401 refresh 실패 시 dispatch — 강제 로그아웃 처리
+      // apiFetch의 401 refresh 실패, 또는 세션 heartbeat의 밴 감지 시 dispatch — 강제 로그아웃 처리
       const handleSignedOut = () => notify(null);
       window.addEventListener("mimic:signed-out", handleSignedOut);
 

@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { healthRouter } from "./routes/health.js";
 import { nutTo3Router } from "./routes/nut-to-3.js";
 import { nutToRouter } from "./routes/nut-to.js";
@@ -21,6 +22,7 @@ export function createApp(): Express {
     ),
   );
   app.use(express.json({ limit: "1mb" }));
+  app.use(cookieParser());
 
   app.use("/api/health", healthRouter);
   app.use("/api/nut-to", nutTo3Router);
