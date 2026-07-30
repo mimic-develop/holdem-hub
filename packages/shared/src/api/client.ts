@@ -13,7 +13,13 @@
 import Cookies from "js-cookie";
 import { setTokens, clearTokens } from "../auth/mimic.js";
 
-type Env = { PROD?: boolean; VITE_API_BASE_URL?: string; VITE_MIMIC_API_URL?: string };
+type Env = {
+  PROD?: boolean;
+  VITE_API_BASE_URL?: string;
+  VITE_MIMIC_API_URL?: string;
+  VITE_MIMIC_CLIENT_ID?: string;
+  VITE_MIMIC_CLIENT_SECRET?: string;
+};
 const _env = (import.meta as unknown as { env?: Env }).env;
 
 // 우선순위: VITE_API_BASE_URL > VITE_MIMIC_API_URL > 빌드 모드 기본값
@@ -49,10 +55,10 @@ const SIGNED_OUT_CODES = new Set(["40110", "40107", "40108"]);
 let inFlightRefresh: Promise<boolean> | null = null;
 
 /**
- * accessToken 갱신. clientSecret이 필요해 우리 백엔드(services/api)를 경유한다 — MIMIC을
- * 직접 부르는 apiFetch의 baseUrl(위 우선순위, MIMIC 도메인 지향)과는 별개로 항상 현재
- * origin 기준 상대경로("/api/auth/refresh")로 고정 호출한다. 동시 호출은 단일 in-flight
- * Promise를 공유해 중복 요청을 막는다(single-flight).
+ * accessToken 갱신. MIMIC의 실제 `/v1/auth/refresh`를 브라우저가 직접 호출한다
+ * (clientSecret을 프론트 번들에 포함 — 백엔드 미배포 환경이라 감수하기로 확정된 결정).
+ * apiFetch와 동일한 baseUrl(MIMIC 도메인 지향)을 그대로 쓰면 된다. 동시 호출은 단일
+ * in-flight Promise를 공유해 중복 요청을 막는다(single-flight).
  */
 export function refreshAccessToken(): Promise<boolean> {
   if (inFlightRefresh) return inFlightRefresh;
@@ -63,8 +69,15 @@ export function refreshAccessToken(): Promise<boolean> {
 }
 
 async function doRefresh(): Promise<boolean> {
+  const clientId = String(_env?.VITE_MIMIC_CLIENT_ID ?? "mimic-web");
+  const clientSecret = String(_env?.VITE_MIMIC_CLIENT_SECRET ?? "");
   try {
-    const res = await fetch("/api/auth/refresh", { method: "POST" }); // same-origin → refresh_token 쿠키 자동 첨부
+    const res = await fetch(apiUrl("/v1/auth/refresh"), {
+      method: "POST",
+      credentials: "include", // MIMIC 도메인에 refresh_token 쿠키가 있다면 자동 첨부
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId, clientSecret }),
+    });
     const data = await res.json().catch(() => null);
     if (!res.ok) {
       const code = (data as { code?: string } | null)?.code;
@@ -75,7 +88,7 @@ async function doRefresh(): Promise<boolean> {
         }
       } else if (code === "40104") {
         // eslint-disable-next-line no-console
-        console.error("[auth] MIMIC_CLIENT_ID/MIMIC_CLIENT_SECRET 설정 오류 — 서버 env 확인 필요", data);
+        console.error("[auth] VITE_MIMIC_CLIENT_ID/VITE_MIMIC_CLIENT_SECRET 설정 오류 — env 확인 필요", data);
       }
       return false;
     }
