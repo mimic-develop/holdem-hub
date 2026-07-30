@@ -40,6 +40,11 @@ export function OAuthCallback() {
 
     apiFetch<TokenResponse>("/v1/auth/token", {
       method: "POST",
+      // MIMIC이 응답에 refresh_token 쿠키를 심어준다면(자체 도메인) 브라우저가 저장하도록.
+      // credentials 기본값("same-origin")은 cross-origin 응답의 쿠키를 무시하므로 명시 필요 —
+      // 이게 없으면 이후 accessToken 자동 갱신(client.ts의 refreshAccessToken)이 MIMIC에서
+      // "Empty refresh token"(40110)으로 항상 실패한다.
+      credentials: "include",
       body: JSON.stringify({ code, clientId, codeVerifier }),
       signal: controller.signal,
     })
