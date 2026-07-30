@@ -12,11 +12,12 @@
 
 ```
 이 프로젝트에 MIMIC 통합 로그인을 붙여줘. 방식은 docs/MIMIC_LOGIN_INTEGRATION.md 가이드를 그대로 따르면 돼.
-시작하기 전에 0.1 섹션을 먼저 읽고, 거기 나온 대로 나한테 딱 필요한 것만 물어봐줘.
+시작하기 전에 0.1, 0.2 섹션을 먼저 읽고, 거기 나온 대로 나한테 딱 필요한 것만 물어봐줘.
 ```
 
-**비개발자는 이 프롬프트만 붙여넣으면 된다.** 그 다음은 Claude가 아래 **0.1**을 보고
-알아서 필요한 질문만 하고, 나머지는 스스로 판단해서 구현한다.
+**비개발자는 이 프롬프트만 붙여넣으면 된다.** 그 다음은 Claude가 아래 **0.1(뭘 물어볼지)**과
+**0.2(뭘 절대 묻지 말아야 할지)**를 보고 알아서 필요한 질문만 하고, 나머지는 스스로 판단해서
+구현한다.
 
 ---
 
@@ -76,12 +77,15 @@ clientId는 특히 관례로 유추하면 안 된다 (`mimic-web` / `mimic-admin
    - 배포용: <A-3 답변으로 계산한 값, 예: https://xxx.github.io/repo/oauth/callback>
    - 로컬 개발용: http://localhost:<포트>/oauth/callback
 3. 통합 로그인 페이지 URL과 MIMIC API base URL을 (개발/스테이징/운영) 환경별로 알려주세요.
+4. (accessToken 자동 갱신도 구현할 경우에만) 위 client_id의 client_secret도 함께 알려주세요.
+   — 서버 전용 환경변수에만 저장하고 프론트 번들에는 절대 넣지 않습니다.
 ```
 
 > 로컬 개발용 `redirect_uri`도 함께 등록해두지 않으면 배포 전에 로그인을 테스트할 수 없다.
 > 포트는 그 프로젝트의 dev 서버 포트를 확인해 채운다.
 
-- `clientSecret`은 어떤 경우에도 요청하지 않는다 — 이 흐름은 필요 없음(1번 참고).
+- **로그인(코드→토큰 교환)만 구현할 때는 `clientSecret`을 요청하지 않는다** — 이 흐름은 필요
+  없음(1번 참고). **accessToken 자동 갱신(4.6)까지 구현할 때만** 4번 항목으로 함께 요청한다.
 
 > 참고: clientId는 **비밀이 아니다.** 로그인 리다이렉트 URL의 `?client_id=`에 그대로 실려 나가고
 > 프론트 번들에도 포함되므로, `.env`나 저장소에 들어가는 것 자체는 문제가 아니다. 담당자에게 받는
@@ -111,6 +115,44 @@ clientId는 특히 관례로 유추하면 안 된다 (`mimic-web` / `mimic-admin
   고정 정책이다 (3번 "실패 처리 정책" 참고). "에러 화면을 만들어 달라"는 요청이 없어도 만들지 않는다.
 - **PKCE 적용 여부**: 항상 적용한다 (보안 기본값, 3번 참고). 사용자가 빼달라고 명시적으로
   요청하지 않는 한 생략하지 않는다.
+- **accessToken 자동 갱신 방식**: 항상 401 인터셉터 하나로만 처리한다 (4.6 참고). 만료 전
+  미리 갱신하는 별도 타이머는 추가하지 않는다 — 이미 검토 후 뺀 설계 결정이라 사용자에게
+  다시 묻지 않는다.
+- **밴 감지 heartbeat 주기**: 1시간 고정 (4.7 참고). 사용자가 다른 주기를 명시적으로
+  요청하지 않는 한 그대로 둔다.
+
+---
+
+## 0.2 Claude가 비개발자에게 절대 묻지 말아야 할 것
+
+**원칙**: 질문하기 전에 "비개발자가 실제로 답할 수 있는 질문인가?"를 자문한다. 답은 셋 중
+하나다 — ① 코드/설정 파일을 읽어 Claude가 스스로 판단, ② 검증 방법을 바꿔서(아래 참고)
+질문 자체를 없앰, ③ 그래도 안 되면 **묻지 않고 넘어간 뒤, 최종 확인은 비개발자가 실제
+서비스에서 직접 써보며 하도록 남긴다.**
+
+**절대 묻지 않는 것 (전부 개발자 전용 지식이라 비개발자가 답을 모른다):**
+- DB/서버에 테스트·시드 계정이 실제로 들어가 있는지, 어떤 계정으로 로그인해야 하는지
+- 터미널에서 `curl`을 날려본 결과, 로그 파일 내용, 프로세스가 떠 있는 포트 번호
+- 백엔드 코드의 구체적인 구현 방식 (예: "이 필드가 optional인가요?")
+
+> **실제 사례**: 어떤 세션이 "로그인 마지막 단계(토큰 교환 → 헤더 갱신 → 400119 케이스)를
+> 끝까지 검증하려면 유효한 계정이 필요합니다. 시드 계정이 로컬 DB에 실제로 들어가 있는지
+> 확인이 안 됩니다(로그인 시도 시 '가입되지 않은 계정' 응답). 어떻게 할까요?" 라고 사용자에게
+> 물은 적이 있다. **이건 잘못된 질문이다.** 비개발자는 DB 시드 여부를 알 도리가 없고, 애초에
+> 실제 로그인 성공까지 확인하는 건 구현 완료 조건도 아니다.
+
+**왜 "실제 로그인 성공"이 검증 조건이 아닌가**: 실패하더라도 통합 로그인 페이지가 모든
+에러 케이스를 자체적으로 표시하도록 이미 설계돼 있다(3번 "실패 처리 정책"). 즉 우리 구현이
+맞는지는 ① 리다이렉트 URL의 파라미터가 정확한지, ② 콜백에서 토큰 교환 요청이 올바른
+필드로 나가는지, ③ 실패 시 에러 코드가 통합 로그인 페이지로 잘 전달되는지 — 이 세 가지를
+코드/Network 탭으로 확인하면 충분하다. **실제 계정으로 끝까지 로그인이 성공하는지는 별개
+문제이고, 그건 비개발자가 나중에 실제 서비스에서 직접 눌러보며 확인할 몫이다.** Claude가
+그 확인을 대신하려고 계정을 찾거나 DB를 뒤지거나 사용자에게 계정 상태를 캐물으면 안 된다.
+
+**Claude가 스스로 못 끝내는 검증을 만났을 때 할 일**: "여기까지는 코드로 확인했고, 실제
+로그인 성공 여부는 (본인 MIMIC 계정으로) 직접 로그인해서 확인해주세요"라고 안내하고
+넘어간다. 비밀번호를 대신 입력하거나, 계정을 대신 찾거나, 우회 방법(테스트 토큰 발급 등)을
+찾으려 하지 않는다.
 
 ---
 
@@ -127,8 +169,11 @@ clientId는 특히 관례로 유추하면 안 된다 (`mimic-web` / `mimic-admin
 > 다른 저장소의 `.env`에서 값을 베껴오지 말 것: 환경별로 다르고, 잠정치(`TBD`)나 이미 바뀐
 > 값일 수 있다.
 
-> `clientSecret`은 필요 없다. 이 흐름은 공개 클라이언트(브라우저 SPA) 전제이며, 코드 탈취 방어는
-> `clientSecret` 대신 **PKCE**(3번 참고)가 담당한다.
+> `clientSecret`은 로그인(코드→토큰 교환)엔 필요 없다. 이 흐름은 공개 클라이언트(브라우저 SPA)
+> 전제이며, 코드 탈취 방어는 `clientSecret` 대신 **PKCE**(3번 참고)가 담당한다.
+> **단, accessToken 자동 갱신(4.6)을 구현한다면 `clientSecret`이 그때는 필요하다** — 담당자에게
+> clientId와 함께 요청하되, 이 값은 **절대 프론트 `.env`(`VITE_` 접두사)에 넣지 않고 서버 전용
+> 환경변수로만 보관한다** (4.6 참고).
 
 ### ★ 핵심: 직원용 vs 유저용은 clientId로 갈린다 (코드 분기 없음)
 
@@ -579,6 +624,176 @@ export function OAuthCallback() {
   (드물지만) 사용자에게 알리고 어떻게 할지 확인한다.
 - 라우터의 base도 `BASE_URL`과 맞춰야 서브패스 배포에서 이 라우트들이 매칭된다 (4.2.1 각주 참고).
 
+### 4.6 세션 유지 ① — accessToken 자동 갱신 (401 인터셉터)
+
+로그인 흐름만 구현하면 accessToken(보통 1일)이 만료됐을 때 refreshToken이 있어도 그냥
+로그아웃된다. 이 절은 그걸 막는 자동 갱신을 추가한다. **선택 사항이지만, 하루 이상 켜두는
+서비스라면 사실상 필수다.**
+
+#### ★ 왜 반드시 자기 서버(백엔드)를 거쳐야 하는가
+
+로그인(4.4)의 `/v1/auth/token`과 달리, **`/v1/auth/refresh`는 `clientSecret`을 요구한다**
+(MIMIC 서버 쪽 필수 검증 — swagger 문서엔 optional로 잘못 표기돼 있을 수 있으니 실제
+호출로 확인할 것). `clientSecret`은 절대 브라우저에 넣을 수 없으므로(1번 참고), **이
+갱신 요청만은 브라우저가 MIMIC을 직접 부르지 않고 이 프로젝트의 자기 백엔드를 거쳐야 한다.**
+
+다행히 어렵지 않다 — 4.1의 `setTokens`가 이미 `refreshToken`을 **일반 쿠키**(httpOnly 아님,
+우리 JS가 직접 관리)로 저장해뒀다. 그래서 브라우저는 자기 도메인의 백엔드 엔드포인트를
+같은 origin으로 호출하기만 하면 되고(별도 설정 없이 쿠키가 자동으로 실린다), **그 백엔드가**
+그 쿠키 값을 MIMIC의 실제 `/v1/auth/refresh`에 `Cookie` 헤더로 수동 구성해 서버 간
+전달하면서 `clientSecret`을 붙인다. 브라우저는 MIMIC의 쿠키 정책을 신경 쓸 필요가 전혀 없다.
+
+**Claude 판단 (사용자에게 묻지 않는다, 코드로 확인)**: 이 프로젝트에 이미 백엔드(Express/
+Fastify/Next API Route 등)가 있는지 `package.json`/API 라우트 폴더로 확인한다.
+- **있으면** → 거기에 라우트 하나만 추가한다 (아래 4.6.1).
+- **완전히 없다면**(정적 사이트뿐) → 이건 코드로 판단할 수 없는 정책 결정이라 사용자에게
+  묻는다: "자동 갱신 기능은 서버가 있어야 구현할 수 있는데 지금 이 프로젝트엔 서버가 없습니다.
+  ① 작은 서버를 새로 만들지, ② 자동 갱신 없이(accessToken 만료 시 재로그인) 갈지 정해주세요."
+  이건 비개발자도 이해하고 답할 수 있는 질문이다 (0.2 원칙에 어긋나지 않음).
+
+> ⚠️ **백엔드가 있어도, 그게 실제로 배포돼 인터넷에 떠 있는지 별도로 확인한다.** 로컬
+> `pnpm dev` 등으로만 띄우는 서버라면 이 갱신 기능은 **로컬에서만 동작**하고 실제 배포
+> 환경에선 조용히 작동하지 않는다. 배포 여부는 CI 설정 파일(`.github/workflows/*.yml`,
+> `Dockerfile`, `fly.toml`, `render.yaml` 등)로 확인하고, 확인 안 되면 사용자에게 "이
+> 백엔드가 실제로 어디에 배포돼 있나요?"라고 물어본다 — 이것도 비개발자가 답할 수 있는
+> 질문이다(자기 서비스가 어디서 도는지는 알거나, 담당 개발자에게 물어볼 수 있음).
+
+#### 4.6.1 백엔드 — refresh 라우트 (Express 예시)
+
+```ts
+// 기존 백엔드에 라우트 하나만 추가. 프레임워크가 다르면 개념은 동일 —
+// "쿠키에서 refresh_token 읽기 → clientSecret과 함께 MIMIC에 서버 간 전달 → 응답 relay".
+router.post("/auth/refresh", async (req, res) => {
+  const refreshToken = req.cookies?.refresh_token;
+  if (!refreshToken) {
+    res.status(401).json({ code: "40110" }); // EMPTY_REFRESH_TOKEN — MIMIC 호출 없이 즉시 반환
+    return;
+  }
+  try {
+    const upstream = await fetch(`${process.env.MIMIC_API_URL}/v1/auth/refresh`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        // 서버 간 호출이라 브라우저 쿠키 정책과 무관 — Cookie 헤더를 직접 구성해도 된다.
+        Cookie: `refresh_token=${refreshToken}`,
+      },
+      body: JSON.stringify({
+        clientId: process.env.MIMIC_CLIENT_ID,
+        clientSecret: process.env.MIMIC_CLIENT_SECRET, // 서버 전용 env — 프론트 .env엔 절대 없음
+      }),
+    });
+    const data = await upstream.json().catch(() => ({}));
+    if (!upstream.ok) { res.status(upstream.status).json(data); return; }
+    res.json(data); // { accessToken } — MIMIC은 refresh 응답에 새 refreshToken을 주지 않는다
+  } catch {
+    res.status(502).json({ error: "refresh failed" });
+  }
+});
+```
+
+**필요한 선행 작업 (Express 기준 — 다른 프레임워크면 그 프레임워크의 동급 기능으로):**
+- 이 백엔드가 `.env` 파일을 실제로 읽는지 먼저 확인한다. `dotenv` 같은 라이브러리 호출이
+  코드에 없으면 `.env`에 값을 적어도 `process.env`엔 안 들어온다 — **흔히 빠뜨리는 지점이다.**
+- 쿠키 파싱 미들웨어(Express면 `cookie-parser`)가 등록돼 있는지 확인, 없으면 추가한다.
+  `req.cookies`가 계속 `undefined`라면 이게 원인이다.
+
+#### 4.6.2 프론트 — 401 인터셉터
+
+공통 fetch 래퍼(이 문서의 4.1~4.4에서 쓰는 것과 같은 함수)에 갱신 로직을 추가한다.
+
+```ts
+let inFlightRefresh: Promise<boolean> | null = null;
+
+/** 동시에 여러 곳에서 호출돼도 실제 요청은 하나만 나가도록 single-flight로 묶는다. */
+export function refreshAccessToken(): Promise<boolean> {
+  if (inFlightRefresh) return inFlightRefresh;
+  inFlightRefresh = doRefresh().finally(() => { inFlightRefresh = null; });
+  return inFlightRefresh;
+}
+
+async function doRefresh(): Promise<boolean> {
+  try {
+    // 상대경로 고정 — 이 fetch 래퍼의 다른 baseUrl 설정(MIMIC 직접 호출용)과 절대 공유하지
+    // 않는다. 공유하면 나중에 그 baseUrl이 바뀔 때 이 호출이 엉뚱한 곳(MIMIC 도메인)으로 샌다.
+    const res = await fetch("/api/auth/refresh", { method: "POST" }); // same-origin → 쿠키 자동 첨부
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const code = (data as { code?: string } | null)?.code;
+      if (code === "40110" || code === "40107" || code === "40108") {
+        clearTokens(); // 재로그인 필요 — 4.1의 clearTokens
+        window.dispatchEvent(new CustomEvent("mimic:signed-out"));
+      } else if (code === "40104") {
+        console.error("[auth] clientId/clientSecret 설정 오류 — 서버 env 확인 필요", data);
+      }
+      return false;
+    }
+    setTokens((data as { accessToken: string }).accessToken); // 4.1의 setTokens, 2번째 인자 생략 → refresh 쿠키는 그대로 유지
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// 기존 fetch 래퍼 안에서:
+//   응답이 401이고, 이 요청 자체가 /api/auth/refresh가 아니라면
+//     → refreshAccessToken() 호출 → 성공 시 원 요청을 동일 옵션으로 1회만 재시도
+//     → 실패 시 기존처럼 에러 처리
+```
+
+> **왜 만료 전에 미리 갱신하는 타이머를 안 두는가**: 검토는 했지만 뺐다. 401 인터셉터
+> 하나만으로도 정상 동작에 문제없고(만료된 요청 하나가 "401→갱신→재시도"로 한 번 더
+> 왕복하는 정도), 방치된 탭에서도 계속 도는 별도 타이머보다 단순하다. 다시 추가하지 말 것.
+
+### 4.7 세션 유지 ② — 밴(정지) 감지 heartbeat
+
+계정이 정지되면 accessToken 자체는 아직 안 만료됐을 수 있어서 401 인터셉터로는 못 잡는다
+(만료가 아니라 계정 상태 문제라서). 그래서 별도로 주기적으로 확인해야 한다.
+
+`clientSecret`이 필요 없는 호출이라 (로그인의 `/v1/auth/token`과 동일하게) **브라우저가
+MIMIC을 직접 호출**한다 — 4.6과 달리 백엔드를 거치지 않는다.
+
+```ts
+const BAN_CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1시간 고정. 로그인 상태인 동안 무조건.
+
+async function checkSession(): Promise<"ok" | "invalid" | "banned"> {
+  const token = /* 4.1의 쿠키에서 accessToken 읽기 */;
+  if (!token) return "invalid"; // 로그아웃 상태면 호출 자체를 안 한다
+
+  const res = await fetch(`${MIMIC_API_URL}/v1/auth/check?token=${encodeURIComponent(token)}`, {
+    headers: { Authorization: `Bearer ${token}` }, // query param + 헤더 둘 다 보낸다
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const code = (data as { code?: string } | null)?.code;
+    return code === "400026" ? "banned" : "invalid"; // 밴 코드는 실제 호출로 재확인할 것 — 아래 참고
+  }
+  return data === true ? "ok" : "invalid"; // 200 + false는 무시(로그아웃 안 시킴) — 401 인터셉터가 처리
+}
+
+function forceLogoutForBan(): void {
+  /* 4.1의 clearTokens() */
+  window.dispatchEvent(new CustomEvent("mimic:signed-out"));
+  // 고정 경로 규약: BASE_URL + /login (4.3의 "경로 규약")으로 하드 리다이렉트
+}
+
+setInterval(async () => {
+  if (!/* accessToken 쿠키 존재 여부 */) return; // 로그아웃 상태면 건너뜀 — 요청 자체가 안 나감
+  if ((await checkSession()) === "banned") forceLogoutForBan();
+}, BAN_CHECK_INTERVAL_MS);
+```
+
+> ⚠️ **밴 응답의 실제 status/body 형태는 이 문서 작성 시점에 swagger로 확인이 안 됐다**
+> (해당 엔드포인트의 에러 응답이 문서화돼 있지 않았음). 위 `400026` 판별은 백엔드 팀이 준
+> 명세 기준 추정값이다. 실제 밴 계정으로 한 번 호출해보고 실제 값과 다르면 이 판별 조건만
+> 고치면 된다. 다만 **밴 계정 여부를 확인하려고 DB를 뒤지거나 사용자에게 캐묻지 말 것** —
+> 이건 0.2 원칙에 해당한다. 검증 안 됐으면 검증 안 됐다고 남기고 넘어간다.
+
+> **번들러가 HMR(Hot Module Replacement)을 지원하면**(Vite의 `import.meta.hot.dispose` 등),
+> 이 `setInterval`을 dispose 훅에서 정리하도록 등록해둔다. 안 그러면 개발 중 이 파일을 고칠
+> 때마다 interval이 중복으로 쌓여, 실제로는 정상인데 로그인 상태에서 heartbeat가 여러 개
+> 동시에 도는 것처럼 보이는 혼란이 생긴다 (실제로 겪은 증상). 프로덕션 빌드엔 HMR이 없으니
+> 영향 없다 — 스택이 HMR을 안 쓰면 생략해도 무방하다.
+
 ---
 
 ## 5. 로그인 상태 읽기 (선택)
@@ -624,11 +839,21 @@ export function getCurrentUser() {
 - [ ] `/login` + `/oauth/callback` 라우트 등록
 - [ ] 로그인 버튼 클릭 → 통합 로그인 페이지로 이동, 리다이렉트 URL에 `code_challenge`/`code_challenge_method=S256`이 포함됨
 - [ ] 로그인 버튼 클릭 직후 sessionStorage에 `code_verifier`(43자 base64url)가 저장됨
-- [ ] 인증 후 `/oauth/callback` 복귀 → 토큰 교환 요청 body에 `codeVerifier`가 포함됨 (Network 탭 확인) → 홈으로 이동 + 쿠키에 `accessToken` 저장 확인
+- [ ] 인증 후 `/oauth/callback` 복귀 → 토큰 교환 요청 body에 `codeVerifier`가 포함됨 (Network 탭 확인)
 - [ ] sessionStorage에 verifier가 없는 상태로 `/oauth/callback?code=...&state=...`에 직접 진입 시 토큰 교환을 시도하지 않고 통합 로그인 페이지로 되돌아감
 - [ ] 실패 케이스에서 통합 로그인 페이지로 `error` 파라미터와 함께 리다이렉트됨 (우리 앱에 에러 UI 없음)
-- [ ] 직원 전용 앱에 일반 계정으로 로그인 시 `400119` 메시지가 통합 로그인 페이지에 전달됨
 - [ ] 통합 로그인 페이지가 `error`를 받으면 **자동 재로그인하지 않고 멈춰서 표시**하는지 확인 (무한 리다이렉트 방지)
+- [ ] **(비개발자가 직접 확인)** 실제 MIMIC 계정으로 로그인 성공 → 홈으로 이동 + `accessToken` 쿠키 저장 확인. 직원 전용 앱이면 일반 계정으로 시도 시 `400119` 메시지가 뜨는지도 확인. **Claude는 이 항목을 대신 확인하려 하지 않는다 — 계정/DB를 찾지 않는다 (0.2 참고).**
+
+**accessToken 자동 갱신 + 밴 heartbeat를 구현했다면 (4.6/4.7, 선택):**
+
+- [ ] 백엔드에 `.env` 로딩(`dotenv` 등) + 쿠키 파싱 미들웨어(`cookie-parser` 등)가 실제로 등록돼 있는지 확인 (없으면 `MIMIC_CLIENT_SECRET`이 항상 빈 값으로 읽힘)
+- [ ] `MIMIC_CLIENT_SECRET`이 서버 전용 env에만 있고 `VITE_` 접두사 변수·프론트 코드 어디에도 없는지 확인
+- [ ] 이 백엔드가 실제로 배포돼 있는지, 배포 안 됐다면(로컬 전용) 그 사실을 사용자에게 명확히 남겼는지
+- [ ] accessToken을 강제로 만료시킨 뒤 아무 API 호출 → 자동으로 `/api/auth/refresh` 갱신 후 원 요청이 1회 재시도되는지 (Network 탭)
+- [ ] `refresh_token` 쿠키가 없는 상태로 갱신 트리거 → 재로그인 필요 처리(`mimic:signed-out`)로 이어지는지
+- [ ] 밴 heartbeat가 로그아웃 상태에선 아예 요청을 안 보내는지 (로그아웃 직후 잠깐의 "막차" 요청 한두 개는 정상 — 계속 반복되면 버그)
+- [ ] **(비개발자가 직접 확인)** 실제 밴 계정으로 heartbeat가 실제로 강제 로그아웃시키는지. **Claude는 밴 계정을 찾거나 만들려 하지 않는다.**
 
 ---
 
@@ -649,6 +874,12 @@ export function getCurrentUser() {
 | `crypto.subtle`가 `undefined` | Web Crypto의 `subtle`은 secure context(HTTPS 또는 `localhost`)에서만 동작한다. HTTP로 배포된 non-localhost 환경에서 테스트하면 발생 — HTTPS로 접속해 확인. |
 | 로그인 페이지가 리다이렉트를 거부 / `redirect_uri` 관련 에러 | 우리가 보낸 `redirect_uri`가 MIMIC 인증 서버 허용 목록에 없음. 4.2.1의 최종 값을 인증팀에 등록 요청. 로컬 개발용 `http://localhost:<포트>/oauth/callback`도 별도로 등록해야 할 수 있다. |
 | 로그인 페이지에 다른 서비스 이름이 표시됨 | `service_name`을 하드코딩한 채로 복붙한 것. `VITE_SERVICE_NAME`에서 읽도록 수정 (4.2). |
+| `/api/auth/refresh`에서 `clientSecret`이 항상 빈 값/오류 | 백엔드가 `.env`를 실제로 읽는 코드(`dotenv` 등)가 없는 경우가 흔하다. `.env` 파일에 값을 적었다고 자동으로 `process.env`에 들어오지 않는다 — 4.6.1의 "필요한 선행 작업" 참고. |
+| `/api/auth/refresh`에서 `req.cookies`가 `undefined` | 쿠키 파싱 미들웨어(`cookie-parser` 등) 미등록. 4.6.1 참고. |
+| 갱신 요청이 MIMIC 도메인(404)으로 나감 | `refreshAccessToken()`이 공통 fetch 래퍼의 공유 baseUrl 로직(MIMIC 직접 호출용)을 타버린 것. 4.6.2처럼 이 호출만 상대경로로 고정해 분리해야 한다. |
+| 로그인 검증 도중 "테스트 계정이 DB에 있는지 확인이 안 된다"는 식의 막힘 | **이건 질문하면 안 되는 것이다.** 0.2 참고 — 실제 로그인 성공 여부는 비개발자가 직접 확인할 몫이지 Claude가 계정/DB를 뒤져서 뚫을 일이 아니다. 여기까지 코드가 맞다는 것만 확인하고 넘어간다. |
+| 밴 heartbeat가 로그아웃 후에도 계속 도는 것처럼 보임 | 개발 중 이 파일을 직접 고칠 때 HMR로 모듈이 재평가되면서 이전 `setInterval`이 정리 안 돼 중복으로 쌓인 경우가 실제로 있었다. 4.7의 HMR dispose 등록 여부 확인. 로그아웃 직후 "막차" 요청 한두 개는 타이밍상 정상. |
+| 밴 감지가 안 됨 (계정이 밴돼도 그냥 로그인 상태 유지) | `checkSession()`의 밴 판별 조건(`400026` 등)이 실제 MIMIC 응답과 다를 수 있다 (swagger에 이 엔드포인트 에러가 문서화 안 돼 있었음). 4.7의 경고 참고 — 실제 값 확인은 비개발자/백엔드 담당자를 통해서 하고, DB를 직접 뒤지지 않는다. |
 
 ---
 
@@ -663,3 +894,16 @@ export function getCurrentUser() {
 - 이 레포의 `apiFetch`는 baseUrl을 자동 결정하므로, 토큰 교환은 `apiFetch<TokenResponse>("/v1/auth/token", …)`로 호출하고 실패 시 `err instanceof ApiError`로 분기해 `ApiError.data`의 `code`/`failReason`을 `resolveErrorMessage`에 넘긴다.
 - `VITE_SERVICE_NAME`은 `.env.example`에 정의돼 있고, hub는 미설정 시 `"플레이랩"`으로 폴백한다
   (`VITE_MIMIC_CLIENT_ID`가 `"mimic-web"`으로 폴백하는 것과 같은 패턴).
+- **accessToken 자동 갱신(4.6)** → `packages/shared/src/api/client.ts`의 `refreshAccessToken`
+  (single-flight) + `apiFetch`의 401 처리. 백엔드 라우트는 `services/api/src/routes/auth.ts`의
+  `POST /refresh` (기존 `POST /token`과 같은 파일). `services/api`가 `.env`를 실제로 읽도록
+  `dotenv`(`src/index.ts` 최상단 `import "dotenv/config"`)와 `cookie-parser`(`app.ts`)를
+  이 작업에서 함께 추가했다 — 전에는 이 서버에 `.env` 로딩 코드 자체가 없었다.
+- **밴 감지 heartbeat(4.7)** → `packages/shared/src/auth/session.ts`(신규 파일)의 `checkSession`
+  / `startSessionKeepAlive`. `packages/shared/src/auth/resolver.ts`의 `mimic` provider 활성화
+  분기에서 1회 호출.
+- ⚠️ **`services/api`는 이 저장소에서 현재 어디에도 배포돼 있지 않다** (`.github/workflows/deploy.yml`은
+  `apps/hub`만 GitHub Pages에 배포). 즉 accessToken 자동 갱신은 로컬 dev에서만 동작하고,
+  스테이징/운영에 반영하려면 `services/api`를 배포하는 별도 인프라 작업이 먼저 필요하다.
+- 검토 후 뺀 설계: exp 임박 시 미리 갱신하는 proactive 타이머는 만들지 않는다. 401 인터셉터
+  하나로 충분하다고 판단했다 (4.6.2 참고) — 다시 추가하지 말 것.
