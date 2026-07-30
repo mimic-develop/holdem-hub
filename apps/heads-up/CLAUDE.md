@@ -7,7 +7,9 @@
 
 - **출처**: 기존 PWA 프로젝트 `mimic_heads_up` 이식. AI / WebRTC P2P 1:1 텍사스 홀덤 + GTO 근접도 분석.
 - **테마**: **다크 (neutral-950) + felt-green `#0a6b3a` + gold `#d4af37` + card-back navy `#1a4480`** + Pretendard.
-- **라우터**: **`react-router-dom v6`** (다른 sub-app은 wouter). `<BrowserRouter basename="/heads-up">` 으로 격리.
+- **라우터**: **`react-router-dom v6`** (다른 sub-app은 wouter). `<BrowserRouter basename={...}>` 으로 격리 —
+  basename은 `Hub의 BASE_URL + "/heads-up"`으로 **동적 계산**한다 (하드코딩 금지: GitHub Pages
+  project 배포처럼 sub-path가 있으면 실제 URL과 어긋나 라우트 매칭이 깨진다 — 실제로 겪은 버그).
 - **데이터**: 클라이언트 전용 (서버 호출 없음). 핸드 평가 / GTO / 봇 모두 로컬.
 - **상태**: **Zustand** (다른 sub-app은 useState만 사용). game-store, toast-store.
 - **저장소**: **IndexedDB** (`heads-up:headsup-solo` DB, `hands` store) + localStorage (`heads-up:hs-settings`, `heads-up:headsup-solo:milestones-shown`).
@@ -18,8 +20,11 @@
 
 **`src/index.tsx`** — Hub의 `<Route path="/heads-up" nest>`:
 ```tsx
+const _env = (import.meta as unknown as { env?: { BASE_URL?: string } }).env;
+const headsUpBasename = `${(_env?.BASE_URL ?? "/").replace(/\/$/, "")}/heads-up`;
+// ...
 <div className="app-heads-up">
-  <BrowserRouter basename="/heads-up">
+  <BrowserRouter basename={headsUpBasename}>
     <App />
   </BrowserRouter>
 </div>
@@ -123,6 +128,10 @@ apps/heads-up/
 - ❌ React 중복 인스턴스 — Hub `vite.config.ts`의 `resolve.dedupe: ["react", "react-dom"]`로 해결. 새 sub-app 추가 시에도 동일 처리.
 - ❌ PWA SW 등록을 이 앱 안에서 호출 — Hub 레벨 통합이라 금지. `apps/hub/vite.config.ts`의 `VitePWA` 설정만 사용.
 - ❌ DB 이름 변경 시 `src/store/__tests__/*.test.ts`, `src/storage/__tests__/*.test.ts`에서 하드코딩된 `deleteDatabase` 인자도 함께 갱신 필요.
+- ❌ `<BrowserRouter basename="/heads-up">`처럼 **문자열 리터럴로 되돌리지 말 것** — GitHub Pages
+  project 배포(`base: "/play-lab-stage/"`)에서 실제 URL과 어긋나 라우트 매칭이 깨진다 (다른
+  sub-app은 wouter라 Hub의 base를 그대로 물려받아 멀쩡한데 heads-up만 404 났던 실제 버그).
+  `index.tsx`의 `headsUpBasename`(Hub BASE_URL + "/heads-up") 계산을 유지할 것.
 
 ## 테스트
 

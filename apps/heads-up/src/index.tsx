@@ -3,8 +3,10 @@
  *
  * Hub의 `<Route path="/heads-up" nest>` 안에서 마운트.
  *
- * - 다른 sub-app(wouter)과 달리 `react-router-dom v6` 사용. `<BrowserRouter basename="/heads-up">`
- *   로 base path 격리. RR6 `<Link>`/`useNavigate`는 자동으로 `/heads-up/...` prefix 적용.
+ * - 다른 sub-app(wouter)과 달리 `react-router-dom v6` 사용. `<BrowserRouter basename={...}>`
+ *   로 base path 격리 — basename은 Hub의 BASE_URL(배포 sub-path) + "/heads-up"으로 동적 계산한다
+ *   (하드코딩 금지 — GitHub Pages project 배포에서 실제 URL과 어긋남). RR6 `<Link>`/`useNavigate`는
+ *   자동으로 그 basename 기준 prefix 적용.
  * - 다크 테마 + felt-green/gold/card-back 컬러 → `.app-heads-up` 스코프 격리
  * - 원본 `main.tsx`의 `registerSW()` PWA 등록은 Hub로 통합되어 여기서는 제거
  *   (manifest/Service Worker 정의는 `apps/hub/vite.config.ts`)
@@ -20,6 +22,12 @@ import "./index.css";
 
 // DEV: 로그인 게이트 우회 (인트로 UI 점검용). 운영 빌드 전 복구 필요.
 const BYPASS_LOGIN_GATE = (import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV ?? false;
+
+// Hub의 배포 sub-path(BASE_URL, 예: 스테이징 "/play-lab-stage/")를 반영한 실제 basename.
+// main.tsx의 wouter Router base와 동일한 방식 — 하드코딩된 "/heads-up"만 쓰면 GitHub Pages
+// project 배포(서브패스 있음)에서 실제 URL과 어긋나 라우트 매칭이 깨진다.
+const _env = (import.meta as unknown as { env?: { BASE_URL?: string } }).env;
+const headsUpBasename = `${(_env?.BASE_URL ?? "/").replace(/\/$/, "")}/heads-up`;
 
 export default function HeadsUpApp() {
   const Gate = BYPASS_LOGIN_GATE ? React.Fragment : LoginGate;
@@ -41,7 +49,7 @@ export default function HeadsUpApp() {
           heads-up은 splat 라우트 미사용이라 영향 없음, 호환성 차원에서 함께 켬).
         */}
         <BrowserRouter
-          basename="/heads-up"
+          basename={headsUpBasename}
           future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
         >
           <App />
