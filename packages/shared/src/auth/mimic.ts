@@ -50,14 +50,6 @@ function decodeJwtPayload(token: string): Record<string, unknown> {
   }
 }
 
-/** accessToken JWT의 exp claim(ms epoch). 토큰이 없거나 exp가 없으면 null. */
-export function getAccessTokenExpiryMs(): number | null {
-  const token = Cookies.get(COOKIE_ACCESS);
-  if (!token) return null;
-  const exp = decodeJwtPayload(token).exp;
-  return typeof exp === "number" ? exp * 1000 : null;
-}
-
 function payloadToUser(payload: Record<string, unknown>): AuthUser {
   const nick = typeof payload.nick === "string" ? payload.nick : null;
   return {

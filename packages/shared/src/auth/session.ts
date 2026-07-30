@@ -1,18 +1,14 @@
 /**
- * 세션 유지 — 밴 감지 heartbeat + accessToken 자동 갱신.
+ * 세션 유지 — 밴 감지 heartbeat.
  *
- * - checkSession(): 1시간마다 GET /v1/auth/check로 MIMIC을 직접 호출해 밴 여부를 확인한다.
- *   clientSecret이 필요 없는 호출이라 (기존 /v1/auth/token과 동일하게) 브라우저가 직접 부른다.
- * - proactive refresh: accessToken의 exp가 얼마 안 남았으면 refreshAccessToken()을 미리 호출한다.
- *   refreshAccessToken() 자체는 clientSecret이 필요해 services/api를 경유한다 (client.ts 참고).
+ * accessToken 자동 갱신은 여기서 별도로 미리 하지 않는다 — apiFetch의 401 인터셉터
+ * (client.ts의 refreshAccessToken)가 만료를 감지해 자동으로 갱신 후 재시도한다.
+ * 밴 여부는 그 방식으로 감지되지 않으므로(만료가 아니라 계정 상태 문제) 이 heartbeat가 별도로 확인한다.
  */
 import Cookies from "js-cookie";
-import { refreshAccessToken } from "../api/client.js";
-import { clearTokens, getAccessTokenExpiryMs } from "./mimic.js";
+import { clearTokens } from "./mimic.js";
 
 const BAN_CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1시간 — 로그인 상태인 동안 무조건
-const PROACTIVE_CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5분 (5~10분 권장 범위)
-const EXPIRY_LEEWAY_MS = 5 * 60 * 1000; // exp까지 5분 미만이면 미리 갱신
 
 let started = false;
 
@@ -55,20 +51,17 @@ async function banHeartbeatTick(): Promise<void> {
   if ((await checkSession()) === "banned") forceLogoutForBan();
 }
 
-async function proactiveRefreshTick(): Promise<void> {
-  const expiry = getAccessTokenExpiryMs();
-  if (expiry === null) return; // 로그인 상태 아님
-  if (expiry - Date.now() < EXPIRY_LEEWAY_MS) await refreshAccessToken();
-}
-
 /** mimic auth provider 활성화 시 한 번만 호출 — resolver.ts 참고. */
 export function startSessionKeepAlive(): void {
   if (started || typeof window === "undefined") return;
   started = true;
 
-  setInterval(() => void banHeartbeatTick(), BAN_CHECK_INTERVAL_MS);
-  setInterval(() => void proactiveRefreshTick(), PROACTIVE_CHECK_INTERVAL_MS);
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") void proactiveRefreshTick();
+  const banTimer = setInterval(() => void banHeartbeatTick(), BAN_CHECK_INTERVAL_MS);
+
+  // dev HMR로 이 모듈이 재평가되면 `started`는 새 모듈 인스턴스에서 false로 리셋되지만
+  // 위 타이머는 정리되지 않아 중복으로 쌓인다 — dispose 시점에 명시적으로 정리.
+  const hot = (import.meta as unknown as { hot?: { dispose: (cb: () => void) => void } }).hot;
+  hot?.dispose(() => {
+    clearInterval(banTimer);
   });
 }
