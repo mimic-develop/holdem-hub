@@ -1,11 +1,17 @@
 /**
  * 세션 유지 — 밴 감지 heartbeat.
  *
- * accessToken 자동 갱신은 여기서 별도로 미리 하지 않는다 — apiFetch의 401 인터셉터
- * (client.ts의 refreshAccessToken)가 만료를 감지해 자동으로 갱신 후 재시도한다.
- * 밴 여부는 그 방식으로 감지되지 않으므로(만료가 아니라 계정 상태 문제) 이 heartbeat가 별도로 확인한다.
+ * 밴 감지는 인증된 API 호출이 서버의 JwtFilter를 타야만 이루어진다. 그런데 사용자가
+ * 아무 API도 안 부르고 방치해두면 그 필터를 탈 일이 없다 — 그래서 GET /v1/auth/check를
+ * "그 필터를 강제로 타게 만드는" 더미 호출로 1시간마다 부른다.
+ *
+ * 즉 이 heartbeat 자체가 apiFetch가 부르는 다른 API와 동급의 "인증된 호출"이다. 그래서
+ * 실패 처리도 apiFetch의 401 인터셉터와 동일하게 맞춘다 — invalid(만료/무효)면 refresh 후
+ * 같은 호출을 한 번 재시도하고, banned면 강제 로그아웃한다. (accessToken 만료 자체를
+ * 미리 감지하는 별도 proactive 타이머는 두지 않는다 — client.ts의 401 인터셉터 참고.)
  */
 import Cookies from "js-cookie";
+import { refreshAccessToken } from "../api/client.js";
 import { clearTokens } from "./mimic.js";
 
 const BAN_CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1시간 — 로그인 상태인 동안 무조건
@@ -48,7 +54,18 @@ function forceLogoutForBan(): void {
 
 async function banHeartbeatTick(): Promise<void> {
   if (!Cookies.get("accessToken")) return; // 로그아웃 상태면 건너뜀
-  if ((await checkSession()) === "banned") forceLogoutForBan();
+
+  const status = await checkSession();
+  if (status === "banned") {
+    forceLogoutForBan();
+    return;
+  }
+  if (status === "invalid") {
+    // apiFetch의 401 인터셉터와 동일한 패턴: 갱신 후 이 호출(밴 확인)을 한 번 재시도한다.
+    // 재시도하지 않으면 이번 tick은 밴 여부를 사실상 확인하지 못한 채 그냥 지나간다.
+    const refreshed = await refreshAccessToken();
+    if (refreshed && (await checkSession()) === "banned") forceLogoutForBan();
+  }
 }
 
 /** mimic auth provider 활성화 시 한 번만 호출 — resolver.ts 참고. */
