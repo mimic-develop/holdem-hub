@@ -27,7 +27,7 @@ const BYPASS_LOGIN_GATE = (import.meta as unknown as { env?: { DEV?: boolean } }
 // main.tsx의 wouter Router base와 동일한 방식 — 하드코딩된 "/heads-up"만 쓰면 GitHub Pages
 // project 배포(서브패스 있음)에서 실제 URL과 어긋나 라우트 매칭이 깨진다.
 const _env = (import.meta as unknown as { env?: { BASE_URL?: string } }).env;
-const headsUpBasename = `${(_env?.BASE_URL ?? "/").replace(/\/$/, "")}heads-up`;
+const headsUpBasename = `${(_env?.BASE_URL ?? "/").replace(/\/$/, "")}/heads-up`;
 
 export default function HeadsUpApp() {
   const Gate = BYPASS_LOGIN_GATE ? React.Fragment : LoginGate;
