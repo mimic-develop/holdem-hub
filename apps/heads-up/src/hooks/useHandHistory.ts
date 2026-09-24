@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CompletedHand, GameMode } from '../types/game';
 import {
+  clearAllHands,
   getStats,
   listHands,
   type HandStats,
@@ -82,7 +83,8 @@ export function useHandHistory(opts: UseHandHistoryOptions = {}): UseHandHistory
   }, [hasMore, opts.mode]);
 
   const clearAll = useCallback(async () => {
-    // Server-side bulk delete is not yet supported; reload to sync with server state.
+    // 서버/목의 전체 삭제(DELETE) 후 목록·통계를 다시 로드해 동기화.
+    await clearAllHands();
     await reload();
   }, [reload]);
 

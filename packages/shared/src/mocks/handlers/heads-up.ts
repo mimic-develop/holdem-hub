@@ -2,8 +2,9 @@
  * heads-up mock 핸들러 — 핸드/설정/통계/마일스톤.
  * 경로 prefix는 서버 마운트(`/api/play-lab/heads-up`)와 동일하게 매칭한다.
  *
- * 핸드는 모듈 수준 Map에 세션 동안 저장한다(전체 새로고침 시 초기화). 이렇게 해야
- * 저장(POST) → 목록(GET) → 단건(GET) → 리뷰 페이지가 mock 모드에서도 정상 동작한다.
+ * 핸드는 모듈 수준 Map + localStorage 백업으로 저장한다 → 전체 새로고침에도 유지
+ * (미리보기 개발 편의). 저장(POST) → 목록(GET) → 단건(GET) → 리뷰 페이지가 mock
+ * 모드에서도 정상 동작하고, 새로고침 후에도 히스토리가 남는다. DELETE로 전체 삭제.
  * (history.ts가 IndexedDB→서버 API로 바뀐 뒤, 기존 stub은 항상 빈 목록을 반환해
  *  핸드 기록/리뷰가 보이지 않는 버그가 있었다.)
  */
@@ -20,8 +21,38 @@ interface StoredHand {
   [key: string]: unknown;
 }
 
-/** 세션 메모리 — POST된 핸드를 그대로 보관. */
-const hands = new Map<string, StoredHand>();
+/**
+ * 핸드 저장소 — localStorage 백업으로 새로고침에도 유지(미리보기 개발 편의).
+ * localStorage 없는 환경(SSR/테스트)에선 세션 메모리로 폴백.
+ */
+const HANDS_KEY = "heads-up:mock:hands";
+
+function loadHands(): Map<string, StoredHand> {
+  try {
+    if (typeof localStorage === "undefined") return new Map();
+    const raw = localStorage.getItem(HANDS_KEY);
+    if (!raw) return new Map();
+    const arr = JSON.parse(raw) as StoredHand[];
+    return new Map(arr.filter((h) => h?.handId).map((h) => [h.handId, h]));
+  } catch {
+    return new Map();
+  }
+}
+
+const hands = loadHands();
+
+function persistHands(): void {
+  try {
+    if (typeof localStorage === "undefined") return;
+    // 최근 500핸드만 유지 (localStorage quota 방지)
+    const recent = [...hands.values()]
+      .sort((a, b) => (b.playedAt ?? 0) - (a.playedAt ?? 0))
+      .slice(0, 500);
+    localStorage.setItem(HANDS_KEY, JSON.stringify(recent));
+  } catch {
+    /* quota/직렬화 오류 무시 */
+  }
+}
 
 /** 세션 메모리 설정 — PUT으로 갱신해 GET/리더보드가 동일 닉네임을 쓰도록 한다. */
 let mockSettings = { ...HEADS_UP_SETTINGS };
@@ -49,8 +80,18 @@ export const headsUpHandlers = [
   // 핸드 저장 (insight 보강 재저장도 동일 경로로 덮어씀)
   http.post("*/play-lab/heads-up/hands", async ({ request }) => {
     const body = (await request.json().catch(() => null)) as StoredHand | null;
-    if (body?.handId) hands.set(body.handId, body);
+    if (body?.handId) {
+      hands.set(body.handId, body);
+      persistHands();
+    }
     return HttpResponse.json({ handId: body?.handId ?? "mock-hand-1" }, { status: 201 });
+  }),
+
+  // 핸드 전체 삭제 (모두 삭제)
+  http.delete("*/play-lab/heads-up/hands", () => {
+    hands.clear();
+    persistHands();
+    return HttpResponse.json({ success: true });
   }),
 
   // 단건 조회
@@ -71,6 +112,7 @@ export const headsUpHandlers = [
       if (body?.postHandInsight !== undefined) {
         existing.postHandInsight = body.postHandInsight;
         hands.set(existing.handId, existing);
+        persistHands();
       }
     }
     return HttpResponse.json({ success: true });
