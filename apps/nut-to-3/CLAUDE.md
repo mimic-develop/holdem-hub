@@ -84,6 +84,12 @@ apps/nut-to-3/
 
 dev 환경에서 Hub의 `/api/*` proxy가 자동으로 API(:3002)로 라우팅. 별도 설정 불필요.
 
+**리더보드 submit** (`POST /nut-to/leaderboard/submit`, MIMIC 백엔드): `Home.tsx`의 `submitLeaderboard()`가
+(1) results phase 진입 시, (2) 세션 실패(오답/타임아웃) 후 헤더 ← "나가기" 시 호출한다.
+서버는 body.`streak`을 `play_lap_profiles.nut_streak`(현재 스트릭)에 **그대로 덮어쓴다** — 세션이 실패했으면
+반드시 `streak: 0`을 보내야 서버 스트릭이 초기화된다. 로컬 `setStreak(0)`만으로는 Hub 홈 재진입 시 예전 값이 되살아남.
+포기 제출은 `lib/score.ts`의 `buildForfeitMetrics()`로 미플레이 스트릿을 타임아웃과 같은 의미로 채운다.
+
 서버 측 변경 시 **`services/api/CLAUDE.md`** 참조.
 
 ## 테마 변수 (`src/index.css`)

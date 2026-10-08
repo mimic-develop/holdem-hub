@@ -14,7 +14,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import type { NutTier } from "../lib/api-schema";
 import { useAuthState, apiFetch } from "@hh/shared";
-import { deriveMetrics, type DerivedMetrics } from "../lib/score";
+import { deriveMetrics, buildForfeitMetrics, type DerivedMetrics } from "../lib/score";
 import { LeaderboardPanel } from "../components/LeaderboardPanel";
 
 interface SubmitResult {
@@ -317,6 +317,8 @@ export default function Home({ initialStreak = 0, initialBestStreak = 0 }: HomeP
   const [showInfo, setShowInfo] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  /** 나가기 모달 "나가기" 더블클릭 가드 — 퇴장 애니메이션 중 재클릭으로 중복 submit 방지. */
+  const exitHandledRef = React.useRef(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [appPhase, setAppPhase] = useState<"intro" | "countdown" | "playing" | "results">("intro");
   const refBoard = React.useRef<HTMLDivElement>(null);
@@ -406,26 +408,41 @@ export default function Home({ initialStreak = 0, initialBestStreak = 0 }: HomeP
     setBestRecordModal(submitResult);
   }, [submitResult]);
 
-  // results phase 진입 시 한 번 leaderboard upsert. metrics 가 채워졌고 로그인 + 토큰이 있는 경우만.
+  // leaderboard submit — (1) results phase 진입 시, (2) 세션 실패 후 "나가기" 시 호출.
+  // 서버는 body.streak 을 play_lab_profiles.nut_streak 에 그대로 반영하므로, 세션이 실패했으면
+  // 반드시 0 을 보내야 서버 스트릭이 초기화된다 (로컬 setStreak(0) 만으론 서버에 안 남음).
   // submitRequestedRef 가드로 동일 게임 결과를 두 번 submit 하지 않음.
-  useEffect(() => {
-    if (appPhase !== "results") return;
-    const metrics = runStats?.metrics;
-    if (!metrics) return;
+  // silent 면 응답을 UI(최고기록 모달)에 반영하지 않는다 — 포기 제출은 신기록이 될 수 없음.
+  function submitLeaderboard(args: { streak: number; metrics: DerivedMetrics; silent?: boolean }) {
     if (!user?.id) return;
     if (submitRequestedRef.current === user.id) return;
     submitRequestedRef.current = user.id;
     void apiFetch<SubmitResult>("/nut-to/leaderboard/submit", {
       method: "POST",
       body: JSON.stringify({
-        streak: runStats?.finalStreak ?? 0,
-        totalCorrect: metrics.totalCorrect,
-        accuracy: metrics.accuracy,
-        avgResponseMs: metrics.avgResponseMs,
+        streak: args.streak,
+        totalCorrect: args.metrics.totalCorrect,
+        accuracy: args.metrics.accuracy,
+        avgResponseMs: args.metrics.avgResponseMs,
         recordedAt: Date.now(),
       }),
-    }).then(res => setSubmitResult(res)).catch(console.error);
-  }, [appPhase, runStats?.metrics, runStats?.finalStreak, user?.id]);
+    })
+      .then(res => { if (!args.silent) setSubmitResult(res); })
+      .catch(console.error);
+  }
+
+  // results phase 진입 시 한 번 submit. metrics 가 채워졌고 로그인한 경우만.
+  // 세션에 오답/타임아웃이 하나라도 있으면 streak 0 — runStats.finalStreak 은 공유 카드 표시용이라
+  // 리버 타임아웃 경로에선 실패 전 값을 담고 있으므로 그대로 쓰면 안 된다.
+  useEffect(() => {
+    if (appPhase !== "results") return;
+    const metrics = runStats?.metrics;
+    if (!metrics) return;
+    submitLeaderboard({
+      streak: sessionAllCorrect ? (runStats?.finalStreak ?? 0) : 0,
+      metrics,
+    });
+  }, [appPhase, runStats?.metrics, runStats?.finalStreak, sessionAllCorrect, user?.id]);
 
   // (카운트다운 제거 — 터치로 시작)
 
@@ -1395,7 +1412,7 @@ export default function Home({ initialStreak = 0, initialBestStreak = 0 }: HomeP
         <div className="flex items-center gap-2">
           {/* Exit button — 뒤로가기 화살표 */}
           <button
-            onClick={() => setShowExitConfirm(true)}
+            onClick={() => { exitHandledRef.current = false; setShowExitConfirm(true); }}
             className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/50 hover:bg-white/10 hover:text-white active:scale-95 transition-all shrink-0"
             aria-label="게임 나가기"
           >
@@ -1780,8 +1797,26 @@ export default function Home({ initialStreak = 0, initialBestStreak = 0 }: HomeP
                 </button>
                 <button
                   onClick={() => {
+                    // AnimatePresence 퇴장 애니메이션 중 모달이 잠시 남아 더블클릭이 가능하므로
+                    // 포기 submit / requestNewGame 이 두 번 나가지 않도록 가드 (← 버튼에서 해제).
+                    if (exitHandledRef.current) return;
+                    exitHandledRef.current = true;
                     setShowExitConfirm(false);
+                    // 모달 문구("스트릭 초기화됨")와 동일 조건 — 세션 실패 시 서버 스트릭도 0 으로.
+                    // 미플레이 스트릿은 타임아웃과 같은 의미로 채워 제출 (포기 = forfeit).
+                    if (!sessionAllCorrect) {
+                      submitLeaderboard({
+                        streak: 0,
+                        metrics: buildForfeitMetrics({
+                          streetResults,
+                          responseTimes: responseTimesRef.current,
+                          streetLimitsMs: STREET_TIMERS.map(s => s * 1000),
+                        }),
+                        silent: true,
+                      });
+                    }
                     // 진행 중 게임 폐기 — 인트로 복귀 후 "게임 시작" 시 새 보드로 시작.
+                    // (resetGame 이 submitRequestedRef 를 비우므로 submit 호출 뒤에 실행)
                     resetGame();
                     requestNewGame(recentNutTypes);
                     setAppPhase("intro");

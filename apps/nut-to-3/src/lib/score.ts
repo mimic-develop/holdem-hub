@@ -70,4 +70,30 @@ export function deriveMetrics(input: MetricInputs): DerivedMetrics {
   return { totalCorrect, totalSlots: TOTAL_SLOTS, accuracy, avgResponseMs, score };
 }
 
+const SLOTS_PER_STREET = 3;
+
+export interface ForfeitInputs {
+  /** 플레이한 스트릿만 채워져 있고 나머지는 null. */
+  streetResults: (boolean[] | null)[];
+  /** 응답 ms. 미응답 스트릿은 0. */
+  responseTimes: number[];
+  /** 스트릿별 타이머 한계 (ms). 길이가 스트릿 수를 결정한다. */
+  streetLimitsMs: number[];
+}
+
+/**
+ * 게임 도중 포기("나가기") 시 제출용 메트릭.
+ * 미플레이 스트릿은 타임아웃과 같은 의미론으로 채운다 — 전부 오답 + 응답시간은 타이머 한계.
+ * streak 은 항상 0 (포기는 세션 실패 이후에만 제출되므로).
+ */
+export function buildForfeitMetrics(input: ForfeitInputs): DerivedMetrics {
+  const streetResults = input.streetLimitsMs.map(
+    (_, i) => input.streetResults[i] ?? Array<boolean>(SLOTS_PER_STREET).fill(false),
+  );
+  const responseTimes = input.streetLimitsMs.map(
+    (limit, i) => input.responseTimes[i] || limit,
+  );
+  return deriveMetrics({ streetResults, responseTimes, finalStreak: 0 });
+}
+
 export { TOTAL_SLOTS, MIN_AVG_RESPONSE_MS };
