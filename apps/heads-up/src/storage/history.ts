@@ -13,6 +13,11 @@ export async function getHand(handId: string): Promise<CompletedHand | null> {
   return apiFetch<CompletedHand>(`/play-lab/heads-up/hands/${handId}`).catch(() => null);
 }
 
+/** 저장된 모든 핸드 삭제 (히스토리 "모두 삭제"). */
+export async function clearAllHands(): Promise<void> {
+  await apiFetch('/play-lab/heads-up/hands', { method: 'DELETE' }).catch(() => {});
+}
+
 export interface ListOptions {
   /** Max items to return. Default 50. */
   limit?: number;
