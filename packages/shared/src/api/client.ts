@@ -92,7 +92,7 @@ async function doRefresh(): Promise<boolean> {
       }
       return false;
     }
-    setTokens((data as { accessToken: string }).accessToken); // 2번째 인자 생략 → refresh_token 쿠키는 그대로 유지
+    setTokens((data as { accessToken: string }).accessToken); // 2번째 인자 생략 → refresh_token 쿠키는 그대로 유지 (자동 로그인 해제 시엔 없음)
     return true;
   } catch {
     return false; // 네트워크 오류 — 서명아웃 처리하지 않고 다음 타이머/재시도에 맡긴다
