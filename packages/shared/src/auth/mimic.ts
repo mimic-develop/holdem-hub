@@ -3,7 +3,16 @@ import { getStoredItem, setStoredItem, storageKey } from "../lib/storage.js";
 import type { AuthProvider, AuthUser } from "./types.js";
 
 const COOKIE_ACCESS  = "accessToken";
-const COOKIE_REFRESH = "refresh_token";
+/**
+ * "자동 로그인으로 로그인했고 아직 로그아웃하지 않았다"는 표시 쿠키. 값은 의미 없음("1").
+ * 실제 리프레시 토큰은 MIMIC 서버가 자기 도메인에 HttpOnly 쿠키로 보관한다.
+ * 이름을 `refresh_token`으로 두면 로컬(localhost)에서 백엔드의 HttpOnly 쿠키와 겹쳐(쿠키는 포트 무관)
+ * JS가 읽지도 지우지도 못하므로 고유 이름을 쓴다.
+ */
+const COOKIE_REFRESH_MARKER = "hh_refresh_marker";
+/** 예전 버전이 우리 도메인에 저장하던 쿠키 — 정리용으로만 남겨둔다. */
+const LEGACY_COOKIE_REFRESH = "refresh_token";
+const MARKER_DAYS = 30;
 /** 로그인 페이지의 "자동 로그인" 체크 여부. 다음 로그인 화면의 기본값으로도 쓴다. */
 const AUTO_LOGIN_KEY = storageKey("mimic", "auto-login");
 
@@ -41,12 +50,14 @@ export function setTokens(accessToken: string, refreshToken?: string | null): vo
   const autoLogin = isAutoLoginEnabled();
   // 자동 로그인 켜짐: 1일짜리 쿠키 / 꺼짐: 세션 쿠키 (브라우저를 닫으면 삭제)
   Cookies.set(COOKIE_ACCESS, accessToken, cookieOpts(autoLogin ? 1 : undefined));
-  // 우리 도메인 refresh_token 쿠키는 "로그아웃하지 않았다"는 표시다.
-  // 자동 로그인을 끈 경우엔 저장하지 않는다(남아 있던 것도 지운다).
+  // 표시 쿠키: 자동 로그인을 끈 경우엔 저장하지 않는다(남아 있던 것도 지운다).
+  // 켠 경우 로그인(refreshToken 있음) 때 만들고, 갱신 때마다 30일로 다시 연장한다
+  // (서버도 리프레시 토큰을 만료 3일 전부터 교체해 주므로 쓰는 동안은 계속 유지된다).
+  Cookies.remove(LEGACY_COOKIE_REFRESH);
   if (!autoLogin) {
-    Cookies.remove(COOKIE_REFRESH);
-  } else if (refreshToken) {
-    Cookies.set(COOKIE_REFRESH, refreshToken, cookieOpts(30));
+    Cookies.remove(COOKIE_REFRESH_MARKER);
+  } else if (refreshToken || hasRefreshMarker()) {
+    Cookies.set(COOKIE_REFRESH_MARKER, "1", cookieOpts(MARKER_DAYS));
   }
   // onAuthChange의 handleTokenSet이 이 이벤트를 받아 notify(readUser())를 호출함
   if (typeof window !== "undefined") {
@@ -57,7 +68,27 @@ export function setTokens(accessToken: string, refreshToken?: string | null): vo
 /** 쿠키에서 토큰을 삭제한다. */
 export function clearTokens(): void {
   Cookies.remove(COOKIE_ACCESS);
-  Cookies.remove(COOKIE_REFRESH);
+  Cookies.remove(COOKIE_REFRESH_MARKER);
+  Cookies.remove(LEGACY_COOKIE_REFRESH);
+}
+
+/** 자동 로그인으로 로그인했고 로그아웃하지 않았으면 true — 페이지 진입 시 갱신 여부 판단용. */
+export function hasRefreshMarker(): boolean {
+  return Boolean(Cookies.get(COOKIE_REFRESH_MARKER));
+}
+
+/** accessToken 쿠키에서 사용자를 읽는다. 없거나, 파싱 불가하거나, JWT exp가 지났으면 null. */
+export function readCookieUser(): AuthUser | null {
+  try {
+    const token = Cookies.get(COOKIE_ACCESS);
+    if (!token) return null;
+    const payload = decodeJwtPayload(token);
+    // exp는 초 단위. 만료된 토큰은 로그인 안 된 것으로 본다 (session.ts의 진입 시 갱신 대상)
+    if (typeof payload.exp === "number" && payload.exp * 1000 <= Date.now()) return null;
+    return payloadToUser(payload);
+  } catch {
+    return null;
+  }
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -98,15 +129,7 @@ function payloadToUser(payload: Record<string, unknown>): AuthUser {
 export function createMimicAuthStub(): AuthProvider {
   const listeners = new Set<(user: AuthUser | null) => void>();
 
-  function readUser(): AuthUser | null {
-    try {
-      const token = Cookies.get(COOKIE_ACCESS);
-      if (!token) return null;
-      return payloadToUser(decodeJwtPayload(token));
-    } catch {
-      return null;
-    }
-  }
+  const readUser = readCookieUser;
 
   function notify(user: AuthUser | null) {
     listeners.forEach((cb) => cb(user));

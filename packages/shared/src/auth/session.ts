@@ -12,7 +12,7 @@
  */
 import Cookies from "js-cookie";
 import { refreshAccessToken } from "../api/client.js";
-import { clearTokens } from "./mimic.js";
+import { clearTokens, hasRefreshMarker, readCookieUser } from "./mimic.js";
 
 const BAN_CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1시간 — 로그인 상태인 동안 무조건
 
@@ -68,10 +68,26 @@ async function banHeartbeatTick(): Promise<void> {
   }
 }
 
+/**
+ * 페이지 진입 시 1회 갱신 (가이드 8.3).
+ *
+ * 401 인터셉터는 API 호출이 있어야만 동작하므로, accessToken 쿠키(1일)가 사라졌거나 만료된 채로
+ * 들어오면 그대로 로그아웃 상태로 보인다. 자동 로그인으로 로그인한 표시 쿠키가 남아 있을 때만
+ * (= 로그아웃하지 않았고 자동 로그인을 켰음) 갱신을 한 번 시도한다. 성공하면 setTokens가
+ * 'mimic:token-set'을 쏴서 화면이 로그인 상태로 바뀐다. 재로그인이 필요한 실패면 doRefresh가
+ * clearTokens()로 표시 쿠키를 지우므로 다음 진입 때 다시 시도하지 않는다.
+ */
+function restoreSessionOnEntry(): void {
+  if (readCookieUser() || !hasRefreshMarker()) return;
+  void refreshAccessToken();
+}
+
 /** mimic auth provider 활성화 시 한 번만 호출 — resolver.ts 참고. */
 export function startSessionKeepAlive(): void {
   if (started || typeof window === "undefined") return;
   started = true;
+
+  restoreSessionOnEntry();
 
   const banTimer = setInterval(() => void banHeartbeatTick(), BAN_CHECK_INTERVAL_MS);
 
