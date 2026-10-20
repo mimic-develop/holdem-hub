@@ -9,7 +9,7 @@ const COOKIE_ACCESS  = "accessToken";
  * 이름을 `refresh_token`으로 두면 로컬(localhost)에서 백엔드의 HttpOnly 쿠키와 겹쳐(쿠키는 포트 무관)
  * JS가 읽지도 지우지도 못하므로 고유 이름을 쓴다.
  */
-const COOKIE_REFRESH_MARKER = "hh_refresh_marker";
+const COOKIE_REFRESH_MARKER = "mimic_refresh_marker";
 /** 예전 버전이 우리 도메인에 저장하던 쿠키 — 정리용으로만 남겨둔다. */
 const LEGACY_COOKIE_REFRESH = "refresh_token";
 const MARKER_DAYS = 30;
