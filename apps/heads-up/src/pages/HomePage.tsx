@@ -5,22 +5,23 @@ import { CreateRoomDialog } from '../components/home/CreateRoomDialog';
 import { JoinRoomDialog } from '../components/home/JoinRoomDialog';
 import { useSettings } from '../hooks/useSettings';
 import { useGameStore } from '../store/game-store';
-import { getLeaderboard, type LeaderboardEntry } from '../storage/leaderboard';
+// 리더보드 임시 비활성 (heads-up 리더보드 주석처리)
+// import { getLeaderboard, type LeaderboardEntry } from '../storage/leaderboard';
 import { AI_PERSONAS, ALL_PERSONA_IDS } from '../bot/personas';
 import { ALL_LEVELS, LEVEL_LABEL } from '../bot/levels';
 import type { AiLevel, AiPersonaId } from '../types/ai';
 
 type RemoteDialog = 'none' | 'create' | 'join';
 
-/** 리더보드 미리보기용 — 순위 메달/판단 점수 색상. */
-function lbRankBadge(rank: number): string {
-  return rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : String(rank);
-}
-function lbScoreColor(score: number): string {
-  if (score >= 80) return '#34d399';
-  if (score >= 50) return '#fbbf24';
-  return '#fb7185';
-}
+// 리더보드 미리보기용 — 순위 메달/판단 점수 색상. (heads-up 리더보드 임시 비활성)
+// function lbRankBadge(rank: number): string {
+//   return rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : String(rank);
+// }
+// function lbScoreColor(score: number): string {
+//   if (score >= 80) return '#34d399';
+//   if (score >= 50) return '#fbbf24';
+//   return '#fb7185';
+// }
 
 /* ── 색상 토큰 (MIMIC PLAYLAB 톤앤매너) ─────────────────── */
 const COLORS = {
@@ -165,7 +166,7 @@ export default function HomePage() {
 
   const startAiGame = useGameStore((st) => st.startAiGame);
 
-  // 선택한 페르소나 리더보드 TOP3 — 메인에서 바로 노출.
+  /* 리더보드 TOP3 프리뷰 임시 비활성 (heads-up 리더보드 주석처리)
   const [topEntries, setTopEntries] = useState<LeaderboardEntry[]>([]);
   useEffect(() => {
     let alive = true;
@@ -176,6 +177,7 @@ export default function HomePage() {
       alive = false;
     };
   }, [pickedPersona]);
+  */
 
   const handleStart = () => {
     startAiGame(pickedPersona, pickedLevel);
@@ -451,7 +453,7 @@ export default function HomePage() {
                 대결 시작 →
               </button>
 
-              {/* 선택 페르소나 리더보드 TOP3 — 바로 노출 (탭하면 전체 보드) */}
+              {/* 리더보드 TOP3 프리뷰 임시 비활성 (heads-up 리더보드 주석처리)
               <div
                 role="button"
                 tabIndex={0}
@@ -530,6 +532,7 @@ export default function HomePage() {
                   </div>
                 )}
               </div>
+              */}
             </>
           )}
 
