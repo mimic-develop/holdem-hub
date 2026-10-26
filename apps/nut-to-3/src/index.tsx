@@ -13,6 +13,7 @@ import { Switch, Route } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { LoginGate } from "@hh/ui";
 import { queryClient } from "./lib/queryClient";
+import { api } from "./lib/api-schema";
 import { Toaster } from "./components/ui/toaster";
 import { TooltipProvider } from "./components/ui/tooltip";
 import Home from "./pages/Home";
@@ -27,10 +28,12 @@ interface NutTo3AppProps {
 
 export default function NutTo3App({ initialStreak = 0, initialBestStreak = 0 }: NutTo3AppProps) {
   // mount마다 게임 캐시 제거: render phase에서 실행돼 children 보다 먼저 처리됨 (Bug 3 fix)
+  // 키는 use-game.ts 의 queryKey 첫 요소(api.game.new.path)와 반드시 일치해야 함.
+  // 하드코딩 문자열이 경로 변경 시 어긋나 캐시가 안 지워지던 버그가 있었음.
   const didClearRef = useRef(false);
   if (!didClearRef.current) {
     didClearRef.current = true;
-    queryClient.removeQueries({ queryKey: ["/api/nut-to/new"], exact: false });
+    queryClient.removeQueries({ queryKey: [api.game.new.path], exact: false });
   }
 
   return (
