@@ -902,8 +902,8 @@ export function getCurrentUser() {
 - **밴 감지 heartbeat(4.7)** → `packages/shared/src/auth/session.ts`(신규 파일)의 `checkSession`
   / `startSessionKeepAlive`. `packages/shared/src/auth/resolver.ts`의 `mimic` provider 활성화
   분기에서 1회 호출.
-- ⚠️ **`services/api`는 이 저장소에서 현재 어디에도 배포돼 있지 않다** (`.github/workflows/deploy.yml`은
-  `apps/hub`만 GitHub Pages에 배포). 즉 accessToken 자동 갱신은 로컬 dev에서만 동작하고,
+- ⚠️ **`services/api`는 이 저장소에서 현재 어디에도 배포돼 있지 않다** (배포는 `pnpm deploy:stage` /
+  `deploy:prod` 수동 스크립트로 `apps/hub`만 GitHub Pages에 올림). 즉 accessToken 자동 갱신은 로컬 dev에서만 동작하고,
   스테이징/운영에 반영하려면 `services/api`를 배포하는 별도 인프라 작업이 먼저 필요하다.
 - 검토 후 뺀 설계: exp 임박 시 미리 갱신하는 proactive 타이머는 만들지 않는다. 401 인터셉터
   하나로 충분하다고 판단했다 (4.6.2 참고) — 다시 추가하지 말 것.
